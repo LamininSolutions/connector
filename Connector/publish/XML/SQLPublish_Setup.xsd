@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="SQLPublish">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="Publish">
+          <xs:complexType>
+            <xs:attribute name="Source" type="xs:string" use="required" />   
+            <xs:attribute name="Application" type="xs:string" use="required" />
+            <xs:attribute name="Version" type="xs:string" use="required" />
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="ScriptFolders">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element maxOccurs="unbounded" name="ScriptFolder">
+                <xs:complexType>
+                  <xs:attribute name="Name" type="xs:string" use="required" />
+                  <xs:attribute name="UseFolderINI" type="xs:string" use="required" />
+                  <xs:attribute name="HotfixINI" type="xs:string" use="required" />
+                  <xs:attribute name="FolderINI" type="xs:string" use="required" />
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="BaseFolders">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element maxOccurs="unbounded" name="BaseFolder">
+                <xs:complexType>
+                  <xs:attribute name="Name" type="xs:string" use="required" />
+                  <xs:attribute name="Location" type="xs:string" use="required" />
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>
