@@ -21,7 +21,7 @@ EXEC Setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
   ** ----------  ---------  -----------------------------------------------------
   ** 27-05-2015  DEV 2      INSERT/UPDATE logic changed
   ** 14-07-2015  DEV 2      MFValuelist_ID column removed from MFClass
-  ** 20-07-2015  DEV 2	   TableName Duplicate Issue Resolved
+  ** 20-07-2015  DEV 2	    TableName Duplicate Issue Resolved
   ** 19-03-2016  LC			No error for duplicate Report Class
   ** 26-03-2018	Dev2		Workflow required check
 	2018-11-10	LC			Add includedinApp update for User Messager table
