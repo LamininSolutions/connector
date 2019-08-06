@@ -15,56 +15,6 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
 -- smallint
 GO
 
-/*
- ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  ** 08-04-2015  Dev 2	   deleting property value from M-Files (Task 57)
-  ** 16-04-2015  Dev 2	   Adding update table details to MFUpdateHistory table
-  ** 23-04-2015  Dev 2      Removing Last modified & Last modified by from Update data
-  ** 24-06-2015  Dev 2	   Skip the object failed to update in M-Files
-  ** 30-06-2015  Dev 2	   New error Tracing and Return Value as LeRoux instruction
-  ** 18-07-2015  Dev 2	   New parameter add in spMFCreateObjectInternal
-  ** 22-2-2016   LC        Improve debugging information; Remove is_template message when updatemethod = 1
-  ** 10-03-2016  Dev 2	   Input variable @FromCreateDate  changed to @MFModifiedDate
-  ** 10-03-2016  Dev 2	   New input variable added (@ObjIDs)
-
-  18-8-2016 lc add defaults to parameters
-  20-8-2016 LC add Update_ID as output paramter
-  2016-8-22	LC	Update settings index
-  2016-8-22	lc change objids to NVARCHAR(4000)
-  2016-09-21  Removed @UserName,@Password,@NetworkAddress and @VaultName parameters and fectch it as comma separated list in @VaultSettings parameter 
-              dbo.fnMFVaultSettings() function
-  2016-10-10  Change of name of settings table
-  2107-5-12		Set processbatchdetail column detail
-2017-06-22	LC	add ability to modify external_id
-2017-07-03  lc  modify objids filter to include ids not in sql
-2017-07-06	LC	add update of filecount column in class table
-2017-08-22	Dev2	add sync error correction
-2017-08-23	Dev2	add exclude null properties from update
-2017-10-1	LC		fix bug with length of fields
-2017-11-03 Dve2     Added code to check required property has value or not
-2018-04-04 Dev2     Added Licensing module validation code.
-2018-5-16	LC		Fix conversion of float to nvarchar
-2018-6-26	LC		Improve reporting of return values
-2018-08-01	LC		New parameter @RetainDeletions to allow for auto removal of deletions Default = NO
-2018-08-01 lc		Fix deletions of record bug
-2018-08-23 LC		Fix bug with presedence = 1
-2018-10-20 LC		Set Deleted to != 1 instead of = 0 to ensure new records where deleted is not set is taken INSERT 
-2018-10-24 LC		resolve bug when objids filter is used with only one object
-2018-10-30 LC		removing cursor method for update method 0 and reducing update time by 100%
-2018-11-5	LC		include new parapameter to validate class and property structure
-2018-12-6	LC		fix bug t.objid not found
-2018-12-18	LC		validate that all records have been updated, raise error if not
-2019-01-03	LC		fix bug for updating time property
-2019-01-13	LC		fix bug for uniqueidentifyer type columns (e.g. guid)
-2019-05-19	LC		terminate early if connection cannot be established
-2019-06-17	LC		UPdate MFaudithistory with changes
-2019-07-13	LC		Add working that not all records have been updated
-2019-07-26	LC		Update removing of redundant items form AuditHistory
-*/
-
 IF EXISTS
 (
     SELECT 1
@@ -109,14 +59,41 @@ ALTER PROCEDURE [dbo].[spMFUpdateTable]
                                     --   ,@UpdateMetadata BIT = 0
    ,@Debug SMALLINT = 0
 )
-AS /*******************************************************************************
-  ** Desc:  
+AS
+/*rST**************************************************************************
 
-  
-  ** Date:				27-03-2015
-  ********************************************************************************
- 
-  ******************************************************************************/
+spMFUpdateTable
+===============
+
+Return
+  - 1 = Success
+  - 0 = Partial (some records failed to be inserted)
+  - -1 = Error
+Parameters
+  @MFTableName
+    Pass the class table name, e.g.: MFCustomer
+  @Updatemethod
+    0, 1 or 2,
+  @User_ID
+    User_Id from MX_User_Id column
+  @MFLastModified
+    'YYYY-MM-DD'
+  @ObjIDs
+    ObjID's of records (separated by comma)
+  @Update_IDOut
+    Output parameter referencing the id of the update result in MFUpdateHistory
+  @ProcessBatch_ID
+    Output parameter referencing the ID of the ProcessBatch logging table
+  @SyncErrorFlag
+    Default set to 0
+  @RetainDeletions
+    Default set to 0. Set to 1 to keep deleted items in M-Files in the SQL table shown as deleted = 1
+  @Debug
+    - 0 = No debug (default)
+    - 1 = Debug Mode
+    - 2 = Debug Mode with detail listing
+
+**rST*************************************************************************/
 DECLARE @Update_ID    INT
        ,@return_value INT = 1;
 
@@ -2365,3 +2342,121 @@ BEGIN CATCH
     RETURN -1; --For More information refer Process Table
 END CATCH;
 GO
+
+
+/*rST**************************************************************************
+
+Examples
+--------
+
+.. code:: sql
+
+    DECLARE @return_value int
+
+    EXEC    @return_value = [dbo].[spMFUpdateTable]
+            @MFTableName = N'MFCustomerContact',
+            @UpdateMethod = 1,
+            @UserId = NULL,
+            @MFModifiedDate = null,
+            @update_IDOut = null,
+            @ObjIDs = NULL,
+            @ProcessBatch_ID = null,
+            @SyncErrorFlag = 0,
+            @RetainDeletions = 0,
+            @Debug = 0
+
+    SELECT  'Return Value' = @return_value
+
+    GO
+
+Execute the core procedure with all parameters
+
+----
+
+.. code:: sql
+
+    DECLARE @return_value int
+    DECLARE @update_ID INT, @processBatchID int
+
+    EXEC @return_value = [dbo].[spMFUpdateTable]
+         @MFTableName = N'YourTableName', -- nvarchar(128)
+         @UpdateMethod = 1, -- int
+         @Update_IDOut = @update_ID output, -- int
+         @ProcessBatch_ID = @processBatchID output
+
+    SELECT * FROM [dbo].[MFProcessBatchDetail] AS [mpbd] WHERE [mpbd].[ProcessBatch_ID] = @processBatchID
+
+    SELECT  'Return Value' = @return_value
+
+    GO
+
+Update from and to M-Files with all optional parameters set to default.
+
+----
+
+.. code:: sql
+
+    --From M-Files to SQL
+    EXEC [dbo].[spMFUpdateTable] @MFTableName = 'MFCustomer',
+                                 @UpdateMethod = 1
+    --or
+    EXEC spMFupdateTable 'MFCustomer',1
+
+    --From SQL to M-Files
+    EXEC [dbo].[spMFUpdateTable] @MFTableName = 'MFCustomer',
+                                 @UpdateMethod = 0
+    --or
+    EXEC spMFupdateTable 'MFCustomer',0
+
+Update from and to M-Files with all optional parameters set to default.
+
+Changelog
+---------
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2015-04-08  Dev 2      deleting property value from M-Files (Task 57)
+2015-04-16  Dev 2      Adding update table details to MFUpdateHistory table
+2015-04-23  Dev 2      Removing Last modified & Last modified by from Update data
+2015-06-24  Dev 2      Skip the object failed to update in M-Files
+2015-06-30  Dev 2      New error Tracing and Return Value as LeRoux instruction
+2015-07-18  Dev 2      New parameter add in spMFCreateObjectInternal
+2016-02-22  LC         Improve debugging information; Remove is_template message when updatemethod = 1
+2016-03-10  Dev 2      Input variable @FromCreateDate  changed to @MFModifiedDate
+2016-03-10  Dev 2      New input variable added (@ObjIDs)
+2016-08-18  lc         add defaults to parameters
+2016-08-20  LC         add Update_ID as output paramter
+2016-08-22  LC         Update settings index
+2016-08-22  lc         change objids to NVARCHAR(4000)
+2016-09-21  lc         Removed @UserName,@Password,@NetworkAddress and @VaultName parameters and fectch it as comma separated list in @VaultSettings parameter dbo.fnMFVaultSettings() function
+2016-10-10  lc         Change of name of settings table
+2107-05-12  lc         Set processbatchdetail column detail
+2017-06-22  LC         add ability to modify external_id
+2017-07-03  lc         modify objids filter to include ids not in sql
+2017-07-06  LC         add update of filecount column in class table
+2017-08-22  Dev2       add sync error correction
+2017-08-23  Dev2       add exclude null properties from update
+2017-10-01  LC         fix bug with length of fields
+2017-11-03  Dve2       Added code to check required property has value or not
+2018-04-04  Dev2       Added Licensing module validation code.
+2018-05-16  LC         Fix conversion of float to nvarchar
+2018-06-26  LC         Improve reporting of return values
+2018-08-01  LC         New parameter @RetainDeletions to allow for auto removal of deletions Default = NO
+2018-08-01  lc         Fix deletions of record bug
+2018-08-23  LC         Fix bug with presedence = 1
+2018-10-20  LC         Set Deleted to != 1 instead of = 0 to ensure new records where deleted is not set is taken INSERT
+2018-10-24  LC         resolve bug when objids filter is used with only one object
+2018-10-30  LC         removing cursor method for update method 0 and reducing update time by 100%
+2018-11-05  LC         include new parapameter to validate class and property structure
+2018-12-06  LC         fix bug t.objid not found
+2018-12-18  LC         validate that all records have been updated, raise error if not
+2019-01-03  LC         fix bug for updating time property
+2019-01-13  LC         fix bug for uniqueidentifyer type columns (e.g. guid)
+2019-05-19  LC         terminate early if connection cannot be established
+2019-06-17  LC         UPdate MFaudithistory with changes
+2019-07-13  LC         Add working that not all records have been updated
+2019-07-26  LC         Update removing of redundant items form AuditHistory
+==========  =========  ========================================================
+
+**rST*************************************************************************/
