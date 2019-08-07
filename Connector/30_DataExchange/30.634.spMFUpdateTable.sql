@@ -71,37 +71,47 @@ Return
   - -1 = Error
 Parameters
   @MFTableName
+	Valid Class TableName as a string ; Required
     Pass the class table name, e.g.: 'MFCustomer'
   @Updatemethod
-    0, 1 :
+    Options: 0, 1 ; Required
 		- 0 = update from SQL to M-Files
 		- 1 = update from M-Files to SQL
   @User_ID
+	Default = 0, optional
     User_Id from MX_User_Id column
 	This is NOT the M-Files user.  It is used to set and apply a user_id for a third party system. An example is where updates from a third party system must be filtered by the third party user (e.g. placing an order)
   @MFLastModified
+	Default = 0, optional
     Get objects from M-Files that has been modified in M-files later than this date.
   @ObjIDs
+	Default = null, optional
     ObjID's of records (separated by comma) e.g. : '10005,13203'
 	Restricted to 4000 charactes including the commas
   @Update_IDOut
-    Output parameter referencing the id of the record in MFUpdateHistory and the Update_ID column on each class table
+	Optional
+    Output parameter 
+	Output id of the record in MFUpdateHistory logging the update ; Also added to the record in the Update_ID column on the class table
   @ProcessBatch_ID
-    Output parameter referencing the ID of the ProcessBatch logging table
+	Optional
+    Output parameter
+	Referencing the ID of the ProcessBatch logging table
   @SyncErrorFlag
-    Default set to 0
+    Default = 0 ; Optional
 	This parameter is automatically set by spMFUpdateSynchronizeError when synchronization routine is called.
   @RetainDeletions
-    Default set to 0. Set to 1 to keep deleted items in M-Files in the SQL table shown as deleted = 1
+    Default = 0 ; Optional
+	Set to 1 to keep deleted items in M-Files in the SQL table shown as deleted = 1
   @Debug
-    - 0 = No debug (default)
-    - 1 = Debug Mode
+    - Default = 0 ; Optional
+    - 1 = Standard Debug Mode
+	- 101 = Advanced Debug Mode
 
 Purpose
 =======
 This procedure get and push data between M-Files and SQL based on a number of filters.  It is very likely that this procedure will be built into your application or own procedures as part of the process of creating, updating, inserting records from your application.
 							   
-A number of procedures is included in the Connector that uses this procedure including:
+A number of procedures is included in the Connector that use this procedure including:
 	- spMFUpdateMFilesToSQL
 	- spMFUpdateTablewithLastModifiedDate
 	- spMFUpdateTableinBatches
