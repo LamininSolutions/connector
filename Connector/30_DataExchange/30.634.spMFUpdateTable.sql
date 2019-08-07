@@ -83,20 +83,20 @@ Parameters
     Get objects from M-Files that has been modified in M-files later than this date.
   @ObjIDs
     ObjID's of records (separated by comma) e.g. : '10005,13203'
-   restricted to 4000 charactes including the commas
+	Restricted to 4000 charactes including the commas
   @Update_IDOut
-    Output parameter referencing the id of the update result in MFUpdateHistory
+    Output parameter referencing the id of the record in MFUpdateHistory and the Update_ID column on each class table
   @ProcessBatch_ID
     Output parameter referencing the ID of the ProcessBatch logging table
   @SyncErrorFlag
     Default set to 0
+	This parameter is automatically set by spMFUpdateSynchronizeError when synchronization routine is called.
   @RetainDeletions
     Default set to 0. Set to 1 to keep deleted items in M-Files in the SQL table shown as deleted = 1
   @Debug
     - 0 = No debug (default)
     - 1 = Debug Mode
-    - 2 = Debug Mode with detail listing
-							   
+
 Purpose
 =======
 This procedure get and push data between M-Files and SQL based on a number of filters.  It is very likely that this procedure will be built into your application or own procedures as part of the process of creating, updating, inserting records from your application.
