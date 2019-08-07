@@ -107,38 +107,6 @@ Parameters
     - 1 = Standard Debug Mode
 	- 101 = Advanced Debug Mode
 
-Purpose
-=======
-This procedure get and push data between M-Files and SQL based on a number of filters.  It is very likely that this procedure will be built into your application or own procedures as part of the process of creating, updating, inserting records from your application.
-	
-When calling this procedure in a query or via another procedure it will perform the update in batch mode on all the rows with a valid process_id.
-
-When the requirements for transactional mode has been met and a record is updated/inserted in the class table with process_id = 1, a trigger will automatically fire spMFUpdateTable to update SQL to M-Files.
-	
-A number of procedures is included in the Connector that use this procedure including:
-	- spMFUpdateMFilesToSQL
-	- spMFUpdateTablewithLastModifiedDate
-	- spMFUpdateTableinBatches
-	- spMFUpdateAllIncludedInAppTables
-	- spMFUpdateItembyItem
-							   
-Prerequisits
-============
-	From M-Files to SQL 
-	===================
-	Process_id must be 0. All other rows are ignored.
-	
-	
-	From SQL to M-Files - batch mode
-	================================
-	Process_id must be 1 for rows to be updated or added to M-Files
-	
-	From SQL to M-Files - transactional mode
-	========================================
-	Set IncludedInApp Column = 2 in MFClass for the required class
-	
-Warnings
-========
 
 							   
 **rST*************************************************************************/
@@ -2393,6 +2361,40 @@ GO
 
 
 /*rST**************************************************************************
+
+
+Purpose
+=======
+This procedure get and push data between M-Files and SQL based on a number of filters.  It is very likely that this procedure will be built into your application or own procedures as part of the process of creating, updating, inserting records from your application.
+	
+When calling this procedure in a query or via another procedure it will perform the update in batch mode on all the rows with a valid process_id.
+
+When the requirements for transactional mode has been met and a record is updated/inserted in the class table with process_id = 1, a trigger will automatically fire spMFUpdateTable to update SQL to M-Files.
+	
+A number of procedures is included in the Connector that use this procedure including:
+	- spMFUpdateMFilesToSQL
+	- spMFUpdateTablewithLastModifiedDate
+	- spMFUpdateTableinBatches
+	- spMFUpdateAllIncludedInAppTables
+	- spMFUpdateItembyItem
+							   
+Prerequisits
+============
+	From M-Files to SQL 
+	===================
+	Process_id must be 0. All other rows are ignored.
+	
+	
+	From SQL to M-Files - batch mode
+	================================
+	Process_id must be 1 for rows to be updated or added to M-Files
+	
+	From SQL to M-Files - transactional mode
+	========================================
+	Set IncludedInApp Column = 2 in MFClass for the required class
+	
+Warnings
+========
 
 Examples
 --------
