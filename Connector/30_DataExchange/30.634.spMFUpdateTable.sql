@@ -71,15 +71,19 @@ Return
   - -1 = Error
 Parameters
   @MFTableName
-    Pass the class table name, e.g.: MFCustomer
+    Pass the class table name, e.g.: 'MFCustomer'
   @Updatemethod
-    0, 1 or 2,
+    0, 1 :
+		- 0 = update from SQL to M-Files
+		- 1 = update from M-Files to SQL
   @User_ID
     User_Id from MX_User_Id column
+	This is NOT the M-Files user.  It is used to set and apply a user_id for a third party system. An example is where updates from a third party system must be filtered by the third party user (e.g. placing an order)
   @MFLastModified
-    'YYYY-MM-DD'
+    Get objects from M-Files that has been modified in M-files later than this date.
   @ObjIDs
-    ObjID's of records (separated by comma)
+    ObjID's of records (separated by comma) e.g. : '10005,13203'
+   restricted to 4000 charactes including the commas
   @Update_IDOut
     Output parameter referencing the id of the update result in MFUpdateHistory
   @ProcessBatch_ID
@@ -92,7 +96,20 @@ Parameters
     - 0 = No debug (default)
     - 1 = Debug Mode
     - 2 = Debug Mode with detail listing
-
+							   
+Purpose
+=======
+This procedure get and push data between M-Files and SQL based on a number of filters.  It is very likely that this procedure will be built into your application or own procedures as part of the process of creating, updating, inserting records from your application.
+							   
+A number of procedures is included in the Connector that uses this procedure including:
+	- spMFUpdateMFilesToSQL
+	- spMFUpdateTablewithLastModifiedDate
+	- spMFUpdateTableinBatches
+	- spMFUpdateAllIncludedInAppTables
+	- spMFUpdateItembyItem
+							   
+							   
+							   
 **rST*************************************************************************/
 DECLARE @Update_ID    INT
        ,@return_value INT = 1;
