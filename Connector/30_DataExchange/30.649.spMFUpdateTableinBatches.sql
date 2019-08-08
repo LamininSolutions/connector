@@ -4,9 +4,9 @@ GO
 SET NOCOUNT ON;
 GO
 
-EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
+EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFUpdateTableinBatches' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.51'             -- varchar(50)
+                                    ,@Object_Release = '4.4.11.52'             -- varchar(50)
                                     ,@UpdateFlag = 2;                          -- smallint
 GO
 
@@ -32,6 +32,7 @@ It will also keep the size of the dataset for transfer within the limits of 8000
 
 	updated version 2018-12-15
 	2019-06-22	LC			substantially rebuilt to improve efficiencies
+	2019-08-05	LC			resolve issue with catching last object if new and only one object exist
 
 ------------------------------------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------------------------
@@ -195,16 +196,16 @@ BEGIN TRY
 
     --set the parameters
 
-	     -------------------------------------------------------------
-            -- Get column for last modified
-            -------------------------------------------------------------
-			
-			         DECLARE @lastModifiedColumn NVARCHAR(100);
+    -------------------------------------------------------------
+    -- Get column for last modified
+    -------------------------------------------------------------
+    DECLARE @lastModifiedColumn NVARCHAR(100);
 
-                    SELECT @lastModifiedColumn = [mp].[ColumnName]
-                    FROM [dbo].[MFProperty] AS [mp]
-                    WHERE [mp].[MFID] = 21; --'Last Modified'
+    SELECT @lastModifiedColumn = [mp].[ColumnName]
+    FROM [dbo].[MFProperty] AS [mp]
+    WHERE [mp].[MFID] = 21;
 
+    --'Last Modified'
 
     -------------------------------------------------------------
     -- calculate batch size
@@ -247,277 +248,268 @@ BEGIN TRY
         -------------------------------------------------------------
         -- Get class id
         -------------------------------------------------------------
-        SELECT @Class_ID = [MFID]
-        FROM [dbo].[MFClass] mc
-		INNER JOIN [INFORMATION_SCHEMA].[TABLES] AS [t]
-		ON mc.[TableName] = t.[TABLE_NAME]
-        WHERE [TableName] = @MFTableName;
+        SELECT @Class_ID = [mc].[MFID]
+        FROM [dbo].[MFClass]                         [mc]
+            INNER JOIN [INFORMATION_SCHEMA].[TABLES] AS [t]
+                ON [mc].[TableName] = [t].[TABLE_NAME]
+        WHERE [mc].[TableName] = @MFTableName;
 
-		IF @Class_ID IS NOT NULL
-        Begin
-        -------------------------------------------------------------
-        --	Perform table audit
-        -------------------------------------------------------------
-    --    SET @ProcessingTime = DATEDIFF(MILLISECOND, @StartTime, GETDATE());
-    --    SET @Message = CAST(@ProcessingTime / 1000 AS VARCHAR(10)) + ' Batch updated started ';
-
-	       --  SET @StartTime = GETDATE();
-        --        SET @objids = NULL;
-        --        SET @Message
-        --            = ' Batch updated started ' + CAST(@StartTime AS VARCHAR(30));
-
-        --IF @WithStats = 1
-        --    RAISERROR(@Message, 10, 1) WITH NOWAIT;
-
-        IF @WithTableAudit = 1
+        IF @Class_ID IS NOT NULL
         BEGIN
-              SET @StartTime = GETDATE();
+            -------------------------------------------------------------
+            --	Perform table audit
+            -------------------------------------------------------------
+            --    SET @ProcessingTime = DATEDIFF(MILLISECOND, @StartTime, GETDATE());
+            --    SET @Message = CAST(@ProcessingTime / 1000 AS VARCHAR(10)) + ' Batch updated started ';
+
+            --  SET @StartTime = GETDATE();
+            --        SET @objids = NULL;
+            --        SET @Message
+            --            = ' Batch updated started ' + CAST(@StartTime AS VARCHAR(30));
+
+            --IF @WithStats = 1
+            --    RAISERROR(@Message, 10, 1) WITH NOWAIT;
+                 SET @StartTime = GETDATE();    
+	        IF @WithTableAudit = 1
+            BEGIN
+
                 SET @objids = NULL;
-                SET @Message
-                    = 'Table audit started ' + CAST(@StartTime AS VARCHAR(30));
-
-            IF @WithStats = 1
-                RAISERROR(@Message, 10, 1) WITH NOWAIT;
-
-            SET @ProcedureStep = 'Get last update date';
-            SET @sqlParam = N'@MFLastModifiedDate Datetime output';
-            SET @sql = N'
-SELECT @MFLastModifiedDate = (SELECT MAX('+QUOTENAME(@lastModifiedColumn) +') FROM ' + QUOTENAME(@MFTableName) + ' );';
-
-            EXEC [sys].[sp_executesql] @Stmt = @sql
-                                      ,@Params = @sqlParam
-                                      ,@MFLastModifiedDate = @MFLastModifiedDate OUTPUT;
-
-            SET @DebugText = ' as ' + CAST(@MFLastModifiedDate AS NVARCHAR(25));
-            SET @DebugText = @DefaultDebugText + @DebugText;
-
-            IF @Debug > 0
-            BEGIN
-                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep) WITH NOWAIT;
-            END;
-
-    
-        SET @ProcedureStep = 'Refresh table audit';
-
-			--IF @MFLastModifiedDate IS NOT NULL
-   --         BEGIN 
-   --         EXEC [dbo].[spMFTableAudit] @MFTableName = @MFTableName                -- nvarchar(128)
-   --                                    ,@MFModifiedDate = @MFLastModifiedDate      -- datetime
-   --                                    ,@ObjIDs = @objids                          -- nvarchar(4000)
-   --                                    ,@SessionIDOut = @SessionIDOut OUTPUT       -- int
-   --                                    ,@NewObjectXml = @NewObjectXml OUTPUT       -- nvarchar(max)
-   --                                    ,@DeletedInSQL = @DeletedInSQL OUTPUT       -- int
-   --                                    ,@UpdateRequired = @UpdateRequired OUTPUT   -- bit
-   --                                    ,@OutofSync = @OutofSync OUTPUT             -- int
-   --                                    ,@ProcessErrors = @ProcessErrors OUTPUT     -- int
-   --                                    ,@ProcessBatch_ID = @ProcessBatch_ID OUTPUT -- int
-   --                                    ,@Debug = 0;                                -- smallint
-
-   --         SET @ProcessingTime = DATEDIFF(MILLISECOND, @StartTime, GETDATE());
-   --         SET @Message = 'MFAuditHistory updated: Processing time (s) :' + CAST(@ProcessingTime / 1000 AS VARCHAR(10));
-			--END
-			--ELSE
-            BEGIN
-            
-			EXEC [dbo].[spMFTableAuditinBatches] @MFTableName = @MFTableName -- nvarchar(100)
-			                                    ,@FromObjid = @FromObjid   -- int
-			                                    ,@ToObjid = @ToObjid     -- int
-			                                    ,@WithStats = @WithStats   -- bit
-			                                    ,@Debug = @Debug       -- int
-												END
-
-												 SET @ProcessingTime = DATEDIFF(MILLISECOND, @StartTime, GETDATE());
-            SET @Message = 'MFAuditHistory updated in batches: Processing time (s) :' + CAST(@ProcessingTime / 1000 AS VARCHAR(10));
-			
-            IF @WithStats = 1
-              
-            BEGIN
-                RAISERROR(@Message, 10, 1) WITH NOWAIT;
-
-                SELECT *
-                FROM [dbo].[MFvwAuditSummary] AS [mfas]
-                WHERE [mfas].[TableName] = @MFTableName;
-            END;
-        END;
-
-        --table audit update    
-
-        -------------------------------------------------------------
-        -- Get full list of object ids to update from tableAudit
-        -------------------------------------------------------------
-        SET @ProcedureStep = 'Get Objids';
-
-        DECLARE @TableAuditList AS TABLE
-        (
-            [Objid] INT
-        );
-
-        IF @WithTableAudit = 0
-       
-        BEGIN
-            IF
-            (
-                SELECT OBJECT_ID('tempdb..#Objids')
-            ) IS NOT NULL
-                DROP TABLE [#Objids];
-
-            SELECT TOP (2000000)
-                   [n] = CONVERT(INT, ROW_NUMBER() OVER (ORDER BY [s1].[object_id]))
-            INTO [#Objids]
-            FROM [sys].[all_objects]           AS [s1]
-                CROSS JOIN [sys].[all_objects] AS [s2]
-            OPTION (MAXDOP 1);
-
-            CREATE UNIQUE CLUSTERED INDEX [n]
-            ON [#Objids] ([n])
-            -- WITH (DATA_COMPRESSION = PAGE)
-            ;
-
-            INSERT INTO @TableAuditList
-            (
-                [Objid]
-            )
-            SELECT [o].[n]
-            FROM [#Objids] AS [o]
-            WHERE [o].[n]
-            BETWEEN @FromObjid AND @ToObjid;
-        END;
-        ELSE
-        BEGIN
-            INSERT INTO @TableAuditList
-            (
-                [Objid]
-            )
-            SELECT [mah].[ObjID]
-            FROM [dbo].[MFAuditHistory] AS [mah]
-            WHERE [mah].[StatusFlag] IN ( 1, 5 )
-                  AND [mah].[Class] = @Class_ID;
-        END;
-
-        SELECT @RecCount = COUNT(*)
-        FROM @TableAuditList AS [tal];
-
-        SET @DebugText = ' Objid count %i';
-        SET @DebugText = @DefaultDebugText + @DebugText;
-
-        IF @Debug > 0
-        BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @RecCount);
-        END;
-
-        SELECT @StartRow = MIN([tal].[Objid])
-              ,@MaxRow   = MAX([tal].[Objid])
-        FROM @TableAuditList AS [tal];
-
-        IF @Debug > 0
-            SELECT @StartRow AS [startrow]
-                  ,@MaxRow   AS [MaxRow];
-
-        IF @StartRow IS NOT NULL
-        BEGIN
-
-            --while loop
-            WHILE @StartRow < @MaxRow
-            BEGIN
-                SET @StartTime = GETDATE();
-                SET @objids = NULL;
-                SET @Message
-                    = 'Batch: ' + CAST(@BatchCount AS VARCHAR(10)) + ' Started: ' + CAST(@StartTime AS VARCHAR(30));
+                SET @Message = 'Table audit started ' + CAST(@StartTime AS VARCHAR(30));
 
                 IF @WithStats = 1
                     RAISERROR(@Message, 10, 1) WITH NOWAIT;
 
-                SET @objids = NULL;
+                SET @ProcedureStep = 'Get last update date';
+                SET @sqlParam = N'@MFLastModifiedDate Datetime output';
+                SET @sql
+                    = N'
+SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + ') FROM ' + QUOTENAME(@MFTableName)
+                      + ' );';
 
-                SELECT @objids = STUFF((
-                                           SELECT TOP 500
-                                                  ',' + CAST([o].[Objid] AS NVARCHAR(20))
-                                           FROM @TableAuditList AS [o]
-                                           WHERE [o].[Objid] >= @StartRow
-                                           ORDER BY [Objid]
-                                           FOR XML PATH('')
-                                       )
-                                      ,1
-                                      ,1
-                                      ,''
-                                      )
-                FROM @TableAuditList AS [o2]
-                WHERE [o2].[Objid] >= @StartRow
-                ORDER BY [o2].[Objid];
+                EXEC [sys].[sp_executesql] @Stmt = @sql
+                                          ,@Params = @sqlParam
+                                          ,@MFLastModifiedDate = @MFLastModifiedDate OUTPUT;
+
+                SET @DebugText = ' as ' + CAST(@MFLastModifiedDate AS NVARCHAR(25));
+                SET @DebugText = @DefaultDebugText + @DebugText;
 
                 IF @Debug > 0
-                    SELECT @objids AS [Objids];
-
-                -------------------------------------------------------------
-                -- Update to/from m-files
-                -------------------------------------------------------------
-                IF @objids IS NOT NULL
                 BEGIN
-                    EXEC [dbo].[spMFUpdateTable] @MFTableName = @MFTableName          -- nvarchar(200)
-                                                ,@UpdateMethod = 1                    -- int
-                                                ,@ObjIDs = @objids                    -- nvarchar(max)
-                                                ,@Update_IDOut = @Update_IDOut OUTPUT -- int
-                                                ,@ProcessBatch_ID = @ProcessBatch_ID  -- int
-                                                ,@Debug = 0;
-
-                    SET @sqlParam = '@RecCount int output';
-                    SET @sql
-                        = 'SELECT @RecCount = COUNT(*) FROM ' + @MFTableName + ' where update_ID ='
-                          + CAST(@Update_IDOut AS VARCHAR(10)) + '';
-
-                    EXEC [sys].[sp_executesql] @sql, @sqlParam, @RecCount OUTPUT;
-
-                    IF @Debug > 0
-                        SELECT @RecCount AS [recordcount];
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep) WITH NOWAIT;
                 END;
 
-                -------------------------------------------------------------
-                -- performance message
-                -------------------------------------------------------------
-                SET @ProcessingTime = DATEDIFF(MILLISECOND, @StartTime, GETDATE());
-                SET @Message
-                    = 'Batch: ' + CAST(@BatchCount AS VARCHAR(10)) + ' Processing (s) : '
-                      + CAST(@ProcessingTime / 1000 AS VARCHAR(10)) + ' From Object ID: '
-                      + CAST(@StartRow AS VARCHAR(10)) + ' Processed: ' + CAST(ISNULL(@RecCount, 0) AS VARCHAR(10));
+                SET @ProcedureStep = 'Refresh table audit';
 
-                IF @WithStats = 1
-                    RAISERROR(@Message, 10, 1) WITH NOWAIT;
+             
+                BEGIN
+                    EXEC [dbo].[spMFTableAuditinBatches] @MFTableName = @MFTableName -- nvarchar(100)
+                                                        ,@FromObjid = @FromObjid     -- int
+                                                        ,@ToObjid = @ToObjid         -- int
+                                                        ,@WithStats = @WithStats     -- bit
+														,@ProcessBatch_ID = @ProcessBatch_ID 
+                                                        ,@Debug = 0-- @Debug;            -- int
+                END;
 
-                SET @BatchCount = @BatchCount + 1;
-                SET @StartRow =
-                (
-                    SELECT MAX([ListItem]) + 1
-                    FROM [dbo].[fnMFParseDelimitedString](@objids, ',')
-                );
+           
+
+                IF @Debug > 0
+                    SELECT *
+                    FROM [dbo].[MFvwMetadataStructure] AS [mfms]
+                    WHERE [mfms].[class_MFID] = @Class_ID;
             END;
 
-            IF @WithStats = 1
-               AND @Debug > 0
+
+            -------------------------------------------------------------
+            -- Get full list of object ids to update from tableAudit
+            -------------------------------------------------------------
+            SET @ProcedureStep = 'Get Objids';
+
+            DECLARE @TableAuditList AS TABLE
+            (
+                [Objid] INT
+            );
+
+            IF
+            (
+                SELECT COUNT(*)
+                FROM [dbo].[MFAuditHistory] AS [mah]
+                WHERE [mah].[Class] = @Class_ID
+            ) = 0
             BEGIN
-                RAISERROR(@Message, 10, 1) WITH NOWAIT;
+                IF
+                (
+                    SELECT OBJECT_ID('tempdb..#Objids')
+                ) IS NOT NULL
+                    DROP TABLE [#Objids];
 
-                SELECT *
-                FROM [dbo].[MFvwAuditSummary] AS [mfas]
-                WHERE [mfas].[TableName] = @MFTableName;
+                SELECT TOP (2000000)
+                       [n] = CONVERT(INT, ROW_NUMBER() OVER (ORDER BY [s1].[object_id]))
+                INTO [#Objids]
+                FROM [sys].[all_objects]           AS [s1]
+                    CROSS JOIN [sys].[all_objects] AS [s2]
+                OPTION (MAXDOP 1);
+
+                CREATE UNIQUE CLUSTERED INDEX [n]
+                ON [#Objids] ([n])
+                -- WITH (DATA_COMPRESSION = PAGE)
+                ;
+
+                INSERT INTO @TableAuditList
+                (
+                    [Objid]
+                )
+                SELECT [o].[n]
+                FROM [#Objids] AS [o]
+                WHERE [o].[n]
+                BETWEEN @FromObjid AND @ToObjid;
             END;
-        END;
-        ELSE
-        BEGIN
-            SET @DebugText = 'Nothing to update';
+            ELSE
+            BEGIN
+                INSERT INTO @TableAuditList
+                (
+                    [Objid]
+                )
+                SELECT [mah].[ObjID]
+                FROM [dbo].[MFAuditHistory] AS [mah]
+                WHERE [mah].[StatusFlag] IN ( 1, 4, 5 )
+                      AND [mah].[Class] = @Class_ID;
+            END;
+
+            SELECT @RecCount = COUNT(*)
+            FROM @TableAuditList AS [tal];
+
+            SET @DebugText = ' Objid count %i';
             SET @DebugText = @DefaultDebugText + @DebugText;
 
             IF @Debug > 0
             BEGIN
-                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @RecCount);
             END;
-        END; -- startrow is null
-		END ELSE
-        BEGIN
-		 SET @DebugText = ' Invalid table name or table does not exist: ' + @MFTableName;
-            SET @DebugText = @DefaultDebugText + @DebugText;
-        RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
-		END
 
+			     SET @ProcessingTime = DATEDIFF(MILLISECOND, @StartTime, GETDATE());
+                SET @Message
+                    = 'MFAuditHistory updated in batches: Processing time (s): '
+                      + CAST((CONVERT (decimal(18,2),@ProcessingTime /1000 )) AS VARCHAR(10)) + ' Records %i';
+
+                IF @WithStats = 1
+                BEGIN
+                    RAISERROR(@Message, 10, 1,@RecCount) WITH NOWAIT;
+                END;
+
+            SELECT @StartRow = MIN(ISNULL([tal].[Objid],1))
+                  ,@MaxRow   = MAX([tal].[Objid]) + 500
+            FROM @TableAuditList AS [tal];
+
+            IF @Debug > 0
+                SELECT @StartRow AS [startrow]
+                      ,@MaxRow   AS [MaxRow];
+
+            IF @StartRow IS NOT NULL
+            BEGIN
+
+                --while loop
+                WHILE @StartRow < @MaxRow
+                BEGIN
+                    SET @StartTime = GETDATE();
+                    SET @objids = NULL;
+                    SET @Message
+                        = 'Batch: ' + CAST(@BatchCount AS VARCHAR(10)) + ' Started: ' + CAST(@StartTime AS VARCHAR(30));
+
+                    IF @WithStats = 1
+                        RAISERROR(@Message, 10, 1) WITH NOWAIT;
+
+                    SET @objids = NULL;
+
+                    SELECT @objids = STUFF((
+                                               SELECT TOP 500
+                                                      ',' + CAST([o].[Objid] AS NVARCHAR(20))
+                                               FROM @TableAuditList AS [o]
+                                               WHERE [o].[Objid] >= @StartRow
+                                               ORDER BY [Objid]
+                                               FOR XML PATH('')
+                                           )
+                                          ,1
+                                          ,1
+                                          ,''
+                                          )
+                    FROM @TableAuditList AS [o2]
+                    WHERE [o2].[Objid] >= @StartRow
+                    ORDER BY [o2].[Objid];
+
+                    IF @Debug > 0
+                        SELECT @objids AS [Objids];
+
+                    -------------------------------------------------------------
+                    -- Update to/from m-files
+                    -------------------------------------------------------------
+                    IF @objids IS NOT NULL
+                    BEGIN
+                        EXEC [dbo].[spMFUpdateTable] @MFTableName = @MFTableName          -- nvarchar(200)
+                                                    ,@UpdateMethod = 1                    -- int
+                                                    ,@ObjIDs = @objids                    -- nvarchar(max)
+                                                    ,@Update_IDOut = @Update_IDOut OUTPUT -- int
+                                                    ,@ProcessBatch_ID = @ProcessBatch_ID  -- int
+                                                    ,@Debug = 0;
+
+                        SET @sqlParam = '@RecCount int output';
+                        SET @sql
+                            = 'SELECT @RecCount = COUNT(*) FROM ' + @MFTableName + ' where update_ID ='
+                              + CAST(@Update_IDOut AS VARCHAR(10)) + '';
+
+                        EXEC [sys].[sp_executesql] @sql, @sqlParam, @RecCount OUTPUT;
+
+                        IF @Debug > 0
+                            SELECT @RecCount AS [recordcount];
+                    END;
+
+                    -------------------------------------------------------------
+                    -- performance message
+                    -------------------------------------------------------------
+                    SET @ProcessingTime = DATEDIFF(MILLISECOND, @StartTime, GETDATE());
+                    SET @Message
+                        = 'Batch: ' + CAST(@BatchCount AS VARCHAR(10)) + ' Processing (s) : '
+                          + CAST(@ProcessingTime / 1000 AS VARCHAR(10)) + ' From Object ID: '
+                          + CAST(@StartRow AS VARCHAR(10)) + ' Processed: ' + CAST(ISNULL(@RecCount, 0) AS VARCHAR(10));
+
+                    IF @WithStats = 1
+                        RAISERROR(@Message, 10, 1) WITH NOWAIT;
+
+                    SET @BatchCount = @BatchCount + 1;
+                    SET @StartRow =
+                    (
+                        SELECT MAX([ListItem]) + 1
+                        FROM [dbo].[fnMFParseDelimitedString](@objids, ',')
+                    );
+                END;
+
+                IF @WithStats = 1
+                   AND @Debug > 0
+                BEGIN
+                    RAISERROR(@Message, 10, 1) WITH NOWAIT;
+
+                    SELECT *
+                    FROM [dbo].[MFvwAuditSummary] AS [mfas]
+                    WHERE [mfas].[TableName] = @MFTableName;
+                END;
+            END;
+            ELSE
+            BEGIN
+                SET @DebugText = 'Nothing to update';
+                SET @DebugText = @DefaultDebugText + @DebugText;
+
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                END;
+            END; -- startrow is null
+        END;
+        ELSE
+        BEGIN
+            SET @DebugText = ' Invalid table name or table does not exist: ' + @MFTableName;
+            SET @DebugText = @DefaultDebugText + @DebugText;
+
+            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+        END;
     END;
 
     -------------------------------------------------------------

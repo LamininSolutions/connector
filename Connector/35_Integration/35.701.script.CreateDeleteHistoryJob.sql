@@ -1,11 +1,17 @@
 
+/*
+Update history
+
+2019-08-01	LC	fic bug to set name of agent to include DB.  Note that the old agent must be removed manually
+
+*/
 
 SET NOCOUNT ON;
 	
 DECLARE @rc INT
       , @msg AS VARCHAR(250)
       , @DBName VARCHAR(100)
-	  ,@JobName VARCHAR(100) = N'Delete History'
+	  ,@JobName VARCHAR(100) 
 
 
 SET @msg = SPACE(5) + DB_NAME() + ': Create Job to Delete History Records';

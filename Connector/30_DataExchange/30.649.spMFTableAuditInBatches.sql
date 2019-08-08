@@ -6,7 +6,7 @@ GO
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFTableAuditinBatches' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.51'            -- varchar(50)
+                                    ,@Object_Release = '4.4.11.52'            -- varchar(50)
                                     ,@UpdateFlag = 2;                         -- smallint
 GO
 
@@ -31,6 +31,7 @@ It will also keep the size of the dataset for transfer within the limits of 8000
  	DATE			NAME		DESCRIPTION
 
 	updated version 2018-12-15
+	2019-08-05		LC			add process logging
 
 ------------------------------------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------------------------
@@ -70,6 +71,7 @@ ALTER PROC [dbo].[spMFTableAuditinBatches]
    ,@FromObjid INT = 1 -- the starting objid of the update
    ,@ToObjid INT = 10000
    ,@WithStats BIT = 1 -- set to 0 to suppress display messages
+   ,@ProcessBatch_ID INT = NULL
    ,@Debug INT = 0     --
 )
 AS
@@ -102,33 +104,66 @@ BEGIN
     -- sizes is restricted by objid length.
 
     --other parameters 
-    DECLARE @StartRow        INT
-           ,@MaxRow          INT
-           ,@RecCount        INT
-           ,@BatchCount      INT          = 1
-           ,@BatchesToRun    INT
-           ,@ObjIdCount      INT
-           ,@ProcessBatch_ID INT
-           ,@UpdateID        INT
-           ,@SQL             NVARCHAR(MAX)
-           ,@Params          NVARCHAR(MAX)
-           ,@StartTime       DATETIME
-           ,@ProcessingTime  INT
-           ,@objids          NVARCHAR(MAX)
-           ,@Message         NVARCHAR(100)
-           ,@Update_IDOut    INT
-           ,@Session_ID      INT;
+    DECLARE @StartRow       INT
+           ,@MaxRow         INT
+           ,@RecCount       INT
+           ,@BatchCount     INT          = 1
+           ,@BatchesToRun   INT
+           ,@ObjIdCount     INT
+           ,@UpdateID       INT
+           ,@SQL            NVARCHAR(MAX)
+           ,@Params         NVARCHAR(MAX)
+           ,@StartTime      DATETIME
+           ,@ProcessingTime INT
+           ,@objids         NVARCHAR(MAX)
+           ,@Message        NVARCHAR(100)
+           ,@Update_IDOut   INT
+           ,@Session_ID     INT;
+
+    ------------------------------------------------------------
+    -- VARIABLES: LOGGING
+    -------------------------------------------------------------
+    DECLARE @LogType AS NVARCHAR(50) = 'Status';
+    DECLARE @LogText AS NVARCHAR(4000) = '';
+    DECLARE @LogStatus AS NVARCHAR(50) = 'Started';
+    DECLARE @LogTypeDetail AS NVARCHAR(50) = 'System';
+    DECLARE @LogTextDetail AS NVARCHAR(4000) = '';
+    DECLARE @LogStatusDetail AS NVARCHAR(50) = 'In Progress';
+    DECLARE @ProcessBatchDetail_IDOUT AS INT = NULL;
+    DECLARE @LogColumnName AS NVARCHAR(128) = NULL;
+    DECLARE @LogColumnValue AS NVARCHAR(256) = NULL;
+    DECLARE @count INT = 0;
+    DECLARE @ProcessType AS NVARCHAR(50);
+
+    SET @ProcessType = ISNULL(@ProcessType, 'Audit Batch Update');
+    SET @Procedurestep = 'Start Logging';
+    SET @LogText = 'Processing ' + @ProcedureName;
+
+    EXEC [dbo].[spMFProcessBatch_Upsert] @ProcessBatch_ID = @ProcessBatch_ID OUTPUT
+                                        ,@ProcessType = @ProcessType
+                                        ,@LogType = N'Status'
+                                        ,@LogText = @LogText
+                                        ,@LogStatus = N'In Progress'
+                                        ,@debug = @Debug;
+
+    EXEC [dbo].[spMFProcessBatchDetail_Insert] @ProcessBatch_ID = @ProcessBatch_ID
+                                              ,@LogType = N'Debug'
+                                              ,@LogText = @ProcessType
+                                              ,@LogStatus = N'Started'
+                                              ,@StartTime = @StartTime
+                                              ,@MFTableName = @MFTableName
+                                              ,@Validation_ID = NULL
+                                              ,@ColumnName = NULL
+                                              ,@ColumnValue = NULL
+                                              ,@Update_ID = NULL
+                                              ,@LogProcedureName = @ProcedureName
+                                              ,@LogProcedureStep = @Procedurestep
+                                              ,@ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT
+                                              ,@debug = 0;
 
     -------------------------------------------------------------
     -- GET SESSION
     -------------------------------------------------------------
-    --SELECT @Session_ID = MAX([mah].[SessionID]) + 1
-    --FROM [dbo].[MFAuditHistory]    AS [mah]
-    --    INNER JOIN [dbo].[MFClass] [mc]
-    --        ON [mah].[Class] = [mc].[MFID]
-    --WHERE [mc].[TableName] = @MFTableName;
-
-    --	RAISERROR('This procedure is suspended awaiting a bug fix',16,1)
 
     -------------------------------------------------------------
     -- Batch size
@@ -179,24 +214,22 @@ BEGIN
         --IF(   SELECT OBJECT_ID('Tempdb..##ObjidTable'))>0
 
         --   DROP TABLE [##ObjidTable];
- 
-     SET @SQL
-            = N'SELECT TOP ('+ CAST(@ToObjid AS VARCHAR(12)) + ')
+        SET @SQL
+            = N'SELECT TOP (' + CAST(@ToObjid AS VARCHAR(12))
+              + ')
                    [objid] = CONVERT(INT, ROW_NUMBER() OVER (ORDER BY [s1].[object_id]))
-            INTO ' + QUOTENAME(@TempobjectList) + '
+            INTO ' + QUOTENAME(@TempobjectList)
+              + '
             FROM [sys].[all_objects]           AS [s1]
                 CROSS JOIN [sys].[all_objects] AS [s2]
             OPTION (MAXDOP 1);
 			
 			   CREATE UNIQUE CLUSTERED INDEX [n]
-            ON '+ QUOTENAME(@TempobjectList) +'  ([objid])
-			'
+            ON '   + QUOTENAME(@TempobjectList) + '  ([objid])
+			';
 
-
-   --          IF @debug > 0     SELECT @SQL AS SQL;
+        --          IF @debug > 0     SELECT @SQL AS SQL;
         EXEC (@SQL);
-
-
 
         IF @Debug > 0
         BEGIN
@@ -237,17 +270,14 @@ BEGIN
             -- validate objectvers of id (eliminate ids that is not part of class)
             -------------------------------------------------------------
 
-			       --INSERT INTO @TableAuditList
-          --  (
-          --      [Objid]
-          --  )
-          --  SELECT [o].[n]
-          --  FROM [#Objids] AS [o]
-          --  WHERE [o].[n]
-          --  BETWEEN @FromObjid AND @ToObjid;
-
-
-
+            --INSERT INTO @TableAuditList
+            --  (
+            --      [Objid]
+            --  )
+            --  SELECT [o].[n]
+            --  FROM [#Objids] AS [o]
+            --  WHERE [o].[n]
+            --  BETWEEN @FromObjid AND @ToObjid;
             SET @Params = N'@objids nvarchar(max) output, @startrow int, @Maxrow int';
             SET @SQL
                 = N' SELECT @objids = STUFF((
@@ -265,8 +295,8 @@ BEGIN
             FROM ' + QUOTENAME(@TempobjectList) + ' AS [ot]			
 			ORDER BY ot.[objid];';
 
-            IF @Debug > 0
-            PRINT @SQL;
+            --IF @Debug > 0
+            --PRINT @SQL;
             EXEC [sys].[sp_executesql] @Stmt = @SQL
                                       ,@Param = @Params
                                       ,@objids = @objids OUTPUT
@@ -357,10 +387,14 @@ BEGIN
             --        SELECT @BatchesToRun AS [BatchestoRun];
 
             --         SELECT @BatchSize AS [batchsize];
-                     SET @StartRow = CASE WHEN @StartRow > @ToObjid THEN NULL 
-            ELSE @StartRow + @BatchSize + 1  end
-            --SET @StartRow = @StartRow + @BatchSize + 1;
-                --SELECT @StartRow [nextstartrow];
+            SET @StartRow = CASE
+                                WHEN @StartRow > @ToObjid THEN
+                                    NULL
+                                ELSE
+                                    @StartRow + @BatchSize + 1
+                            END;
+        --SET @StartRow = @StartRow + @BatchSize + 1;
+        --SELECT @StartRow [nextstartrow];
         END;
     END;
 END;

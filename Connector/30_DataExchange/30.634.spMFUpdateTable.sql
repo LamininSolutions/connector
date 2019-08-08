@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFUpdateTable'
                                     -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.51'
+                                    ,@Object_Release = '4.4.11.52'
                                     -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
@@ -1961,7 +1961,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
 		SET @ParmDefinition = N'@Update_ID int, @ClassID int'
 		SET @SelectQuery = N'
 		UPDATE mah
-		SET [mah].[StatusFlag] = 0,  StatusName = ''Identical'', [mah].[MFVersion] = mlv.[MFVersion]
+		SET [mah].[StatusFlag] = 0,  StatusName = ''Identical'', [mah].[MFVersion] = mlv.[MFVersion], recID = mlv.id
 		FROM '+ QUOTENAME(@MFTableName) + ' AS [mlv]
 		INNER JOIN MFAuditHistory AS [mah]
 		ON mlv.[ObjID] = mah.[ObjID] AND mah.[Class] = @ClassId

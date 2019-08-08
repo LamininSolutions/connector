@@ -12,15 +12,14 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFGetDeletedObjects' -- nvarchar(100)
-                                    ,@Object_Release = 'Pre-release'
+                                    ,@Object_Release = '4.4.11.52'
                                     ,@UpdateFlag = 2;
 GO
 
 /*------------------------------------------------------------------------------------------------
 	Author: LSUSA\LeRouxC
 	Create date: 04/07/2019 07:06
-	Database: 
-	Description: 
+	Description: Remove deleted objects in M-Files in class table 
 
 	PARAMETERS:
 															
@@ -82,7 +81,7 @@ BEGIN
     -------------------------------------------------------------
     DECLARE @ProcessType AS NVARCHAR(50);
 
-    SET @ProcessType = ISNULL(@ProcessType, 'ProcessType');
+    SET @ProcessType = ISNULL(@ProcessType, 'Remove Deleted Objects');
 
     -------------------------------------------------------------
     -- CONSTATNS: MFSQL Global 
@@ -179,7 +178,7 @@ BEGIN
     -------------------------------------------------------------
     -- INTIALIZE PROCESS BATCH
     -------------------------------------------------------------
-    SET @ProcedureStep = 'Start Logging';
+    SET @ProcedureStep = 'Start Removal';
     SET @LogText = 'Processing ' + @ProcedureName;
 
     EXEC [dbo].[spMFProcessBatch_Upsert] @ProcessBatch_ID = @ProcessBatch_ID OUTPUT
@@ -321,10 +320,10 @@ BEGIN
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
+		SELECT @RowCount = COUNT(*) FROM [#AllObjects] AS [ao]
+
         IF
-        (
-            SELECT COUNT(*) FROM [#AllObjects] AS [ao]
-        ) > 0
+        @rowcount > 0
         BEGIN
             SET @sql = N'UPDATE [t]
 		SET Deleted = 1
@@ -333,6 +332,9 @@ BEGIN
 		ON t.[objid]	= ao.[ObjID] ';
 
             EXEC [sys].[sp_executesql] @sql;
+
+			DECLARE @RemovedRecords INT 
+			SET @RemovedRecords = @@RowCount
 
             SET @DebugText = '';
             SET @DebugText = @DefaultDebugText + @DebugText;
@@ -348,6 +350,30 @@ BEGIN
                 SET @sql = N'Delete from ' + QUOTENAME(@MFTableName) + ' where deleted = 1 ';
 
                 EXEC [sys].[sp_executesql] @sql;
+
+				
+				                           SET @ProcedureStep = 'Delete from Table ';
+				                           SET @LogTypeDetail = 'Status';
+				                           SET @LogStatusDetail = '';
+				                           SET @LogTextDetail = ' Removed '+ CAST(@RemoveDeleted AS VARCHAR(10)) + ' records from '+ @MFTableName
+				                           SET @LogColumnName = 'Deleted Objects';
+				                           SET @LogColumnValue =  CAST(@rowcount AS NVARCHAR(10));
+				
+				                           EXECUTE @return_value = [dbo].[spMFProcessBatchDetail_Insert]
+				                            @ProcessBatch_ID = @ProcessBatch_ID
+				                          , @LogType = @LogTypeDetail
+				                          , @LogText = @LogTextDetail
+				                          , @LogStatus = @LogStatusDetail
+				                          , @StartTime = @StartTime
+				                          , @MFTableName = @MFTableName
+				                          , @Validation_ID = @Validation_ID
+				                          , @ColumnName = @LogColumnName
+				                          , @ColumnValue = @LogColumnValue
+				                          , @Update_ID = @Update_ID
+				                          , @LogProcedureName = @ProcedureName
+				                          , @LogProcedureStep = @ProcedureStep
+				                          , @debug = @debug
+
             END;
         END;
 
@@ -363,7 +389,7 @@ BEGIN
         -------------------------------------------------------------   
         EXEC [dbo].[spMFProcessBatch_Upsert] @ProcessBatch_ID = @ProcessBatch_ID
                                             ,@ProcessType = @ProcessType
-                                            ,@LogType = N'Message'
+                                            ,@LogType = N'Debug'
                                             ,@LogText = @LogText
                                             ,@LogStatus = @LogStatus
                                             ,@debug = @Debug;

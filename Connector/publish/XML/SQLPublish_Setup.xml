@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <SQLPublish>
-  <Publish Source="Laminin Solutions" Application="MFSQL Connector" Version="V4.4.11.50" LastPublishDate="28/05/2019"></Publish>
+  <Publish Source="Laminin Solutions" Application="MFSQL Connector" Version="V4.4.11.51" LastPublishDate="28/05/2019"></Publish>
   <ScriptFolders>
     <ScriptFolder Name="10_Setup" UseFolderINI="False" FolderINI="" Hotfix_LastDate="True" HotfixINI=""></ScriptFolder>
     <ScriptFolder Name="35_Integration" UseFolderINI="False" FolderINI="" Hotfix_LastDate="True" HotfixINI=""></ScriptFolder>

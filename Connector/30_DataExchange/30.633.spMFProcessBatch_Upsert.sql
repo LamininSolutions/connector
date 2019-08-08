@@ -208,12 +208,12 @@ BEGIN
 
     SET @ProcessBatch_ID = SCOPE_IDENTITY();
 
-    IF @debug > 0
-    BEGIN
-        SET @DebugText = @DefaultDebugText + ' ProcessBatchID: %i';
+    --IF @debug > 0
+    --BEGIN
+    --    SET @DebugText = @DefaultDebugText + ' ProcessBatchID: %i';
 
-        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ProcessBatch_ID);
-    END;
+    --    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ProcessBatch_ID);
+    --END;
 
 --	COMMIT
     

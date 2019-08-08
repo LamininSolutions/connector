@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFGetObjectvers' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.50'      -- varchar(50)
+                                    ,@Object_Release = '4.4.11.52'      -- varchar(50)
                                     ,@UpdateFlag = 2;                   -- smallint
 GO
 
@@ -61,7 +61,8 @@ AS
   201509-21 DevTeam2 Removed @Username,@Password,@NetworkAddress,@VaultName Parameters and Just fetch  the vault settings in single comma separated
                      Parameter i.e. @VaultSettings
   2018-04-04 Devteam2 Added License module validation code
-  2019-07-10 LC		Add debugging and messaing
+  2019-07-10 LC		Add debugging and messaging
+  2019-08-05	LC		Improve logging
 
   ******************************************************************************/
 BEGIN
@@ -248,7 +249,7 @@ BEGIN
         SET @StartTime = GETUTCDATE();
         SET @ProcedureStep = 'Result of Getobjver';
         SET @LogTypeDetail = 'Status';
-        SET @LogStatusDetail = 'Debug';
+        SET @LogStatusDetail = 'In Progress';
         SET @LogTextDetail
             = 'Objver with filters: Date: ' + CAST(ISNULL(@dtModifiedDate, '2000-01-01') AS NVARCHAR(30)) + ' Objids: '
               + ISNULL(@MFIDs, '');
@@ -277,6 +278,7 @@ BEGIN
         END_RUN:
         SET @ProcedureStep = 'End';
         SET @LogStatus = 'Completed';
+		SET @LogText = 'Object versions updated'
 
         -------------------------------------------------------------
         -- Log End of Process
@@ -292,7 +294,7 @@ BEGIN
 
         EXEC [dbo].[spMFProcessBatchDetail_Insert] @ProcessBatch_ID = @ProcessBatch_ID
                                                   ,@LogType = N'Debug'
-                                                  ,@LogText = @ProcessType
+                                                  ,@LogText = @LogText
                                                   ,@LogStatus = @LogStatus
                                                   ,@StartTime = @StartTime
                                                   ,@MFTableName = @MFTableName

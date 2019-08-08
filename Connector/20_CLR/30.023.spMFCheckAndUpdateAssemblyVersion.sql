@@ -1,49 +1,49 @@
+
 GO
 
-PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFCheckAssemblyVersion]';
-GO
- 
-
-
-SET NOCOUNT ON; 
-EXEC [Setup].[spMFSQLObjectsControl]
-    @SchemaName = N'dbo'
-  , @ObjectName = N'spMFCheckAndUpdateAssemblyVersion'
-  , -- nvarchar(100)
-    @Object_Release = '4.3.9.48'
-  , -- varchar(50)
-    @UpdateFlag = 2;
- -- smallint
- 
+PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFCheckAssemblyVersion]';
 GO
 
-IF EXISTS ( SELECT  1
-            FROM    [INFORMATION_SCHEMA].[ROUTINES]
-            WHERE   [ROUTINES].[ROUTINE_NAME] = 'spMFCheckAndUPdateAssemblyVersion'--name of procedure
-                    AND [ROUTINES].[ROUTINE_TYPE] = 'PROCEDURE'--for a function --'FUNCTION'
-                    AND [ROUTINES].[ROUTINE_SCHEMA] = 'dbo' )
-   BEGIN
-         PRINT SPACE(10) + '...Stored Procedure: update';
-         SET NOEXEC ON;
-   END;
+SET NOCOUNT ON;
+
+EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
+                                    ,@ObjectName = N'spMFCheckAndUpdateAssemblyVersion'
+-- nvarchar(100)
+                                    ,@Object_Release = '4.4.11.51'
+-- varchar(50)
+                                    ,@UpdateFlag = 2;
+-- smallint
+GO
+
+IF EXISTS
+(
+    SELECT 1
+    FROM [INFORMATION_SCHEMA].[ROUTINES]
+    WHERE [ROUTINE_NAME] = 'spMFCheckAndUPdateAssemblyVersion' --name of procedure
+          AND [ROUTINE_TYPE] = 'PROCEDURE' --for a function --'FUNCTION'
+          AND [ROUTINE_SCHEMA] = 'dbo'
+)
+BEGIN
+    PRINT SPACE(10) + '...Stored Procedure: update';
+
+    SET NOEXEC ON;
+END;
 ELSE
-   PRINT SPACE(10) + '...Stored Procedure: create';
+    PRINT SPACE(10) + '...Stored Procedure: create';
 GO
-	
+
 -- if the routine exists this stub creation stem is parsed but not executed
 CREATE PROCEDURE [dbo].[spMFCheckAndUpdateAssemblyVersion]
 AS
-       SELECT   'created, but not implemented yet.';
+SELECT 'created, but not implemented yet.';
 --just anything will do
-
 GO
+
 -- the following section will be always executed
 SET NOEXEC OFF;
 GO
 
-
-ALTER PROCEDURE [dbo].[spMFCheckAndUpdateAssemblyVersion]
- 
+ALTER PROCEDURE [dbo].[spMFCheckAndUpdateAssemblyVersion] (@Debug INT = 0)
 AS /*******************************************************************************
   ** Desc:  The purpose of this procedure is to check  M-File Version and update it
             database drop and recreeate assembly.
@@ -58,107 +58,110 @@ AS /****************************************************************************
   ** ----------  ---------  -----------------------------------------------------
   2018-09-27		LC		change procedure to work with Release 4 scripts
   2019-05-19		LC		Fix bug - insert null value in MFsettings not allowed
+  2019-07-25		LC		Add more debug and error trapping, fix issue to prevent update
   ******************************************************************************/
-				BEGIN
-					SET NOCOUNT ON;
+BEGIN
+    SET NOCOUNT ON;
 
-				---------------------------------------------
-				Declare @IsVersionMisMatch bit =0,
-				        @MFilesVersion varchar(100),
-						@MFilesOldVersion varchar(100),
-				        @Update_ID INT,
-						@ProcedureStep sysname = 'Start',
-				        @Username NVARCHAR(2000),
-						@RC INT,
-				        @VaultName NVARCHAR(2000);
+    -------------------------------------------------------------
+    -- VARIABLES: DEBUGGING
+    -------------------------------------------------------------
+    DECLARE @ProcedureName AS NVARCHAR(128) = 'spMFCheckAndUpdateAssemblyVersion';
+    DECLARE @ProcedureStep AS NVARCHAR(128) = 'Start';
+    DECLARE @DefaultDebugText AS NVARCHAR(256) = 'Proc: %s Step: %s';
+    DECLARE @DebugText AS NVARCHAR(256) = '';
+    DECLARE @Msg AS NVARCHAR(256) = '';
 
-				SELECT TOP 1
-				        @Username = [MFVaultSettings].[Username]
-				      , @VaultName = [MFVaultSettings].[VaultName]
-				FROM     
-				      [dbo].[MFVaultSettings];
+    BEGIN TRY
+        ---------------------------------------------
+        DECLARE @IsVersionMisMatch BIT = 0
+               ,@MFilesVersion     VARCHAR(100)
+               ,@MFilesOldVersion  VARCHAR(100)
+               ,@Update_ID         INT
+               ,@Username          NVARCHAR(2000)
+               ,@RC                INT
+               ,@VaultName         NVARCHAR(2000);
 
-				set @ProcedureStep='Get Install assembly Version M-Files '
+        SELECT TOP 1
+               @Username  = [Username]
+              ,@VaultName = [VaultName]
+        FROM [dbo].[MFVaultSettings];
 
+        SET @ProcedureStep = 'Get Install assembly Version M-Files ';
 
-	
-				exec @RC = spMFGetMFilesAssemblyVersion @IsVersionMisMatch Output
-												,@MFilesVersion OutPut
+        EXEC @RC = [dbo].[spMFGetMFilesAssemblyVersion] @IsVersionMisMatch OUTPUT
+                                                       ,@MFilesVersion OUTPUT;
 
-				select @MFilesOldVersion= cast(Value as varchar(100)) from MFSettings where Name='MFVersion'
-				
-				;
-	            
-				if @IsVersionMisMatch = 1 AND @MFilesVersion IS NOT null
-				begin
-	       
-       
+DECLARE @Mismatch NVARCHAR(10)
+SET @Mismatch = CASE WHEN @IsVersionMisMatch = 1 THEN 'Yes' ELSE 'No' end
+        SET @DebugText = 'Get assembly version Return %i VersionMismatch %s Version %s';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = 'Get Mfiles Assembly version';
 
-				BEGIN TRY
+        IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @RC, @MisMatch, @MFilesVersion);
+        END;
 
-		set @ProcedureStep='Update Matched version '
+        SELECT @MFilesOldVersion = CAST([Value] AS VARCHAR(100))
+        FROM [dbo].[MFSettings]
+        WHERE [Name] = 'MFVersion';
 
-				Update MFSettings set Value=ISNULL(@MFilesVersion,'') where Name='MFVersion';
+        IF @IsVersionMisMatch = 1
+           AND @MFilesVersion <> @MFilesOldVersion
+		   Begin
+            SET @ProcedureStep = 'Update Matched version ';
 
-				INSERT   INTO [dbo].[MFUpdateHistory]
-				( [Username]
-				, [VaultName]
-				, [UpdateMethod]
-				)
-				VALUES   ( @Username
-				, @VaultName
-				, 1
-				);
+        UPDATE [dbo].[MFSettings]
+        SET [Value] = ISNULL(@MFilesVersion, '')
+        WHERE [Name] = 'MFVersion';
 
-				SELECT   @Update_ID = @@IDENTITY;
-						
-				--set @MFLocation= @MFLocation+'\CLPROC.Sql'
-				DECLARE 
-				@SQL varchar(MAX),
-				@DBName varchar(250),
-				@DBServerName varchar(250)
+        INSERT INTO [dbo].[MFUpdateHistory]
+        (
+            [Username]
+           ,[VaultName]
+           ,[UpdateMethod]
+        )
+        VALUES
+        (@Username, @VaultName, 1);
 
-				Select @DBServerName=@@SERVERNAME
-				Select @DBName=DB_NAME()
+        SELECT @Update_ID = @@Identity;
 
-			--	Select @ScriptFilePath=cast(Value as varchar(250)) from MFSettings where Name='AssemblyInstallPath'
-			
-				SET NOCOUNT ON  
-			
-				EXEC spmfUpdateAssemblies
+        --set @MFLocation= @MFLocation+'\CLPROC.Sql'
+        DECLARE @SQL          VARCHAR(MAX)
+               ,@DBName       VARCHAR(250)
+               ,@DBServerName VARCHAR(250);
 
-				End Try
-				Begin Catch
+        SELECT @DBServerName = @@ServerName;
 
-				set @ProcedureStep='Catch matching version error '
-				    Update MFSettings set Value=@MFilesOldVersion  where Name='MFVersion';
+        SELECT @DBName = DB_NAME();
 
-					INSERT    INTO [dbo].[MFLog]
-					( [SPName]
-					, [ErrorNumber]
-					, [ErrorMessage]
-					, [ErrorProcedure]
-					, [ProcedureStep]
-					, [ErrorState]
-					, [ErrorSeverity]
-					, [Update_ID]
-					, [ErrorLine]
-					)
-					VALUES    ( 'spMFCheckAndUpdateAssemblyVersion'
-					, ERROR_NUMBER()
-					, ERROR_MESSAGE()
-					, ERROR_PROCEDURE()
-					, @ProcedureStep
-					, ERROR_STATE()
-					, ERROR_SEVERITY()
-					, @Update_ID
-					, ERROR_LINE())
-				End catch
+        --	Select @ScriptFilePath=cast(Value as varchar(250)) from MFSettings where Name='AssemblyInstallPath'
+       EXEC [dbo].[spMFUpdateAssemblies];
+  END
+    END TRY
+    BEGIN CATCH
+        SET @ProcedureStep = 'Catch matching version error ';
 
+        UPDATE [dbo].[MFSettings]
+        SET [Value] = @MFilesOldVersion
+        WHERE [Name] = 'MFVersion';
 
-	 
-				End
-
-				End
-
-				GO
+        INSERT INTO [dbo].[MFLog]
+        (
+            [SPName]
+           ,[ErrorNumber]
+           ,[ErrorMessage]
+           ,[ErrorProcedure]
+           ,[ProcedureStep]
+           ,[ErrorState]
+           ,[ErrorSeverity]
+           ,[Update_ID]
+           ,[ErrorLine]
+        )
+        VALUES
+        ('spMFCheckAndUpdateAssemblyVersion', ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), @ProcedureStep
+        ,ERROR_STATE(), ERROR_SEVERITY(), @Update_ID, ERROR_LINE());
+    END CATCH;
+END;
+GO

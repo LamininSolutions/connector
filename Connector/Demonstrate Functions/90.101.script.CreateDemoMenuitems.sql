@@ -20,6 +20,7 @@ SET NOCOUNT ON;
 
 DECLARE @ItemCount INT;
 DECLARE @Debug INT = 0;
+DECLARE @UserGroup NVARCHAR(100)
 
 SELECT @ItemCount = COUNT(*)
 FROM [dbo].[MFContextMenu] AS [mcm]
@@ -45,31 +46,31 @@ Insert menu items
     EXEC [dbo].[spMFContextMenuHeadingItem] @MenuName = 'Synchronous Actions', -- nvarchar(100)
                                                                                --       @PriorMenu = '', -- nvarchar(100)
                                             @IsRemove = 0,                     -- bit
-                                            @UserGroup = 'All internal users'; -- nvarchar(100)
+                                            @UserGroup = 'ContextMenu'; -- nvarchar(100)
 
 
     EXEC [dbo].[spMFContextMenuHeadingItem] @MenuName = 'Asynchronous Actions', -- nvarchar(100)
                                             @PriorMenu = 'Synchronous Actions', -- nvarchar(100)
                                             @IsRemove = 0,                      -- bit
-                                            @UserGroup = 'All internal users';  -- nvarchar(100)
+                                            @UserGroup = 'ContextMenu';  -- nvarchar(100)
 
 
     EXEC [dbo].[spMFContextMenuHeadingItem] @MenuName = 'Web Sites',             -- nvarchar(100)
                                             @PriorMenu = 'Asynchronous Actions', -- nvarchar(100)
                                             @IsRemove = 0,                       -- bit
-                                            @UserGroup = 'All internal users';   -- nvarchar(100)
+                                            @UserGroup = 'ContextMenu';   -- nvarchar(100)
 
     EXEC [dbo].[spMFContextMenuHeadingItem] @MenuName = 'Synchronous Object Actions', -- nvarchar(100)
                                             @PriorMenu = 'Web Sites',                 -- nvarchar(100)
                                             @IsRemove = 0,
 											@IsObjectContextMenu = 1,                            -- bit
-                                            @UserGroup = 'All internal users';        -- nvarchar(100)
+                                            @UserGroup = 'ContextMenu';        -- nvarchar(100)
 
     EXEC [dbo].[spMFContextMenuHeadingItem] @MenuName = 'Asynchronous Object Actions', -- nvarchar(100)
                                             @PriorMenu = 'Synchronous Object Actions', -- nvarchar(100)
                                             @IsRemove = 0,                             -- bit
 											@IsObjectContextMenu = 1,
-                                            @UserGroup = 'All internal users';         -- nvarchar(100)
+                                            @UserGroup = 'ContextMenu';         -- nvarchar(100)
 
 
 
@@ -87,7 +88,7 @@ Web Site access
                                            @IsAsynchronous = 0,                             -- bit
                                            @IsStateAction = 0,                              -- bit
                                            @PriorAction = NULL,                             -- nvarchar(100)
-                                           @UserGroup = 'All internal users',               -- nvarchar(100)
+                                           @UserGroup = 'ContextMenu',               -- nvarchar(100)
                                            @Debug = @Debug;
 
 
@@ -102,7 +103,7 @@ Web Site access
                                            @IsAsynchronous = 0,                                                                        -- bit
                                            @IsStateAction = 0,                                                                         -- bit
                                            @PriorAction = NULL,                                                                        -- nvarchar(100)
-                                           @UserGroup = 'All internal users',                                                          -- nvarchar(100)
+                                           @UserGroup = 'ContextMenu',                                                          -- nvarchar(100)
                                            @Debug = @Debug;
 
 
@@ -117,7 +118,7 @@ Web Site access
                                            @IsAsynchronous = 1,                       -- bit
                                            @IsStateAction = 0,                        -- bit
                                            @PriorAction = NULL,                       -- nvarchar(100)
-                                           @UserGroup = 'All internal users',         -- nvarchar(100)
+                                           @UserGroup = 'ContextMenu',         -- nvarchar(100)
                                            @Debug = @Debug;
 
     EXEC [dbo].[spMFContextMenuActionItem] @ActionName = 'Sync action for context Object ',                                                                  -- nvarchar(100)
@@ -130,7 +131,7 @@ Web Site access
                                            @IsAsynchronous = 0,                                                                                                      -- bit
                                            @IsStateAction = 0,                                                                                                       -- bit
                                            @PriorAction = NULL,                                                                                                      -- nvarchar(100)
-                                           @UserGroup = 'All internal users',                                                                                        -- nvarchar(100)
+                                           @UserGroup = 'ContextMenu',                                                                                        -- nvarchar(100)
                                            @Debug = @Debug;
 
     EXEC [dbo].[spMFContextMenuActionItem] @ActionName = 'ASync action for context Object ',                                                                         -- nvarchar(100)
@@ -143,7 +144,7 @@ Web Site access
                                            @IsAsynchronous = 1,                                                                                                              -- bit
                                            @IsStateAction = 0,                                                                                                               -- bit
                                            @PriorAction = NULL,                                                                                                              -- nvarchar(100)
-                                           @UserGroup = 'All internal users',                                                                                                -- nvarchar(100)
+                                           @UserGroup = 'ContextMenu',                                                                                                -- nvarchar(100)
                                            @Debug = @Debug;
 
     /*
@@ -160,7 +161,7 @@ Insert procedures for workflow state actions
                                            @IsAsynchronous = 0,                  -- bit
                                            @IsStateAction = 1,                   -- bit
                                            @PriorAction = NULL,                  -- nvarchar(100)
-                                           @UserGroup = 'All internal users',    -- nvarchar(100)
+                                           @UserGroup = 'ContextMenu',    -- nvarchar(100)
                                            @Debug = @Debug;
 
     EXEC [dbo].[spMFContextMenuActionItem] @ActionName = 'StateAction2',                               -- nvarchar(100)

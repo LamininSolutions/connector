@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFDropAndUpdateMetadata' -- nvarchar(100)
-                                    ,@Object_Release = '4.3.9.48'               -- varchar(50)
+                                    ,@Object_Release = '4.4.11.52'               -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
 GO
@@ -20,6 +20,7 @@ MODIFICATIONS
 2019-1-20	LC		add prevent deleting data if license invalid
 2019-3-25	LC		fix bug to update when change has taken place and all defaults are specified
 2019-6-7	LC		fix bug of not setting lookup table label column with correct type
+2019-08-06	LC		change of metadata return value, remove if statement
 */
 IF EXISTS
 (
@@ -214,13 +215,13 @@ IF @debug > 0
 	   OR @IsResetAll = 1
     BEGIN
 
-	Set @DebugText = 'License valid %i'
+	Set @DebugText = ' Full refresh'
 	Set @DebugText = @DefaultDebugText + @DebugText
 	Set @Procedurestep = 'Refresh started '
 	
 	IF @debug > 0
 		Begin
-			RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@return_value );
+			RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep);
 		END
 	
 
@@ -228,8 +229,8 @@ IF @debug > 0
         -------------------------------------------------------------
         -- License is valid - continue
         -------------------------------------------------------------			
-        IF @return_value = 0 -- license validation returns 0 if correct
-        BEGIN
+    --    IF @return_value = 0 -- license validation returns 0 if correct
+      
             SELECT @ProcedureStep = 'setup temp tables';
 
             SET @DebugText = '';
@@ -845,7 +846,7 @@ check table before update and auto create any columns
                                                       ,@debug = 0;
 
            
-        END; -- license is valid
+     
 
 		
     END; -- is updatetodate and istructure only

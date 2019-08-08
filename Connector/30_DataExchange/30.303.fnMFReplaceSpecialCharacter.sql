@@ -6,12 +6,13 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'fnMFReplaceSpecialCharacter', -- nvarchar(100)
-    @Object_Release = '3.1.4.41', -- varchar(50)
+    @Object_Release = '4.4.11.52', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
 
 /*
 2017-12-03	LC fix bug of adding 2 underscores
+2019-08-06	LC	add brackets as exclusion
 */
 
 IF EXISTS ( SELECT  1
@@ -31,10 +32,30 @@ AS
       -------------------------------------
       --Replace Special Characters
       -------------------------------------
-      DECLARE @expres AS VARCHAR(50) = '%[~,@,#,$,%,&,/,\,^,+,<,>,'',:,;,?,",*,(,),.,!,-]%'
 
-      WHILE Patindex(@expres, @ColumnName) > 0
-        SET @ColumnName = Replace(@ColumnName, Substring(@ColumnName, Patindex(@expres, @ColumnName), 1), '')
+	    DECLARE @expres AS NVARCHAR(100) = '[|~|@|#|$|%|&|/|\|,|^|+|<|>||:|;||?|"|*|(|)|]|-|.|!'
+	DECLARE @patern NVARCHAR(5)
+	DECLARE @charlist AS TABLE (id INT IDENTITY, Item NVARCHAR(5))
+	DECLARE @ID INT = 1
+	DECLARE @item NVARCHAR(5)
+
+	INSERT INTO @charlist
+	(
+	    [Item]
+	)
+	SELECT item FROM [dbo].[fnMFSplitString](@expres,'|')
+
+      WHILE @id IS NOT NULL
+      BEGIN
+      SELECT @item = Item,
+
+	   @patern = '%['+Item + ']%' 
+	  FROM @charlist AS [c] WHERE id = @ID
+--	  SELECT @patern AS Patern, Patindex(@patern,@Columnname) AS patind
+		 SET @ColumnName = Replace(@ColumnName, @item, '')
+		SELECT @id = (SELECT MIN(Id) FROM @charlist AS [c] WHERE id > @id)
+
+		END
 
       ----------------------------------         
       --Capitalize the First Letter
