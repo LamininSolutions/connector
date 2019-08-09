@@ -62,6 +62,7 @@ ALTER PROCEDURE [dbo].[spMFUpdateTable]
 AS
 /*rST**************************************************************************
 
+===============
 spMFUpdateTable
 ===============
 
@@ -71,44 +72,40 @@ Return
   - -1 = Error
 Parameters
   @MFTableName
-	Valid Class TableName as a string ; Required
+    Valid Class TableName as a string`
     Pass the class table name, e.g.: 'MFCustomer'
   @Updatemethod
-    Options: 0, 1 ; Required
-		- 0 = update from SQL to M-Files
-		- 1 = update from M-Files to SQL
-  @User_ID
-	Default = 0, optional
+    Options: 0, 1
+    - 0 = update from SQL to M-Files
+    - 1 = update from M-Files to SQL
+  @User_ID (optional)
+    Default = 0
     User_Id from MX_User_Id column
-	This is NOT the M-Files user.  It is used to set and apply a user_id for a third party system. An example is where updates from a third party system must be filtered by the third party user (e.g. placing an order)
-  @MFLastModified
-	Default = 0, optional
+    This is NOT the M-Files user.  It is used to set and apply a user_id for a third party system. An example is where updates from a third party system must be filtered by the third party user (e.g. placing an order)
+  @MFLastModified (optional)
+    Default = 0
     Get objects from M-Files that has been modified in M-files later than this date.
-  @ObjIDs
-	Default = null, optional
+  @ObjIDs (optional)
+   Default = null
     ObjID's of records (separated by comma) e.g. : '10005,13203'
-	Restricted to 4000 charactes including the commas
-  @Update_IDOut
-	Optional
+    Restricted to 4000 charactes including the commas
+  @Update_IDOut (optional)
     Output parameter 
-	Output id of the record in MFUpdateHistory logging the update ; Also added to the record in the Update_ID column on the class table
-  @ProcessBatch_ID
-	Optional
+    Output id of the record in MFUpdateHistory logging the update ; Also added to the record in the Update_ID column on the class table
+  @ProcessBatch_ID (optional)
     Output parameter
-	Referencing the ID of the ProcessBatch logging table
-  @SyncErrorFlag
-    Default = 0 ; Optional
-	This parameter is automatically set by spMFUpdateSynchronizeError when synchronization routine is called.
-  @RetainDeletions
-    Default = 0 ; Optional
-	Set to 1 to keep deleted items in M-Files in the SQL table shown as deleted = 1
-  @Debug
-    - Default = 0 ; Optional
+    Referencing the ID of the ProcessBatch logging table
+  @SyncErrorFlag (optional)
+    Default = 0
+    This parameter is automatically set by spMFUpdateSynchronizeError when synchronization routine is called.
+  @RetainDeletions (optional)
+    Default = 0
+    Set to 1 to keep deleted items in M-Files in the SQL table shown as deleted = 1
+  @Debug (optional)
+    - Default = 0
     - 1 = Standard Debug Mode
-	- 101 = Advanced Debug Mode
+    - 101 = Advanced Debug Mode
 
-
-							   
 **rST*************************************************************************/
 DECLARE @Update_ID    INT
        ,@return_value INT = 1;
@@ -2362,42 +2359,43 @@ GO
 
 /*rST**************************************************************************
 
-
 Purpose
 =======
+
 This procedure get and push data between M-Files and SQL based on a number of filters.  It is very likely that this procedure will be built into your application or own procedures as part of the process of creating, updating, inserting records from your application.
-	
+
 When calling this procedure in a query or via another procedure it will perform the update in batch mode on all the rows with a valid process_id.
 
 When the requirements for transactional mode has been met and a record is updated/inserted in the class table with process_id = 1, a trigger will automatically fire spMFUpdateTable to update SQL to M-Files.
-	
+
 A number of procedures is included in the Connector that use this procedure including:
-	- spMFUpdateMFilesToSQL
-	- spMFUpdateTablewithLastModifiedDate
-	- spMFUpdateTableinBatches
-	- spMFUpdateAllIncludedInAppTables
-	- spMFUpdateItembyItem
-							   
-Prerequisits
-============
-	From M-Files to SQL 
-	===================
-	Process_id must be 0. All other rows are ignored.
-	
-	
-	From SQL to M-Files - batch mode
-	================================
-	Process_id must be 1 for rows to be updated or added to M-Files
-	
-	From SQL to M-Files - transactional mode
-	========================================
-	Set IncludedInApp Column = 2 in MFClass for the required class
-	
+- :ref:`objects/spMFUpdateMFilesToSQL`
+- spMFUpdateTablewithLastModifiedDate
+- spMFUpdateTableinBatches
+- spMFUpdateAllIncludedInAppTables
+- spMFUpdateItembyItem
+
+Prerequisites
+=============
+
+From M-Files to SQL
+-------------------
+Process_id must be 0. All other rows are ignored.
+
+
+From SQL to M-Files - batch mode
+--------------------------------
+Process_id must be 1 for rows to be updated or added to M-Files
+
+From SQL to M-Files - transactional mode
+----------------------------------------
+Set IncludedInApp Column = 2 in MFClass for the required class
+
 Warnings
 ========
 
 Examples
---------
+========
 
 .. code:: sql
 
@@ -2461,7 +2459,7 @@ Update from and to M-Files with all optional parameters set to default.
 Update from and to M-Files with all optional parameters set to default.
 
 Changelog
----------
+=========
 
 ==========  =========  ========================================================
 Date        Author     Description
