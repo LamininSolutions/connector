@@ -2369,7 +2369,7 @@ When calling this procedure in a query or via another procedure it will perform 
 When the requirements for transactional mode has been met and a record is updated/inserted in the class table with process_id = 1, a trigger will automatically fire spMFUpdateTable to update SQL to M-Files.
 
 A number of procedures is included in the Connector that use this procedure including:
-- :ref:`objects/spMFUpdateMFilesToSQL`
+- spMFUpdateMFilesToSQL
 - spMFUpdateTablewithLastModifiedDate
 - spMFUpdateTableinBatches
 - spMFUpdateAllIncludedInAppTables
