@@ -6,31 +6,59 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
 
 GO
 
+/*rST**************************************************************************
+
+TableName
+===============
+
+Purpose
+=======
+MFiles Class metadata
+
+Columns
+========
+
+Constraints
+===========
+
+
+Triggers
+========
+
+Related Tables
+==============
+
+
+Examples
+========
+
+----
+
+.. code:: sql
+
+Select * from MFClass
+
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2017-7-6	LC		Add column for filepath
+2017-8-22	LC		Add column for syncprecedence
+==========  =========  ========================================================
+
+
+**rST*************************************************************************/
+
+
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFClass', -- nvarchar(100)
     @Object_Release = '3.1.5.41', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-02
-	Database: 
-	Description: MFiles Class metadata
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	2017-7-6		LC			Add column for filepath
-	2017-8-22		LC			Add column for syncprecedence
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  Select * from MFClass
-  
------------------------------------------------------------------------------------------------*/
 
 
 GO
@@ -200,4 +228,5 @@ IF NOT EXISTS (	  SELECT	1
 		END
 
 GO
+
 
