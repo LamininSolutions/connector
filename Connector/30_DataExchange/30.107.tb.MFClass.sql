@@ -147,20 +147,12 @@ Used By
 
 --------------
 
-
-.. |Tables| image:: ../../../Images/Table32.png
-.. |Cluster Primary Key PK\_MFClass: ID| image:: ../../../Images/pkcluster.png
-   :target: #indexes
-.. |Indexes udx\_MFClass\_MFID| image:: ../../../Images/Index.png
-   :target: #indexes
-.. |Indexes FKIX\_MFClass\_MFObjectType\_ID| image:: ../../../Images/Index.png
-   :target: #indexes
-.. |Foreign Keys FK\_MFClass\_ObjectType\_ID: [dbo].[MFObjectType].MFObjectType\_ID| image:: ../../../Images/fk.png
-   :target: #foreignkeys
-.. |Indexes FKIX\_MFClass\_MFWorkflow\_ID| image:: ../../../Images/Index.png
-   :target: #indexes
-.. |Foreign Keys FK\_MFClass\_MFWorkflow\_ID: [dbo].[MFWorkflow].MFWorkflow\_ID| image:: ../../../Images/fk.png
-   :target: #foreignkeys
+- Cluster Primary Key PK\_MFClass: ID
+- Indexes udx\_MFClass\_MFID
+- Indexes FKIX\_MFClass\_MFObjectType\_ID
+- Foreign Keys FK\_MFClass\_ObjectType\_ID: [dbo].[MFObjectType].MFObjectType\_ID
+- Indexes FKIX\_MFClass\_MFWorkflow\_ID
+- Foreign Keys FK\_MFClass\_MFWorkflow\_ID: [dbo].[MFWorkflow].MFWorkflow\_ID
 
 
 **rST*************************************************************************/
