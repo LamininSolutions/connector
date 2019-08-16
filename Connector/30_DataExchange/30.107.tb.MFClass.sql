@@ -72,9 +72,9 @@ Foreign Keys
 +-------------------------------+-----------------------------------------------------------------------+
 | Name                          | Columns                                                               |
 +===============================+=======================================================================+
-| FK\_MFClass\_MFWorkflow\_ID   | MFWorkflow\_ID->\ `[dbo].[MFWorkflow].[ID] <MFWorkflow.rst>`__         |
+| FK\_MFClass\_MFWorkflow\_ID   | MFWorkflow\_ID->\ `[dbo].[MFWorkflow].[ID] <MFWorkflow.rst>`__        |
 +-------------------------------+-----------------------------------------------------------------------+
-| FK\_MFClass\_ObjectType\_ID   | MFObjectType\_ID->\ `[dbo].[MFObjectType].[ID] <MFObjectType.rst>`__   |
+| FK\_MFClass\_ObjectType\_ID   | MFObjectType\_ID->\ `[dbo].[MFObjectType].[ID] <MFObjectType.rst>`__  |
 +-------------------------------+-----------------------------------------------------------------------+
 
 --------------
