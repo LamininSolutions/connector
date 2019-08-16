@@ -20,21 +20,23 @@ b) no class table
 -------------------------------------------------------------
 
 
-EXEC [dbo].[spMFUpdateTable] @MFTableName = 'MFaccount'     -- nvarchar(200)
+EXEC [dbo].[spMFUpdateTable] @MFTableName = 'MFCustomer'     -- nvarchar(200)
                             ,@UpdateMethod = 1    -- int
                             ,@RetainDeletions = 1 -- bit
                            
 GO
 
-SELECT deleted, * FROM [dbo].[MFAccount] AS [ma]
+SELECT deleted, * FROM [dbo].[MFCustomer] AS [ma]
 
 --Update deleted items in class table
 
-SELECT * FROM mfAccount WHERE deleted = 1
+SELECT * FROM mfCustomer WHERE deleted = 1
+
+GO
 
 DECLARE @ProcessBatch_ID INT;
 
-EXEC [dbo].[spMFGetDeletedObjects] @MFTableName = 'MFAccount'      -- nvarchar(200)
+EXEC [dbo].[spMFGetDeletedObjects] @MFTableName = 'MFCustomer'      -- nvarchar(200)
                                   ,@LastModifiedDate = null -- datetime
                                   ,@ProcessBatch_ID = @ProcessBatch_ID OUTPUT                -- int
 								  ,@RemoveDeleted = 1    -- bit
@@ -47,11 +49,12 @@ EXEC [dbo].[spMFGetDeletedObjects] @MFTableName = 'MFAccount'      -- nvarchar(2
 -------------------------------------------------------------
 SELECT * FROM [dbo].[MFClass] AS [mc]
 
+
 DECLARE @outputXML NVARCHAR(MAX);
 DECLARE @VaultSettings NVARCHAR(200) = [dbo].[FnMFVaultSettings]()
 
 EXEC [dbo].[spMFGetDeletedObjectsInternal] @VaultSettings = @VaultSettings    -- nvarchar(4000)
-                                          ,@ClassID = 22       -- int
+                                          ,@ClassID = 78       -- int
                                           ,@LastModifiedDate = null -- datetime
                                           ,@outputXML = @outputXML OUTPUT                            -- nvarchar(max)
 SELECT CAST(@OUTPUTxml AS xml)

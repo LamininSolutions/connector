@@ -13,12 +13,12 @@ delete in batch based on process_id
 
 */
 
-SELECT *
+SELECT id, objid, deleted, [Process_ID], *
 FROM   [MFCustomer]
 
 UPDATE [MFCustomer]
 SET	   [Process_ID] = 10
-WHERE  [ID] > 15
+WHERE  [ID] = 13
 
 --CHECK MFILES BEFORE DELETING TO SHOW DIFF
 
@@ -38,3 +38,4 @@ EXEC [spMFDeleteObjectList] @tableName = 'MFCustomer'
 EXEC [spMFDeleteObjectList] 'MFCustomer'
 						  , 10
 						  , 1
+

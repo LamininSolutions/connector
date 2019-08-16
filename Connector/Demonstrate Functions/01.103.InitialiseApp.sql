@@ -93,7 +93,7 @@ EXEC [dbo].[spMFContextMenuHeadingItem] @MenuName = 'MyMenu',            -- nvar
                                         @PriorMenu = null,           -- nvarchar(100)
                                         @IsObjectContextMenu = 0, -- bit
                                         @IsRemove = 0,            -- bit
-                                        @UserGroup = 'All Internal Users',           -- nvarchar(100)
+                                        @UserGroup = 'ContextMenu',           -- nvarchar(100)
                                         @Debug = 0                -- int
 
 EXEC [dbo].[spMFContextMenuActionItem] @ActionName = 'MyAction',      -- nvarchar(100)
@@ -106,6 +106,6 @@ EXEC [dbo].[spMFContextMenuActionItem] @ActionName = 'MyAction',      -- nvarcha
                                        @IsAsynchronous = 0,  -- bit
                                        @IsStateAction = 0,   -- bit
                                        @PriorAction = null,     -- nvarchar(100)
-                                       @UserGroup = 'All Internal Users',       -- nvarchar(100)
+                                       @UserGroup = 'Contextmenu',       -- nvarchar(100)
                                        @Debug = 0            -- int
 

@@ -5,6 +5,7 @@ Example to demonstrate the use of searching of objects from SQL
 
 a) search for text in name or title
 b) search for text in a specific property
+c) search filter 'contain' text or 'equals' text
 
 */
 --Created on: 2019-05-08 
@@ -107,3 +108,55 @@ SELECT [t].[c].[value]('(../@objectId)[1]', 'INT')             AS [objectId]
 FROM @XMLOutPut.[nodes]('/form/Object/properties') AS [t]([c])
     INNER JOIN [dbo].[MFProperty]                  AS [mp]
         ON [mp].[MFID] = [t].[c].[value]('(@propertyId)[1]', 'INT');
+
+
+-------------------------------------------------------------
+-- Search using filter for contain or equal
+-- the filter only applies to search by property Value
+-- by default it is set to @IsEqual = 1 
+-------------------------------------------------------------
+
+GO
+
+SELECT MFID FROM [dbo].[MFClass] AS [mc] WHERE name = 'customer'
+SELECT * FROM [dbo].[MFCustomer] AS [mc]
+SELECT MFID FROM [dbo].[MFProperty] AS [mp] WHERE [mp].[ColumnName] = 'Address_Line_1'
+
+--'6575 Madison Avenue'
+
+--select a part of the property and set @IsEqual = 0 
+-- the result will return all the object where the property value is contained in the property
+
+DECLARE @XMLOutPut XML
+       ,@TableName VARCHAR(200);
+
+EXEC [dbo].[spMFSearchForObjectbyPropertyValues] @ClassID = 78        -- int
+                                                ,@PropertyIds =  '1073'   -- nvarchar(2000)
+                                                ,@PropertyValues = 'Avenue'  -- nvarchar(2000)
+                                                ,@Count = 5          -- int
+                                                ,@OutputType = 0     -- int
+                                                ,@IsEqual = 0        -- int
+                                                ,@XMLOutPut = @XMLOutPut OUTPUT                         -- xml
+                                                ,@TableName = @TableName OUTPUT                         -- varchar(200)
+SELECT @XMLOutPut
+
+GO
+
+
+
+--select the exact property value of a record of the property and set @IsEqual = 1 
+-- the result will return only those with an exact match.
+
+DECLARE @XMLOutPut XML
+       ,@TableName VARCHAR(200);
+
+EXEC [dbo].[spMFSearchForObjectbyPropertyValues] @ClassID = 78        -- int
+                                                ,@PropertyIds =  '1073'   -- nvarchar(2000)
+                                                ,@PropertyValues = '6575 Madison Avenue'  -- nvarchar(2000)
+                                                ,@Count = 5          -- int
+                                                ,@OutputType = 0     -- int
+                                                ,@IsEqual = 1        -- int
+                                                ,@XMLOutPut = @XMLOutPut OUTPUT                         -- xml
+                                                ,@TableName = @TableName OUTPUT                         -- varchar(200)
+SELECT @XMLOutPut
+													

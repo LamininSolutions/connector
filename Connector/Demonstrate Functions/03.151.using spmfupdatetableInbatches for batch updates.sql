@@ -27,7 +27,7 @@ Parameters:
 
 
 --how to get the max id's in a vault
-EXEC [dbo].[spMFObjectTypeUpdateClassIndex] @IsAllTables = 0 -- setting to 0 will only include includedinapp class tables
+EXEC [dbo].[spMFObjectTypeUpdateClassIndex] @IsAllTables = 1 -- setting to 0 will only include includedinapp class tables
                                            ,@Debug = 0       -- smallint
 
 
