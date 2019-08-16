@@ -146,7 +146,7 @@ Used By
 -  `[dbo].[fnMFObjectHyperlink] <../Programmability/Functions/Scalar-valued_Functions/fnMFObjectHyperlink.rst>`__
 
 --------------
- 
+
 
 .. |Tables| image:: ../../../Images/Table32.png
 .. |Cluster Primary Key PK\_MFClass: ID| image:: ../../../Images/pkcluster.png
@@ -174,7 +174,7 @@ Examples
 
 .. code:: sql
 
-Select * from MFClass
+    Select * from MFClass
 
 
 Changelog
@@ -183,8 +183,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2017-7-6	LC		Add column for filepath
-2017-8-22	LC		Add column for syncprecedence
+2017-7-6    LC         Add column for filepath
+2017-8-22   LC         Add column for syncprecedence
 ==========  =========  ========================================================
 
 
