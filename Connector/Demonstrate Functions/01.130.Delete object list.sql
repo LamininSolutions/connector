@@ -18,7 +18,7 @@ FROM   [MFCustomer]
 
 UPDATE [MFCustomer]
 SET	   [Process_ID] = 10
-WHERE  [ID] = 13
+WHERE  [ID] = 12
 
 --CHECK MFILES BEFORE DELETING TO SHOW DIFF
 
