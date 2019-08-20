@@ -15,37 +15,37 @@ dbo.MFClass
 Columns
 -------
 
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| Name                 | Data Type       | Max Length (Bytes)   | Nullability    | Identity   | Default       | Description              |
-+======================+=================+======================+================+============+===============+==========================+
-| ID                   | int             | 4                    | NOT NULL       | 1 - 1      |               |                          |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| MFID                 | int             | 4                    | NOT NULL       |            |               | *Per MF Class ID*        |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| Name                 | varchar(100)    | 100                  | NOT NULL       |            |               |                          |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| Alias                | nvarchar(100)   | 200                  | NULL allowed   |            |               |                          |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| IncludeInApp         | smallint        | 2                    | NULL allowed   |            |               |                          |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| TableName            | varchar(100)    | 100                  | NULL allowed   |            |               |                          |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| MFObjectType\_ID     | int             | 4                    | NULL allowed   |            |               | *Per MF ObjectType ID*   |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| MFWorkflow\_ID       | int             | 4                    | NULL allowed   |            |               |                          |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| FileExportFolder     | nvarchar(500)   | 1000                 | NULL allowed   |            |               |                          |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| SynchPrecedence      | int             | 4                    | NULL allowed   |            |               |                          |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| ModifiedOn           | datetime        | 8                    | NOT NULL       |            | (getdate())   |                          |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| CreatedOn            | datetime        | 8                    | NOT NULL       |            | (getdate())   |                          |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| Deleted              | bit             | 1                    | NOT NULL       |            |               |                          |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
-| IsWorkflowEnforced   | bit             | 1                    | NULL allowed   |            |               |                          |
-+----------------------+-----------------+----------------------+----------------+------------+---------------+--------------------------+
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| Name                 | Data Type       | Max Length (Bytes)   | Nullability    | Description                                               |
++======================+=================+======================+================+===========================================================+
+| ID                   | int             | 4                    | NOT NULL       | Identity ID in SQL                                        |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| MFID                 | int             | 4                    | NOT NULL       | MF Class ID                                               |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| Name                 | varchar(100)    | 100                  | NOT NULL       | MF Class Name                                             |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| Alias                | nvarchar(100)   | 200                  | NULL allowed   | MF Alias                                                  |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| IncludeInApp         | smallint        | 2                    | NULL allowed   | default = Null; Used in App = 1; Transactional update = 2 |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| TableName            | varchar(100)    | 100                  | NULL allowed   | Designated name of class table                            |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| MFObjectType\_ID     | int             | 4                    | NULL allowed   | ID from MFObjectType table                                |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| MFWorkflow\_ID       | int             | 4                    | NULL allowed   | ID from MFWorkflow table                                  |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| FileExportFolder     | nvarchar(500)   | 1000                 | NULL allowed   | Root folder for exporting files for class                 |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| SynchPrecedence      | int             | 4                    | NULL allowed   | M-Files takes presedence = 1; SQL takes presedence = 0    |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| ModifiedOn           | datetime        | 8                    | NOT NULL       | (getdate())                                               |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| CreatedOn            | datetime        | 8                    | NOT NULL       | (getdate())                                               |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| Deleted              | bit             | 1                    | NOT NULL       | Not deleted = 0; Deleted = 1                              |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
+| IsWorkflowEnforced   | bit             | 1                    | NULL allowed   | Workflow is enforced = 1                                  |
++----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
 
 --------------
 
@@ -97,62 +97,6 @@ Uses
 -  `[dbo].[MFObjectType] <MFObjectType.rst>`__
 -  `[dbo].[MFWorkflow] <MFWorkflow.rst>`__
 
---------------
-
-Used By
--------
-
--  `[dbo].[MFvwAuditSummary] <../Views/MFvwAuditSummary.rst>`__
--  `[dbo].[MFvwClassTableColumns] <../Views/MFvwClassTableColumns.rst>`__
--  `[dbo].[MFvwMetadataStructure] <../Views/MFvwMetadataStructure.rst>`__
--  `[dbo].[MFvwObjectTypeSummary] <../Views/MFvwObjectTypeSummary.rst>`__
--  `[dbo].[spMFAddCommentForObjects] <../Programmability/Stored_Procedures/spMFAddCommentForObjects.rst>`__
--  `[dbo].[spMFChangeClass] <../Programmability/Stored_Procedures/spMFChangeClass.rst>`__
--  `[dbo].[spMFClassTableColumns] <../Programmability/Stored_Procedures/spMFClassTableColumns.rst>`__
--  `[dbo].[spMFClassTableStats] <../Programmability/Stored_Procedures/spMFClassTableStats.rst>`__
--  `[dbo].[spMFCreateAllLookups] <../Programmability/Stored_Procedures/spMFCreateAllLookups.rst>`__
--  `[dbo].[spMFCreateAllMFTables] <../Programmability/Stored_Procedures/spMFCreateAllMFTables.rst>`__
--  `[dbo].[spMFCreatePublicSharedLink] <../Programmability/Stored_Procedures/spMFCreatePublicSharedLink.rst>`__
--  `[dbo].[spMFCreateTable] <../Programmability/Stored_Procedures/spMFCreateTable.rst>`__
--  `[dbo].[spMFDeleteAdhocProperty] <../Programmability/Stored_Procedures/spMFDeleteAdhocProperty.rst>`__
--  `[dbo].[spMFDeleteObjectList] <../Programmability/Stored_Procedures/spMFDeleteObjectList.rst>`__
--  `[dbo].[spMFDropAllClassTables] <../Programmability/Stored_Procedures/spMFDropAllClassTables.rst>`__
--  `[dbo].[spMFDropAndUpdateMetadata] <../Programmability/Stored_Procedures/spMFDropAndUpdateMetadata.rst>`__
--  `[dbo].[spMFExportFiles] <../Programmability/Stored_Procedures/spMFExportFiles.rst>`__
--  `[dbo].[spMFGetDeletedObjects] <../Programmability/Stored_Procedures/spMFGetDeletedObjects.rst>`__
--  `[dbo].[spMFGetHistory] <../Programmability/Stored_Procedures/spMFGetHistory.rst>`__
--  `[dbo].[spMFGetObjectvers] <../Programmability/Stored_Procedures/spMFGetObjectvers.rst>`__
--  `[dbo].[spMFInsertClass] <../Programmability/Stored_Procedures/spMFInsertClass.rst>`__
--  `[dbo].[spMFInsertClassProperty] <../Programmability/Stored_Procedures/spMFInsertClassProperty.rst>`__
--  `[dbo].[spMFLogProcessSummaryForClassTable] <../Programmability/Stored_Procedures/spMFLogProcessSummaryForClassTable.rst>`__
--  `[dbo].[spMFObjectTypeUpdateClassIndex] <../Programmability/Stored_Procedures/spMFObjectTypeUpdateClassIndex.rst>`__
--  `[dbo].[spMFResultMessageForUI] <../Programmability/Stored_Procedures/spMFResultMessageForUI.rst>`__
--  `[dbo].[spMFSetup\_Reporting] <../Programmability/Stored_Procedures/spMFSetup_Reporting.rst>`__
--  `[dbo].[spMFSynchronizeClasses] <../Programmability/Stored_Procedures/spMFSynchronizeClasses.rst>`__
--  `[dbo].[spMFSynchronizeFilesToMFiles] <../Programmability/Stored_Procedures/spMFSynchronizeFilesToMFiles.rst>`__
--  `[dbo].[spmfSynchronizeLookupColumnChange] <../Programmability/Stored_Procedures/spmfSynchronizeLookupColumnChange.rst>`__
--  `[dbo].[spmfSynchronizeWorkFlowSateColumnChange] <../Programmability/Stored_Procedures/spmfSynchronizeWorkFlowSateColumnChange.rst>`__
--  `[dbo].[spMFTableAudit] <../Programmability/Stored_Procedures/spMFTableAudit.rst>`__
--  `[dbo].[spMFUpdateAllncludedInAppTables] <../Programmability/Stored_Procedures/spMFUpdateAllncludedInAppTables.rst>`__
--  `[dbo].[spMFUpdateClassAndProperties] <../Programmability/Stored_Procedures/spMFUpdateClassAndProperties.rst>`__
--  `[dbo].[spMFUpdateExplorerFileToMFiles] <../Programmability/Stored_Procedures/spMFUpdateExplorerFileToMFiles.rst>`__
--  `[dbo].[spMFUpdateHistoryShow] <../Programmability/Stored_Procedures/spMFUpdateHistoryShow.rst>`__
--  `[dbo].[spMFUpdateItemByItem] <../Programmability/Stored_Procedures/spMFUpdateItemByItem.rst>`__
--  `[dbo].[spMFUpdateMFilesToMFSQL] <../Programmability/Stored_Procedures/spMFUpdateMFilesToMFSQL.rst>`__
--  `[dbo].[spMFUpdateSynchronizeError] <../Programmability/Stored_Procedures/spMFUpdateSynchronizeError.rst>`__
--  `[dbo].[spMFUpdateTable] <../Programmability/Stored_Procedures/spMFUpdateTable.rst>`__
--  `[dbo].[spMFUpdateTableinBatches] <../Programmability/Stored_Procedures/spMFUpdateTableinBatches.rst>`__
--  `[dbo].[spMFUpdateTableInternal] <../Programmability/Stored_Procedures/spMFUpdateTableInternal.rst>`__
--  `[dbo].[fnMFObjectHyperlink] <../Programmability/Functions/Scalar-valued_Functions/fnMFObjectHyperlink.rst>`__
-
---------------
-
-- Cluster Primary Key PK\_MFClass: ID
-- Indexes udx\_MFClass\_MFID
-- Indexes FKIX\_MFClass\_MFObjectType\_ID
-- Foreign Keys FK\_MFClass\_ObjectType\_ID: [dbo].[MFObjectType].MFObjectType\_ID
-- Indexes FKIX\_MFClass\_MFWorkflow\_ID
-- Foreign Keys FK\_MFClass\_MFWorkflow\_ID: [dbo].[MFWorkflow].MFWorkflow\_ID
 
 
 **rST*************************************************************************/
@@ -164,8 +108,11 @@ Examples
 
 .. code:: sql
 
-    Select * from MFClass
-
+    -- show all tables included in app
+    Select * from MFClass where includeInApp = 1
+    
+    -- use metadata structure view to explore class relationships with other objects
+    SELECT * FROM [dbo].[MFvwMetadataStructure] AS [mfms] WHERE class = 'Customer'
 
 Changelog
 =========
