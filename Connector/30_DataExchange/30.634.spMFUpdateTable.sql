@@ -8,6 +8,8 @@ GO
 
 /*rST**************************************************************************
 
+<<<<<<< HEAD
+=======
 ===============
 spMFUpdateTable
 ===============
@@ -17,40 +19,38 @@ Return
   - 0 = Partial (some records failed to be inserted)
   - -1 = Error
 Parameters
-  @MFTableName (required)
-    Class TableName as a string
-    e.g.: 'MFCustomer'
-  @Updatemethod (required)
-    Options: 0, 1
+  @MFTableName
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @Updatemethod
     - 0 = update from SQL to M-Files
     - 1 = update from M-Files to SQL
   @User_ID (optional)
-    Default = 0
-    User_Id from MX_User_Id column
-    This is NOT the M-Files user.  It is used to set and apply a user_id for a third party system. An example is where updates from a third party system must be filtered by the third party user (e.g. placing an order)
+    - Default = 0
+    - User_Id from MX_User_Id column
+    - This is NOT the M-Files user.  It is used to set and apply a user_id for a third party system. An example is where updates from a third party system must be filtered by the third party user (e.g. placing an order)
   @MFLastModified (optional)
-    Default = 0
-    Get objects from M-Files that has been modified in M-files later than this date.
+    - Default = 0
+    - Get objects from M-Files that has been modified in M-files later than this date.
   @ObjIDs (optional)
-   Default = null
-    ObjID's of records (separated by comma) e.g. : '10005,13203'
-    Restricted to 4000 charactes including the commas
-  @Update_IDOut (optional)
-    Output parameter 
+    - Default = null
+    - ObjID's of records (separated by comma) e.g. : '10005,13203'
+    - Restricted to 4000 charactes including the commas
+  @Update_IDOut (optional, output)
     Output id of the record in MFUpdateHistory logging the update ; Also added to the record in the Update_ID column on the class table
-  @ProcessBatch_ID (optional)
-    Output parameter
+  @ProcessBatch_ID (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @SyncErrorFlag (optional)
-    Default = 0
-    This parameter is automatically set by spMFUpdateSynchronizeError when synchronization routine is called.
+    - Default = 0
+    - This parameter is automatically set by spMFUpdateSynchronizeError when synchronization routine is called.
   @RetainDeletions (optional)
-    Default = 0
-    Set to 1 to keep deleted items in M-Files in the SQL table shown as deleted = 1
+    - Default = 0
+    - Set to 1 to keep deleted items in M-Files in the SQL table shown as deleted = 1
   @Debug (optional)
     - Default = 0
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
+
 
 Purpose
 =======
@@ -260,51 +260,6 @@ ALTER PROCEDURE [dbo].[spMFUpdateTable]
 )
 AS
 
-<<<<<<< HEAD
-=======
-===============
-spMFUpdateTable
-===============
-
-Return
-  - 1 = Success
-  - 0 = Partial (some records failed to be inserted)
-  - -1 = Error
-Parameters
-  @MFTableName
-    - Valid Class TableName as a string
-    - Pass the class table name, e.g.: 'MFCustomer'
-  @Updatemethod
-    - 0 = update from SQL to M-Files
-    - 1 = update from M-Files to SQL
-  @User_ID (optional)
-    - Default = 0
-    - User_Id from MX_User_Id column
-    - This is NOT the M-Files user.  It is used to set and apply a user_id for a third party system. An example is where updates from a third party system must be filtered by the third party user (e.g. placing an order)
-  @MFLastModified (optional)
-    - Default = 0
-    - Get objects from M-Files that has been modified in M-files later than this date.
-  @ObjIDs (optional)
-    - Default = null
-    - ObjID's of records (separated by comma) e.g. : '10005,13203'
-    - Restricted to 4000 charactes including the commas
-  @Update_IDOut (optional, output)
-    Output id of the record in MFUpdateHistory logging the update ; Also added to the record in the Update_ID column on the class table
-  @ProcessBatch_ID (optional, output)
-    Referencing the ID of the ProcessBatch logging table
-  @SyncErrorFlag (optional)
-    - Default = 0
-    - This parameter is automatically set by spMFUpdateSynchronizeError when synchronization routine is called.
-  @RetainDeletions (optional)
-    - Default = 0
-    - Set to 1 to keep deleted items in M-Files in the SQL table shown as deleted = 1
-  @Debug (optional)
-    - Default = 0
-    - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
-
-**rST*************************************************************************/
->>>>>>> f752c89c1bdc3afac53f75e4edf7101400e7c2c2
 DECLARE @Update_ID    INT
        ,@return_value INT = 1;
 
