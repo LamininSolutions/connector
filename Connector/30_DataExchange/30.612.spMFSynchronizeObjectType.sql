@@ -43,18 +43,46 @@ ALTER PROCEDURE [dbo].[spMFSynchronizeObjectType]
 	  ,@IsUpdate SMALLINT=0
     )
 AS
-  /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to synchronize M-File ObjectType details  
-  ** Date:				27-03-2015
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  ** 2016-09-26  DevTeam(2) Removed Vault Settings parameters and pass them as 
-                            comma separated string in single parameter  (@VaultSettings
-     2018-04-04  Devteam(2) Added License module validation code.
-   ******************************************************************************/
+
+
+    
+/*rST**************************************************************************
+
+<<<<<<< HEAD
+=======
+=========================
+spMFSynchronizeObjectType
+=========================
+
+Parameters
+  @VaultSettings 
+    - use fnMFVaultSettings()
+  @Debug (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+  @Out (Output)
+    - XML result
+  @IsUpdate (Optional)
+    - Default = 0
+	- 1 = Push updates from SQL to M-Files 
+
+Purpose
+=======
+Internal procedure to synchronize ObjectTypes 
+Used by spMFSynchronizeMetadata and spMFSynchronizeSpecificMetadata
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2016-09-26  DevTeam(2) Removed Vault Settings parameters and pass them as comma separated string in single parameter  (@VaultSettings
+2018-04-04  Devteam(2) Added License module validation code.
+==========  =========  ========================================================
+
+**rST*************************************************************************/													
+
   BEGIN
       SET NOCOUNT ON
 

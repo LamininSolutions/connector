@@ -1,6 +1,17 @@
 PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFSynchronizeClasses]';
 GO
 
+   --BELOW HEADER
+/*------------------------------------------------------------------------------------------------
+	Author: DEV2
+	Create date: 27-03-2015
+	
+	
+															
+------------------------------------------------------------------------------------------------*/
+
+
+
 SET NOCOUNT ON 
 EXEC [Setup].[spMFSQLObjectsControl]
     @SchemaName = N'dbo'
@@ -13,19 +24,6 @@ EXEC [Setup].[spMFSQLObjectsControl]
  
 GO
 
-/*
- ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  ** 2016-09-26  DevTeam2   Removed vault settings and pass them as comma separate
-                            string in @VaultSettings parameter.
-	2017-09-11	LC			Resolve issue with constraints
-	2017-12-3	LC			Prevent MFID -100 assignements to be included in update
-	2018-04-04  DEV2        Added Module validation code
-  ********************************************************************************
-*/
 
 IF EXISTS ( SELECT  1
             FROM    [INFORMATION_SCHEMA].[ROUTINES]
@@ -57,12 +55,48 @@ ALTER PROCEDURE [dbo].[spMFSynchronizeClasses]
       , @Out [NVARCHAR](MAX) OUTPUT
       , @IsUpdate SMALLINT = 0
       )
-AS /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to synchronize M-File Class details  
-  **  
+AS 
 
-  ** Date:				27-03-2015
-   ******************************************************************************/
+    
+/*rST**************************************************************************
+
+<<<<<<< HEAD
+=======
+======================
+spMFSynchronizeClasses
+======================
+
+Parameters
+  @VaultSettings 
+    - use fnMFVaultSettings()
+  @Debug (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+  @Out (Output)
+    - XML result
+  @IsUpdate (Optional)
+    - Default = 0
+	- 1 = Push updates from SQL to M-Files 
+
+Purpose
+=======
+Internal procedure to synchronize classes
+Used by spMFSynchronizeMetadata and spMFSynchronizeSpecificMetadata
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2016-09-26  DevTeam2    Removed vault settings and pass them as comma separate string in @VaultSettings parameter.
+2017-09-11  LC          Resolve issue with constraints
+2017-12-3   LC          Prevent MFID -100 assignements to be included in update
+2018-04-04  DEV2         Added Module validation code
+==========  =========  ========================================================
+
+**rST*************************************************************************/													
+
       BEGIN
             SET NOCOUNT ON;
 
