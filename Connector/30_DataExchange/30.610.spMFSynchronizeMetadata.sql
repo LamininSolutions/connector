@@ -1,6 +1,13 @@
 PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFSynchronizeMetadata]';
 GO
  
+/*------------------------------------------------------------------------------------------------
+	Author: Thejus T V
+	Create date: 27-03-2015
+    Desc:  The purpose of this procedure is to synchronize M-File Meta data  
+															
+------------------------------------------------------------------------------------------------*/
+
 
 SET NOCOUNT ON; 
 EXEC [Setup].[spMFSQLObjectsControl]
@@ -40,28 +47,81 @@ GO
 
 
 ALTER PROCEDURE [dbo].[spMFSynchronizeMetadata]
-      @Debug SMALLINT = 0
-    , @ProcessBatch_ID INT = NULL OUTPUT 
-AS /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to synchronize M-File Meta data  
-  **
-  ** Author:			Thejus T V
-  ** Date:				27-03-2015
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  ** 25-05-2015  DEV 2	   UserAccount and Login account is added
-  2016-8-22      lc				change settings index
-  2016-09-26     DevTeam2  Removed Vaultsettings parametes and pass them as comma
-                           separated string in @VaultSettings parameter
-2017-08-22		lc			change processBatch_ID to output param
-2017-08-22		lc			improve logging
-2018-4-30		lc			Add to MFUserMessage
-2018-7-25		LC			Auto create MFUserMessages
-2018-11-15		LC			fix processbatch_ID logging
-  ******************************************************************************/
+     @ProcessBatch_ID INT = NULL OUTPUT 
+    ,@Debug SMALLINT = 0
+
+AS
+
+/*rST**************************************************************************
+
+<<<<<<< HEAD
+=======
+===============
+
+===============
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @ProcessBatch_ID (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @Debug (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+To pull M-Files Metadata during initialisation of MFSQL Connector
+
+Prerequisites
+=============
+Vault connection is valid
+
+Warnings
+========
+Custom settings in the metadata structure tables such as tablename and columnname will not be retained
+
+Examples
+========
+
+.. code:: sql
+
+EXEC [dbo].[spMFSynchronizeMetadata]
+
+----
+
+.. code:: sql
+
+DECLARE @return_value int
+ 
+EXEC    @return_value = [dbo].[spMFSynchronizeMetadata]
+        @Debug = 0
+ 
+SELECT  'Return Value' = @return_value
+ 
+GO
+   
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2015-05-25  DEV 2      UserAccount and Login account is added
+2016-8-22   lc         change settings index
+2016-09-26  DevTeam2   Removed Vaultsettings parametes and pass them as comma separated string in @VaultSettings parameter
+2017-08-22  lc         change processBatch_ID to output param
+2017-08-22  lc         improve logging
+2018-4-30   lc         Add to MFUserMessage
+2018-7-25   LC         Auto create MFUserMessages
+2018-11-15  LC         fix processbatch_ID logging
+==========  =========  ========================================================
+
+**rST*************************************************************************/	
+
       BEGIN
             SET NOCOUNT ON;
 
