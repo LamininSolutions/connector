@@ -6,7 +6,7 @@ GO
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFTableAuditinBatches' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.52'            -- varchar(50)
+                                    ,@Object_Release = '4.4.12.52'            -- varchar(50)
                                     ,@UpdateFlag = 2;                         -- smallint
 GO
 
@@ -32,6 +32,7 @@ It will also keep the size of the dataset for transfer within the limits of 8000
 
 	updated version 2018-12-15
 	2019-08-05		LC			add process logging
+	2019-08-17		LC			Add routine to remove destroyed objects from class table
 
 ------------------------------------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------------------------
@@ -339,35 +340,115 @@ BEGIN
                                        ,@OutofSync = @OutofSync OUTPUT             -- int
                                        ,@ProcessErrors = @ProcessErrors OUTPUT     -- int
                                        ,@ProcessBatch_ID = @ProcessBatch_ID OUTPUT -- int
-                                       ,@Debug = @Debug;                           -- smallint
+                                       ,@Debug = @Debug;
 
-            DECLARE @NewXML XML;
+            -- smallint
 
-            SET @NewXML = CAST(@NewObjectXml AS XML);
+            -------------------------------------------------------------
+            -- Temporary table of audit result
+            -------------------------------------------------------------
+
+            IF
+            (
+                SELECT OBJECT_ID('tempdb..#MFTableObjlist')
+            ) IS NOT NULL
+                DROP TABLE [#MFTableObjlist];
+
+            CREATE TABLE [#MFTableObjlist]
+            (
+                [Objid] INT
+               ,[AH_objid] INT
+            );
+
+            SET @Params = N'@StartRow int, @MaxRow int';
+            SET @SQL = N'
+INSERT INTO #MFTableObjlist
+(
+    [Objid]
+)
+SELECT [Objid] FROM ' + QUOTENAME(@MFTableName) + ' WHERE [Objid] BETWEEN @StartRow AND @MaxRow';
+
+            EXEC [sys].[sp_executesql] @SQL, @Params, @StartRow, @MaxRow;
+
+            --SELECT 'FromTable', * FROM [#MFTableObjlist] AS [mto]
+
+            -------------------------------------------------------------
+            -- Match audit table with class table for the batch
+            -------------------------------------------------------------
+            SET @Procedurestep = 'Match objids ';
+
+            DECLARE @Idoc INT;
+
+            EXEC [sys].[sp_xml_preparedocument] @Idoc OUTPUT, @NewObjectXml;
+
+            WITH [cte]
+            AS (SELECT [xmlfile].[AH_objId]
+                FROM
+                    OPENXML(@Idoc, '/form/objVers', 1)
+                    WITH
+                    (
+                        [AH_objId] INT './@objectID'
+                    ) [xmlfile])
+            MERGE INTO [#MFTableObjlist] [t]
+            USING
+            (SELECT [cte].[AH_objId] FROM [cte]) [s]
+            ON [t].[Objid] = [s].[AH_objId]
+            WHEN MATCHED THEN
+                UPDATE SET [t].[AH_objid] = [s].[AH_objId]
+            WHEN NOT MATCHED THEN
+                INSERT
+                (
+                    [AH_objid]
+                )
+                VALUES
+                ([s].[AH_objId]);
+
+            EXEC [sys].[sp_xml_removedocument] @Idoc;
+
+            -------------------------------------------------------------
+            -- Remove non existend objects from class table
+            -------------------------------------------------------------
+            SET @Procedurestep = 'Remove objids from class table ';
+
+            SET @SQL
+                = N'DELETE FROM ' + QUOTENAME(@MFTableName)
+                  + ' where objid IN (SELECT mto.objid FROM [#MFTableObjlist] AS [mto] WHERE [mto].[AH_objid] IS null);';
+	 
+            EXEC [sys].[sp_executesql] @SQL;
 
             SELECT @RecCount = COUNT(*)
-            FROM @NewXML.[nodes]('/form/objVers') AS [t]([c]);
+            FROM [#MFTableObjlist] AS [mto]
+            WHERE [mto].[AH_objid] IS NULL;
 
-            SET @DebugText = ' Objects from MF %i';
+            SET @DebugText = ' Objects Removed from class table %i';
             SET @DebugText = @DefaultDebugText + @DebugText;
-            SET @Procedurestep = 'Table audit by objids';
 
             IF @Debug > 0
             BEGIN
                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @Procedurestep, @RecCount);
             END;
 
-            --         IF @Debug > 0
-            --Begin
-            --             SET @Params = '@RecCount int output';
-            --             SET @SQL
-            --                 = 'SELECT @RecCount = COUNT(*) FROM ' + @MFTableName + ' where update_ID ='
-            --                   + CAST(@Update_IDOut AS VARCHAR(10)) + '';
+            -------------------------------------------------------------
+            -- count records updated in audit table
+            -------------------------------------------------------------
+            SELECT @RecCount = COUNT(*)
+            FROM [#MFTableObjlist] AS [mto]
+            WHERE [mto].[AH_objid] IS NOT NULL;
 
-            --             EXEC [sys].[sp_executesql] @SQL, @Params, @RecCount OUTPUT;
+            SET @DebugText = ' Objects from MF %i';
+            SET @DebugText = @DefaultDebugText + @DebugText;
+            SET @Procedurestep = 'Table audit count ';
 
-            --                 SELECT @RecCount AS [Class table recordcount];
-            --         END
+            IF @Debug > 0
+            BEGIN
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @Procedurestep, @RecCount);
+            END;
+
+            IF
+            (
+                SELECT OBJECT_ID('tempdb..#MFTableObjlist')
+            ) IS NOT NULL
+                DROP TABLE [#MFTableObjlist];
 
             -------------------------------------------------------------
             -- performance message
@@ -393,8 +474,12 @@ BEGIN
                                 ELSE
                                     @StartRow + @BatchSize + 1
                             END;
-        --SET @StartRow = @StartRow + @BatchSize + 1;
-        --SELECT @StartRow [nextstartrow];
+
+            IF
+            (
+                SELECT OBJECT_ID('tempdb..#MFTableObjlist')
+            ) IS NOT NULL
+                DROP TABLE [#MFTableObjlist];
         END;
     END;
 END;

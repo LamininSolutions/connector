@@ -6,7 +6,7 @@ GO
 
 EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFUpdateTableinBatches' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.52'             -- varchar(50)
+                                    ,@Object_Release = '4.4.12.52'             -- varchar(50)
                                     ,@UpdateFlag = 2;                          -- smallint
 GO
 
@@ -269,6 +269,10 @@ BEGIN TRY
 
             --IF @WithStats = 1
             --    RAISERROR(@Message, 10, 1) WITH NOWAIT;
+   
+   -------------------------------------------------------------
+   -- with table table set to 1
+   -------------------------------------------------------------
                  SET @StartTime = GETDATE();    
 	        IF @WithTableAudit = 1
             BEGIN

@@ -290,9 +290,9 @@ DECLARE @Idoc INT;
 
 --change the below to include your table name
 SELECT @lastmodified = MAX([mbs].[MF_Last_Modified])
-FROM [dbo].MFBasic_singleProp AS [mbs];
+FROM [dbo].MFCustomer AS [mbs];
 
-EXEC [dbo].[spMFGetObjectvers] @TableName = 'MFBasic_SingleProp'                   -- nvarchar(100)
+EXEC [dbo].[spMFGetObjectvers] @TableName = 'MFCustomer'                   -- nvarchar(100)
                               ,@dtModifiedDate = @lastmodified            -- datetime
                               ,@MFIDs = null                         -- nvarchar(4000)
                               ,@outPutXML = @outPutXML OUTPUT             -- nvarchar(max)
