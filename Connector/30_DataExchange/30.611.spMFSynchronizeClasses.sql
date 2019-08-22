@@ -60,14 +60,12 @@ AS
     
 /*rST**************************************************************************
 
-<<<<<<< HEAD
-=======
 ======================
 spMFSynchronizeClasses
 ======================
 
 Parameters
-  @VaultSettings 
+  @VaultSettings
     - use fnMFVaultSettings()
   @Debug (optional)
     - Default = 0
@@ -76,10 +74,11 @@ Parameters
     - XML result
   @IsUpdate (Optional)
     - Default = 0
-	- 1 = Push updates from SQL to M-Files 
+    - 1 = Push updates from SQL to M-Files
 
 Purpose
 =======
+
 Internal procedure to synchronize classes
 Used by spMFSynchronizeMetadata and spMFSynchronizeSpecificMetadata
 
@@ -89,13 +88,13 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2016-09-26  DevTeam2    Removed vault settings and pass them as comma separate string in @VaultSettings parameter.
-2017-09-11  LC          Resolve issue with constraints
-2017-12-3   LC          Prevent MFID -100 assignements to be included in update
-2018-04-04  DEV2         Added Module validation code
+2018-04-04  DEV2       Added Module validation code
+2017-12-3   LC         Prevent MFID -100 assignements to be included in update
+2017-09-11  LC         Resolve issue with constraints
+2016-09-26  DevTeam2   Removed vault settings and pass them as comma separate string in @VaultSettings parameter.
 ==========  =========  ========================================================
 
-**rST*************************************************************************/													
+**rST*************************************************************************/
 
       BEGIN
             SET NOCOUNT ON;
