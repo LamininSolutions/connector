@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFTableAudit' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.51'   -- varchar(50)
+                                    ,@Object_Release = '4.4.12.52'   -- varchar(50)
                                     ,@UpdateFlag = 2;                -- smallint
 GO
 
@@ -27,6 +27,7 @@ GO
 2019-4-11		LC		fix collection object type in table	
 2019-5-18		LC		add additional exception for deleted in SQL but not deleted in MF
 2019-6-22		LC		objid parameter not yet functional
+2019-08-16		LC		fix bug for removing destroyed objects
   ---------------
 */
 
@@ -275,6 +276,11 @@ BEGIN TRY
         --    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ObjIDsForUpdate);
         --END;
 
+		-------------------------------------------------------------
+		-- Get class table name
+		-------------------------------------------------------------
+	DECLARE @ClassTableColumn NVARCHAR(100)
+		SELECT @ClassTableColumn = [ColumnName] FROM MFproperty WHERE mfid = 100
         -----------------------------------------------------
         --Wrapper Method
         -----------------------------------------------------
@@ -674,26 +680,13 @@ WHERE ao.objid IS NULL) ;';
 						   WHERE id IN (SELECT mah.id from [dbo].[MFAuditHistory] mah
 						   left JOIN ' + QUOTENAME(@MFTableName)
                       + ' AS [mlv]
-						   ON mlv.objid = mah.[ObjID] AND mlv.[Class_ID] = mah.[Class]
+						   ON mlv.objid = mah.[ObjID] AND mlv.'+@ClassTableColumn+' = mah.[Class]
 						   WHERE mlv.id IS NULL) and isnull(StatusFlag,-1) = -1  ;';
 
                 EXEC (@sql);
             END;
 
-            /*
 
-					Update t
-					set deleted = 1
-
-					from ' + @MFTableName
-              + ' as t 
-					inner join MFAuditHistory th
-					on t.objid = th.objid 
-					where StatusFlag = 4 and SessionID = @SessionID;		
-							
-							';
-
-        SET @ProcedureStep = 'Audit Result';
 
 
         -------------------------------------------------------------
@@ -745,7 +738,7 @@ WHERE ao.objid IS NULL) ;';
 
         IF @Process_id_1 > 0
             SET @Msg = @Msg + ' | SQL New : ' + CAST(@NewSQL AS VARCHAR(5));
-*/
+
 
 	EXEC [dbo].[spMFProcessBatch_Upsert]
 				@ProcessBatch_ID = @ProcessBatch_ID

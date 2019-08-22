@@ -4,7 +4,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFUpdateMFilesToMFSQL' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.52'            -- varchar(50)
+                                    ,@Object_Release = '4.4.12.52'            -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
 GO
@@ -262,12 +262,12 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + ')
                 DECLARE @MFAuditHistorySessionID INT = NULL;
 
                 IF @UpdateTypeID = (@UpdateType_0_FullRefresh)
-                   AND
-                   (
-                       SELECT COUNT(*)
-                       FROM [dbo].[MFAuditHistory] AS [mah]
-                       WHERE [mah].[Class] = @Class_ID
-                   ) = 0
+                   --AND
+                   --(
+                   --    SELECT COUNT(*)
+                   --    FROM [dbo].[MFAuditHistory] AS [mah]
+                   --    WHERE [mah].[Class] = @Class_ID
+                   --) = 0
                 BEGIN
                     SET @StartTime = GETUTCDATE();
                     SET @DebugText = '';
@@ -296,6 +296,19 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + ')
                                                             ,@WithStats = 1              -- bit
                                                             ,@ProcessBatch_ID = @ProcessBatch_ID
                                                             ,@Debug = @debug;            -- int
+     END
+	 ELSE 
+	 BEGIN
+     
+	  EXEC [dbo].[spMFTableAuditinBatches] @MFTableName = @MFTableName -- nvarchar(100)
+                                                            ,@FromObjid = 1              -- int
+                                                            ,@ToObjid = @Tobjid  -- int
+                                                            ,@WithStats = 1              -- bit
+                                                            ,@ProcessBatch_ID = @ProcessBatch_ID
+                                                            ,@Debug = @debug;            -- int
+
+
+END
 
                         SET @ProcedureStep = 'Get Object Versions with Batch Audit';
                         SET @StartTime = GETUTCDATE();
@@ -316,14 +329,11 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + ')
                                                                   ,@LogProcedureName = @ProcedureName
                                                                   ,@LogProcedureStep = @ProcedureStep
                                                                   ,@debug = @debug;
-                    END;
+               
 
                     -------------------------------------------------------------
                     -- class table update in batches
                     -------------------------------------------------------------
-                    SELECT @Tobjid = MAX([mah].[ObjID])
-                    FROM [dbo].[MFAuditHistory] AS [mah]
-                    WHERE [mah].[Class] = @Class_ID;
 
                     SET @Tobjid = ISNULL(@Tobjid, 0) + 500;
                     SET @DebugText = 'Max Objid %i';
@@ -355,7 +365,7 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + ')
 
                     EXEC @return_value = [dbo].[spMFUpdateTableinBatches] @MFTableName = @MFTableName -- nvarchar(100)
                                                                          ,@UpdateMethod = 1           -- int
-                                                                         ,@WithTableAudit = 0         -- int
+                                                                         ,@WithTableAudit =1         -- int
                                                                          ,@FromObjid = 1              -- bigint
                                                                          ,@ToObjid = @Tobjid          -- bigint
                                                                          ,@WithStats = 0              -- bit

@@ -6,7 +6,7 @@ GO
 
 SET NOCOUNT ON;
 
-EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
+EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFGetHistory'
                                     -- nvarchar(100)
                                     ,@Object_Release = '4.4.11.52'
@@ -65,7 +65,7 @@ ALTER PROCEDURE [dbo].[spMFGetHistory]
    ,@IsFullHistory BIT
    ,@NumberOFDays INT = -1
    ,@StartDate DATETIME = '1901-01-10'
-   --     @Update_ID       INT           = NULL OUTPUT,
+   ,@Update_ID INT = NULL OUTPUT
    ,@ProcessBatch_id INT = NULL OUTPUT
    ,@Debug INT = 0
 )
@@ -108,7 +108,7 @@ BEGIN
         DECLARE @rowcount AS INT = 0;
         DECLARE @return_value AS INT;
         DECLARE @RC INT;
-        DECLARE @Update_ID INT;
+        --  DECLARE @Update_ID INT;
 
         ----------------------------------------------------------------------
         --GET Vault LOGIN CREDENTIALS
@@ -437,7 +437,7 @@ select @StartDate as 'StartDate'
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
-        EXEC [dbo].[spMFCheckLicenseStatus] 'spMFGetHistoryInternal'
+        EXEC [dbo].[spMFCheckLicenseStatus] 'spMFGetHistory'
                                            ,@ProcedureName
                                            ,@ProcedureStep;
 
@@ -498,7 +498,7 @@ select @StartDate as 'StartDate'
            ,[Class_ID] INT
            ,[ObjID] INT
            ,[MFVersion] INT
-           ,[LastModifiedUTC] NVARCHAR(50)
+           ,[LastModifiedUTC] NVARCHAR(100)
            ,[MFLastModifiedBy_ID] INT
            ,[Property_ID] INT
            ,[Property_Value] NVARCHAR(300)
@@ -534,12 +534,18 @@ select @StartDate as 'StartDate'
                ,[ClassID] INT '../@ClassID'
                ,[ObjID] INT '../@ObjID'
                ,[Version] INT '../@Version'
-               --         [LastModifiedUTC] NVARCHAR(30) '../@LastModifiedUTC',
-               ,[LastModifiedUTC] NVARCHAR(50) '../@CheckInTimeStamp'
+               --      , [LastModifiedUTC] NVARCHAR(30) '../@LastModifiedUTC'
+               ,[LastModifiedUTC] NVARCHAR(100) '../@CheckInTimeStamp'
                ,[LastModifiedBy_ID] INT '../@LastModifiedBy_ID'
                ,[Property_ID] INT '@Property_ID'
                ,[Property_Value] NVARCHAR(300) '@Property_Value'
             );
+
+        IF @Debug > 0
+            SELECT *
+            FROM [#Temp_ObjectHistory] AS [toh];
+
+        EXEC [sys].[sp_xml_removedocument] @Idoc;
 
         ----------------------------------------------------------------------------------
         --Merge/Inserting records into the MFObjectChangeHistory from Temp_ObjectHistory
@@ -559,14 +565,18 @@ select @StartDate as 'StartDate'
            AND [t].[ObjID] = [s].[ObjID]
            AND [t].[MFVersion] = [s].[MFVersion]
            AND [t].[Property_ID] = [s].[Property_ID]
-        WHEN NOT MATCHED BY TARGET THEN
+        WHEN MATCHED THEN
+        UPDATE SET 
+		[t].[LastModifiedUtc] = s.[LastModifiedUTC]
+		,[t].[Property_Value] = s.[Property_Value]
+		WHEN NOT MATCHED BY TARGET THEN
             INSERT
             (
                 [ObjectType_ID]
                ,[Class_ID]
                ,[ObjID]
                ,[MFVersion]
-               ,[LastModifiedUTC]
+               ,[LastModifiedUtc]
                ,[MFLastModifiedBy_ID]
                ,[Property_ID]
                ,[Property_Value]
@@ -579,7 +589,7 @@ select @StartDate as 'StartDate'
                                                                                   --    ELSE
                                                                                   --        CAST([s].[LastModifiedUTC] AS DATETIME2)
                                                                                   --END, 
-               ,CONVERT(DATETIME, [s].[LastModifiedUTC], 105), [s].[MFLastModifiedBy_ID], [s].[Property_ID]
+               ,[s].[LastModifiedUTC], [s].[MFLastModifiedBy_ID], [s].[Property_ID]
                ,[s].[Property_Value], [s].[CreatedOn]);
 
         -------------------------------------------------------------

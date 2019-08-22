@@ -4,7 +4,7 @@ go
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFSearchForObjectbyPropertyValues', -- nvarchar(100)
-    @Object_Release = '4.3.09.48', -- varchar(50)
+    @Object_Release = '4.3.9.49', -- varchar(50)
     @UpdateFlag = 2 -- smallint
  
 go
@@ -37,6 +37,7 @@ ALTER PROCEDURE [dbo].[spMFSearchForObjectbyPropertyValues] (@ClassID         [I
                                                               ,@PropertyValues [NVARCHAR](2000)
                                                               ,@Count          [INT]
 															  ,@OutputType int
+															  ,@IsEqual int=0
 															  ,@XMLOutPut xml output
 											                  ,@TableName varchar(200)='' output)
 AS   
@@ -55,6 +56,7 @@ AS
                             comma separated string in @VaultSettings parameters.
 	 2018-04-04 DevTeam2    Added License module validation code.
 	 2019-05-08	LC			Change target table to a temporary table
+	 2019-13-08	LC			added Additional option for search procedure
   ******************************************************************************/
   BEGIN
       BEGIN TRY
@@ -95,6 +97,7 @@ AS
             ,@PropertyIds
             ,@PropertyValues
             ,@Count
+			,@IsEqual
             ,@Xml OUTPUT
             ,@IsFound OUTPUT
 

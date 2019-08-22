@@ -46,47 +46,14 @@ alter Procedure spMFChangeClass
 (
 		@MFTableName NVARCHAR(128)
 )
-AS 
+AS /*******************************************************************************
+   ** Desc:  The purpose of this procedure is to move the records from one class 
+          table to another class table and synxhronize records into M-Files.
+   ** Calls: spMFUpdateTable
 
+   ** Date:  06-01-2017
 
-/*rST**************************************************************************
-
-|Stored Procedures| [dbo].[spMFChangeClass]
-===========================================
-
---------------
-
-Properties
-----------
-
-==================== =====
-Property             Value
-==================== =====
-ANSI Nulls On        YES
-Quoted Identifier On YES
-==================== =====
-
---------------
-
-Parameters
-----------
-
-============ ============= ==================
-Name         Data Type     Max Length (Bytes)
-============ ============= ==================
-@MFTableName nvarchar(128) 256
-============ ============= ==================
-
---------------
-
-Purpose
-----------
-
-The purpose of this procedure is to move the records from one class table to another class table and synxhronize records into M-Files.
-
-
-**rST*************************************************************************/
-
+   ******************************************************************************/
       Begin
 	   
 			  BEGIN TRY
