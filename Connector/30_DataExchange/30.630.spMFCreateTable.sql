@@ -8,15 +8,7 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@Object_Release = '4.2.7.46'     -- varchar(50)
                                     ,@UpdateFlag = 2;
 
--- smallint
-/*
- ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
 
-  */
 IF EXISTS
 (
     SELECT 1
@@ -192,15 +184,7 @@ Date        Author     Description
 
 **rST*************************************************************************/	
 
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to create the Table for a Class in M-Files.  
-  **  
-  ** Version: 1.0.0.6
-  **
-  ** Author:          Thejus T V
-  ** Date:            27-03-2015
-  
-  ******************************************************************************/
+
 BEGIN
     SET NOCOUNT ON;
 
