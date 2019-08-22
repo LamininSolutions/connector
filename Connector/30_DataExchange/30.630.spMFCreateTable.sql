@@ -155,15 +155,15 @@ Examples
 
 .. code:: sql
 
- Exec spMFCreateTable 'Customer'
+Exec spMFCreateTable 'Customer'
 
 ----
 
 .. code:: sql
 DECLARE    @return_value int
   
-EXEC        @return_value = [dbo].[spMFCreateTable]
-                              @ClassName =  N'Customer'
+EXEC @return_value = [dbo].[spMFCreateTable]
+@ClassName =  N'Customer'
   
 SELECT    'Return Value'  = @return_value
   
