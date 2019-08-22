@@ -2,18 +2,18 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[$sche
 GO
 SET NOCOUNT ON
 EXEC [setup].[spMFSQLObjectsControl]
-	@SchemaName = N'$schema$'
+    @SchemaName = N'$schema$'
   , @ObjectName = N'$procname$' -- nvarchar(100)
   , @Object_Release = '$Release$'
   , @UpdateFlag = 2
 
 GO
 /*------------------------------------------------------------------------------------------------
-	Author: $USER$
-	Create date: $DATE$ $TIME$
+Author: $USER$
+Create date: $DATE$ $TIME$
 
 Test Script:
-															
+
 ------------------------------------------------------------------------------------------------*/
 
 
@@ -49,8 +49,6 @@ AS
 
 /*rST**************************************************************************
 
-<<<<<<< HEAD
-=======
 ===============
 
 ===============
@@ -73,15 +71,13 @@ Parameters
 Purpose
 =======
 
-
 Prerequisites
 =============
 
 Subheading
 -------------------
+
 Text
-
-
 
 Warnings
 ========
@@ -91,13 +87,14 @@ Examples
 
 .. code:: sql
 
- 
+    
 
 ----
 
 .. code:: sql
 
-   
+    
+
 Changelog
 =========
 
@@ -105,10 +102,9 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 
-
 ==========  =========  ========================================================
 
-**rST*************************************************************************/	
+**rST*************************************************************************/
 
 	BEGIN
 		SET NOCOUNT ON;

@@ -45,8 +45,6 @@ ALTER PROCEDURE [dbo].[spMFCreateTable]
 AS
 /*rST**************************************************************************
 
-<<<<<<< HEAD
-=======
 ===============
 spMFCreateTable
 ===============
@@ -68,39 +66,47 @@ To create table for a class with associate properties and other custom columns (
 
 The column **IncludedInApp** in the MFCLass table is set to 1 for the created class table.
 
-Additional info
-==============
-Class tables are not added by the Connector on deployment. The class tables are added by the developer using the Connector for those M-Files classes that will be used in the application. 
+Additional Info
+===============
+
+Class tables are not added by the Connector on deployment. The class tables are added by the developer using the Connector for those M-Files classes that will be used in the application.
 
 Table Name
 ----------
+
 The name of the class table is defined in column TableName in the MFClass Table. The Connector will create a default name for all the tables. These names can be customised.
 
 Column Name
 -----------
+
 The name of the column is defined in the MFProperty Table in **ColumnName**. These names can be customised.
-Several special columns are automatically created: 
- -metadata structure properties
- -standard or system properties
- -additional properties
- -columns for special purposes
- -Non Connector columns
-The column order also has a very specific order. 
+Several special columns are automatically created:
+
+- Metadata structure properties
+- Standard or system properties
+- Additional properties
+- Columns for special purposes
+- Non Connector columns
+
+The column order also has a very specific order.
 
 Property Column Definitions
 ---------------------------
-The metadata structure property columns in the Class Table is defined in the MFClassProperty table. 
+
+The metadata structure property columns in the Class Table is defined in the MFClassProperty table.
 Single and multi-lookup properties will have both a label column and a ID column, for example Customer and Customer_ID. The label column is incidental and does not have to be updated when changes are made. Only the ID have to be updated. The name column will be automatically refreshed from the metadata.
 If the metadata is a required property as defined in the MFClassProperty table then the column will be created with a NOT NULL constraint.
 
 MF Addidional Property
------------------
+----------------------
+
 M-Files allow the addition of ad-hoc properties. When a property is dropped from the metadata definition in M-Files and already have values on an object, then the property will retain its value.
 
 When the Connector finds an additional property on an object, and it is not part of the metadata card, then a column will be added to the end of the Class Table with the columnname and datatype definitions as previously described.
 
 Non Connector Columns
 ---------------------
+
 It is possible to add columns to the class table that will be ignored by the Connector but is available for processing in the application. These columns must have a prefix of MX_ (for example MX_SAGE_Code)
 
 Notwithstanding the ability to add additional columns to the Connector tables following the convension above, it is recommended to create additional tables for custom applications that is cross referenced to the Connector tables rather than adding columns to Connector tables.
@@ -108,38 +114,41 @@ Notwithstanding the ability to add additional columns to the Connector tables fo
 Special columns
 ---------------
 
-======================= =============== ================================================================ ================
-Column                  Description     Special application                                              Updateable
------------------------ --------------- ---------------------------------------------------------------- ----------------
-Workflow_ID             MF Workflow_ID  Always include workflow ID when inserting or updating the state  Updatable
-Workflow                MF Workflow     For information only, not required to be updated                 From M-Files
-Update_ID               SQL history log ID of history log when record was last updated                   SQL only, Read only
-State_ID                MF State_ID     Used to update or insert a state                                 Updatable
-State                   MF State        For information only, not required to be updated                 From M-Files
-Process_ID              SQL process ID  Show status of process of record. Default value is 0             Flag
-ObjID                   MF Internal ID  Leave blank when new records is created in SQL                   From M-Files
-MX_User_ID              SQL User ID     External applications SQL user ID for the record                 SQL only
-MFVersion               MF Version      Last MF Version                                                  From M-Files
-MF_Last_Modified_By_ID  MF user id                                                                       From M-Files
-MF_Last_Modified_By     MFuser name                                                                      From M-Files
-MF_Last_Modified        last modified 	M-Files last modified in UTC datetime format                     From M-Files             	
-LastModified			last modified   When SQL last updated, SQL server Local time format              Default Getdate() 	
-IsSingleFile            MF Single File	Show status of the Single File property in M-Files.              From M-Files, Updatable
-ID                      Identity        Record id in SQL                                                 SQL Only
-GUID                    MF object Guid  Used for creating ULR links to record                            From M-Files
-FileCount               MF File Count   Count of files included in the object                            From M-Files
-ExternalID              MF External ID  MF displayID, must be unique                                     Updatable
-Deleted                 MF Deleted      Deletion Status of record in MF	                                 From M-Files
-Created                 MF Created date In UTC datetime format                                           From M-Files     
+=======================  ===============  ================================================================  ================
+Column                   Description      Special application                                               Updateable
+-----------------------  ---------------  ----------------------------------------------------------------  ----------------
+Workflow_ID              MF Workflow_ID   Always include workflow ID when inserting or updating the state   Updatable
+Workflow                 MF Workflow      For information only, not required to be updated                  From M-Files
+Update_ID                SQL history log  ID of history log when record was last updated                    SQL only, Read only
+State_ID                 MF State_ID      Used to update or insert a state                                  Updatable
+State                    MF State         For information only, not required to be updated                  From M-Files
+Process_ID               SQL process ID   Show status of process of record. Default value is 0              Flag
+ObjID                    MF Internal ID   Leave blank when new records is created in SQL                    From M-Files
+MX_User_ID               SQL User ID      External applications SQL user ID for the record                  SQL only
+MFVersion                MF Version       Last MF Version                                                   From M-Files
+MF_Last_Modified_By_ID   MF user id                                                                         From M-Files
+MF_Last_Modified_By      MFuser name                                                                        From M-Files
+MF_Last_Modified         last modified    M-Files last modified in UTC datetime format                      From M-Files
+LastModified             last modified    When SQL last updated, SQL server Local time format               Default Getdate()
+IsSingleFile             MF Single File   Show status of the Single File property in M-Files.               From M-Files, Updatable
+ID                       Identity         Record id in SQL                                                  SQL Only
+GUID                     MF object Guid   Used for creating ULR links to record                             From M-Files
+FileCount                MF File Count    Count of files included in the object                             From M-Files
+ExternalID               MF External ID   MF displayID, must be unique                                      Updatable
+Deleted                  MF Deleted       Deletion Status of record in MF                                   From M-Files
+Created                  MF Created date  In UTC datetime format                                            From M-Files
+=======================  ===============  ================================================================  ================
 
 Prerequisites
 =============
+
 Class name exist
 MFClass table contains names of the valid classes
 
 Warnings
 ========
-Drop and recreate to reset a class table when the table name is customised in MFClass 
+
+Drop and recreate to reset a class table when the table name is customised in MFClass
 When an additional property is added in M-Files to an object the column will automatically be added at the end of the table.
 
 Examples
@@ -147,42 +156,40 @@ Examples
 
 .. code:: sql
 
-Exec spMFCreateTable 'Customer'
+   EXEC spMFCreateTable 'Customer'
 
 ----
 
 .. code:: sql
-DECLARE    @return_value int
-  
-EXEC @return_value = [dbo].[spMFCreateTable]
-@ClassName =  N'Customer'
-  
-SELECT    'Return Value'  = @return_value
-  
-GO
 
-   
+   DECLARE    @return_value int
+   EXEC       @return_value = [dbo].[spMFCreateTable]
+              @ClassName =  N'Customer'
+   SELECT    'Return Value'  = @return_value
+   GO
+
+
 Changelog
 =========
 
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-23-05-2015  DEV2       Default column ExternalID added
-25-05-2015  DEV2       Default column Update_ID added
-27-06-2016  LC         Automatically add includeInApp if null
-18-8-2016   LC         add system columns with localized text names that is required for creating a new record
-10-9-2016   lc         set process_ID default to 1 and deleted default to 0 on creating new record
-2-10-2016   lc         update multi lookup columns to nvarchar(4000)
-13-10-2016  DEV2       Added Single_File Column in Class table
-15-10-2016  lc         Change Default of Single_file to 0
-2017-7-6    LC         Add new default column for FileCount
+2015-05-23  DEV2       Default column ExternalID added
+2015-05-25  DEV2       Default column Update_ID added
+2016-06-27  LC         Automatically add includeInApp if null
+2016-08-18  LC         Add system columns with localized text names that is required for creating a new record
+2016-09-10  LC         Set process_ID default to 1 and deleted default to 0 on creating new record
+2016-10-02  LC         Update multi lookup columns to nvarchar(4000)
+2016-10-13  DEV2       Added Single_File Column in Class table
+2016-10-15  LC         Change Default of Single_file to 0
+2017-07-06  LC         Add new default column for FileCount
 2017-11-29  LC         Add error message of file does not exist or table already exist
-2018-4-17   LC         Add condition to only create trigger on table if includedinApp is set to 2 (for transaction based tables.)
+2018-04-17  LC         Add condition to only create trigger on table if includedinApp is set to 2 (for transaction based tables.)
 2018-10-30  LC         Add creating unique index on objid and externalid
 ==========  =========  ========================================================
 
-**rST*************************************************************************/	
+**rST*************************************************************************/
 
 
 BEGIN

@@ -48,14 +48,12 @@ AS
     
 /*rST**************************************************************************
 
-<<<<<<< HEAD
-=======
 =========================
 spMFSynchronizeObjectType
 =========================
 
 Parameters
-  @VaultSettings 
+  @VaultSettings
     - use fnMFVaultSettings()
   @Debug (optional)
     - Default = 0
@@ -64,11 +62,12 @@ Parameters
     - XML result
   @IsUpdate (Optional)
     - Default = 0
-	- 1 = Push updates from SQL to M-Files 
+    - 1 = Push updates from SQL to M-Files
 
 Purpose
 =======
-Internal procedure to synchronize ObjectTypes 
+
+Internal procedure to synchronize ObjectTypes
 Used by spMFSynchronizeMetadata and spMFSynchronizeSpecificMetadata
 
 Changelog
@@ -81,7 +80,7 @@ Date        Author     Description
 2018-04-04  Devteam(2) Added License module validation code.
 ==========  =========  ========================================================
 
-**rST*************************************************************************/													
+**rST*************************************************************************/
 
   BEGIN
       SET NOCOUNT ON
@@ -190,4 +189,4 @@ Date        Author     Description
         SET NOCOUNT OFF;
     END;
   GO
-  
+
