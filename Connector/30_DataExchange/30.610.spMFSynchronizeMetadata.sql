@@ -54,11 +54,9 @@ AS
 
 /*rST**************************************************************************
 
-<<<<<<< HEAD
-=======
-===============
-
-===============
+=======================
+spMFSynchronizeMetadata
+=======================
 
 Return
   - 1 = Success
@@ -89,38 +87,35 @@ Examples
 
 .. code:: sql
 
-EXEC [dbo].[spMFSynchronizeMetadata]
+    EXEC [dbo].[spMFSynchronizeMetadata]
 
 ----
 
 .. code:: sql
 
-DECLARE @return_value int
- 
-EXEC    @return_value = [dbo].[spMFSynchronizeMetadata]
-        @Debug = 0
- 
-SELECT  'Return Value' = @return_value
- 
-GO
-   
+    DECLARE @return_value int
+    EXEC    @return_value = [dbo].[spMFSynchronizeMetadata]
+            @Debug = 0
+    SELECT  'Return Value' = @return_value
+    GO
+
 Changelog
 =========
 
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2015-05-25  DEV 2      UserAccount and Login account is added
-2016-8-22   lc         change settings index
-2016-09-26  DevTeam2   Removed Vaultsettings parametes and pass them as comma separated string in @VaultSettings parameter
-2017-08-22  lc         change processBatch_ID to output param
-2017-08-22  lc         improve logging
-2018-4-30   lc         Add to MFUserMessage
-2018-7-25   LC         Auto create MFUserMessages
-2018-11-15  LC         fix processbatch_ID logging
+2018-11-15  LC         Fix processbatch_ID logging
+2018-07-25  LC         Auto create MFUserMessages
+2018-04-30  LC         Add to MFUserMessage
+2017-08-22  LC         Improve logging
+2017-08-22  LC         Change processBatch_ID to output param
+2016-09-26  DEV2       Removed Vaultsettings parametes and pass them as comma separated string in @VaultSettings parameter
+2016-08-22  LC         Change settings index
+2015-05-25  DEV2       UserAccount and Login account is added
 ==========  =========  ========================================================
 
-**rST*************************************************************************/	
+**rST*************************************************************************/
 
       BEGIN
             SET NOCOUNT ON;
