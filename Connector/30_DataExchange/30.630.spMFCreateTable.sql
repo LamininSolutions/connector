@@ -62,7 +62,7 @@ Parameters
 
 Purpose
 =======
-To create table for a class with associate properties and other custom columns (like ID, GUID, MX_User_ID, MFID, ExternalID, MFVersion, FileCount, IsSingleFile, Update_ID, and LastModified)
+To create table for a class with associate properties and other custom columns (like ID, GUID, MX\_User\_ID, MFID, ExternalID, MFVersion, FileCount, IsSingleFile, Update\_ID, and LastModified)
 
 The column **IncludedInApp** in the MFCLass table is set to 1 for the created class table.
 
@@ -107,7 +107,7 @@ When the Connector finds an additional property on an object, and it is not part
 Non Connector Columns
 ---------------------
 
-It is possible to add columns to the class table that will be ignored by the Connector but is available for processing in the application. These columns must have a prefix of MX_ (for example MX_SAGE_Code)
+It is possible to add columns to the class table that will be ignored by the Connector but is available for processing in the application. These columns must have a prefix of MX\_ (for example MX_SAGE_Code)
 
 Notwithstanding the ability to add additional columns to the Connector tables following the convension above, it is recommended to create additional tables for custom applications that is cross referenced to the Connector tables rather than adding columns to Connector tables.
 
