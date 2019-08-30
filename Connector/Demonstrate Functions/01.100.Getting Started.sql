@@ -84,6 +84,11 @@ SELECT * FROM mflog ORDER BY logid DESC
 	FROM   [MFvwMetadataStructure]
 	WHERE  [Property] = 'Customer' ORDER BY class_MFID
 
+--review property and column usage and comparisons
+EXEC [dbo].[spMFClassTableColumns]
+SELECT * from ##spMFClassTableColumns
+
+
 --To get metadata from M-Files in SQL, it is necessary to create the class tables first.
 
 --CREATE CLASS TABLE

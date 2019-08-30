@@ -196,6 +196,7 @@ Date        Author     Description
 2019-06-17  LC         UPdate MFaudithistory with changes
 2019-07-13  LC         Add working that not all records have been updated
 2019-07-26  LC         Update removing of redundant items form AuditHistory
+2019-08-24  LC         Fix label of audithistory table inserts
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -2137,7 +2138,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
 		   ,[StatusFlag]
 		   ,[StatusName]
 		)
-		SELECT t.id, 0,GETDATE(), @ObjectType, @ClassId,t.[Objid],t.[MFVersion],0,''Identifical''
+		SELECT t.id, 0,GETDATE(), @ObjectType, @ClassId,t.[Objid],t.[MFVersion],0,''Identical''
 		FROM '+ QUOTENAME(@MFTableName) + ' AS [t]
 		left JOIN MFAuditHistory AS [mah]
 		ON t.[ObjID] = mah.[ObjID] AND mah.[Class] = @ClassId

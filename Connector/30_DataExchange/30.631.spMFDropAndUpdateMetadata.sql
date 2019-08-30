@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFDropAndUpdateMetadata' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.52'               -- varchar(50)
+                                    ,@Object_Release = '4.4.11.53'               -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
 GO
@@ -21,6 +21,7 @@ MODIFICATIONS
 2019-3-25	LC		fix bug to update when change has taken place and all defaults are specified
 2019-6-7	LC		fix bug of not setting lookup table label column with correct type
 2019-08-06	LC		change of metadata return value, remove if statement
+2019-08-27	LC		if exist table then drop, avoid sql error when table not exist
 */
 IF EXISTS
 (
@@ -556,9 +557,13 @@ IF @debug > 0
                     END;
                     ELSE
                     BEGIN
+
+						IF (SELECT OBJECT_ID(@TableName)) IS NOT NULL
+                        Begin
                         EXEC ('Drop table ' + @TableName);
 
                         PRINT 'Drop table ' + @TableName;
+						END
 
                         EXEC [dbo].[spMFCreateTable] @ClassName;
 

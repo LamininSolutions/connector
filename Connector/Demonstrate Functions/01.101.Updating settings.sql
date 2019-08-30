@@ -79,6 +79,7 @@ DECLARE @Username NVARCHAR(100) = 'MFSQLConnect'
 												   , @Debug
 GO
 
+SELECT * FROM [dbo].[MFProtocolType] AS [mpt]
 --the Protocol type and authentication type are referenced in other tables
 
 SELECT * FROM [dbo].[MFVaultSettings] AS [mvs]

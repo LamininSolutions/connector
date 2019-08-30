@@ -583,12 +583,7 @@ select @StartDate as 'StartDate'
                ,[CreatedOn]
             )
             VALUES
-            (   [s].[ObjectType_ID], [s].[Class_ID], [s].[ObjID], [s].[MFVersion] --CASE
-                                                                                  --    WHEN [s].[LastModifiedUTC] = '1/1/1601 12:00:00 AM'
-                                                                                  --        THEN NULL
-                                                                                  --    ELSE
-                                                                                  --        CAST([s].[LastModifiedUTC] AS DATETIME2)
-                                                                                  --END, 
+            (   [s].[ObjectType_ID], [s].[Class_ID], [s].[ObjID], [s].[MFVersion]
                ,[s].[LastModifiedUTC], [s].[MFLastModifiedBy_ID], [s].[Property_ID]
                ,[s].[Property_Value], [s].[CreatedOn]);
 

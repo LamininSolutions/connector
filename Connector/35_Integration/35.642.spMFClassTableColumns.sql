@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFClassTableColumns'
                                     -- nvarchar(100)
-                                    ,@Object_Release = '4.3.09.48'
+                                    ,@Object_Release = '4.4.11.53'
                                     -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
@@ -23,6 +23,7 @@ GO
   2019-1-19		LC			Change datatype from bit to smallint for error columns
   2019-3-25		LC			add error checking for text columns that is not varcahr 200
   2019-6-7		LC			add error for lookup column label with incorrect length
+  2019-08-29    LC          add predefined or automatic column
   ********************************************************************************
 */
 
@@ -91,6 +92,7 @@ BEGIN
        ,[AdditionalProperty] BIT
        ,[IncludedInApp] BIT
        ,[Required] BIT
+	   ,PredefinedOrAutomatic bit
        ,[LookupType] NVARCHAR(100)
        ,[MFdataType_ID] INT
        ,[MFDataType] NVARCHAR(100)
@@ -111,6 +113,7 @@ BEGIN
        ,[TableName]
        ,[IncludedInApp]
        ,[Required]
+	   ,PredefinedOrAutomatic
        ,[LookupType]
        ,[MFdataType_ID]
        ,[MFDataType]
@@ -123,6 +126,7 @@ BEGIN
           ,[mc2].[TableName]
           ,[mc2].[IncludeInApp]
           ,[mcp2].[Required]
+		  ,[mp2].[PredefinedOrAutomatic]
           ,CASE
                WHEN [mvl].[RealObjectType] = 1
                     AND [mdt].[MFTypeID] IN ( 9, 10 ) THEN

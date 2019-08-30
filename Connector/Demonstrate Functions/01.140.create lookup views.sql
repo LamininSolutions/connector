@@ -18,18 +18,26 @@ FROM   [MFValueListItems] [mvli]
 INNER JOIN [MFValuelist] [mvl] ON [mvl].[id] = [mvli].[MFValueListID]
 WHERE  [mvl].[Name] = 'Country'
 
-EXEC [spMFCreateValueListLookupView] 'Country'
-								   , 'MFvwCountry'
+
+EXEC [dbo].[spMFCreateValueListLookupView] @ValueListName = 'Country' -- nvarchar(128)
+                                          ,@ViewName =  'MFvwCountry'     -- nvarchar(128)
+                                          ,@Schema = 'Custom'        -- nvarchar(20)
+
+
 
 SELECT *
-FROM   [MFvwCountry]
+FROM   custom.[MFvwCountry]
 
 SELECT *
 FROM   [MFWorkflow] [mwf]
 INNER JOIN [MFWorkflowState] [mwfs] ON [mwf].[ID] = [mwfs].[MFWorkflowID]
 
-EXEC [spMFCreateWorkflowStateLookupView] 'Contract Approval Workflow'
-									   , 'MFvwContractApproval'
+
+EXEC [dbo].[spMFCreateWorkflowStateLookupView] @WorkflowName = 'Contract Approval Workflow' -- nvarchar(128)
+                                              ,@ViewName = 'MFvwContractApproval'     -- nvarchar(128)
+                                              ,@Schema = 'Custom'       -- nvarchar(20)
+
+
 
 SELECT *
-FROM   [MFvwContractApproval]
+FROM   custom.[MFvwContractApproval]

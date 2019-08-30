@@ -50,9 +50,10 @@ EXEC (N'
 CREATE PROCEDURE [dbo].[spMFDeleteObjectInternal]
     @VaultSettings NVARCHAR(4000) ,
     @ObjectTypeId INT ,
-    @objectId INT ,
-    @Output NVARCHAR(2000) OUTPUT,
-	@DeleteWithDestroy bit
+    @objectId INT ,	
+	@DeleteWithDestroy bit,
+	@ObjectVersion INT,
+    @Output NVARCHAR(2000) OUTPUT
 AS EXTERNAL NAME
     [LSConnectMFilesAPIWrapper].[MFilesWrapper].[DeleteObject];
 ')
@@ -874,6 +875,7 @@ CREATE PROCEDURE [dbo].[spMFSearchForObjectByPropertyValuesInternal]
     @PropertyIDs NVARCHAR(2000) ,
     @PropertyValues NVARCHAR(2000) ,
     @Count INT ,
+	@isEqual INT,
     @ResultXml NVARCHAR(MAX) OUTPUT ,
     @isFound BIT OUTPUT
 AS EXTERNAL NAME

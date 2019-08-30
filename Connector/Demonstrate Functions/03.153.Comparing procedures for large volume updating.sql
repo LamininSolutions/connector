@@ -197,9 +197,6 @@ Then set the @Toobjid to be x + 1000
 
 EXEC [dbo].[spMFUpdateTableinBatches] @MFTableName = 'YourTable' -- nvarchar(100)
                                      ,@UpdateMethod = 0          -- int
-                                     ,@WithTableAudit = 0        -- int
-                                     ,@FromObjid = 1             -- bigint
-                                     ,@ToObjid = 12000           -- bigint
                                      ,@WithStats = 1             -- bit
                                      ,@Debug = 0;                -- int
 GO
@@ -292,7 +289,7 @@ DECLARE @Idoc INT;
 SELECT @lastmodified = MAX([mbs].[MF_Last_Modified])
 FROM [dbo].MFCustomer AS [mbs];
 
-EXEC [dbo].[spMFGetObjectvers] @TableName = 'MFCustomer'                   -- nvarchar(100)
+EXEC [dbo].[spMFGetObjectvers] @TableName = 'MFBasic_SingleProp'                   -- nvarchar(100)
                               ,@dtModifiedDate = @lastmodified            -- datetime
                               ,@MFIDs = null                         -- nvarchar(4000)
                               ,@outPutXML = @outPutXML OUTPUT             -- nvarchar(max)

@@ -66,10 +66,7 @@ FROM [dbo].[MFLarge_volume] AS [mlv]
 WHERE id BETWEEN 10000 AND 12000
 
 EXEC [dbo].[spMFUpdateTableinBatches] @MFTableName = 'MFLarge_Volume' -- nvarchar(100)
-                                     ,@UpdateMethod = 1          -- int
-                                     ,@WithTableAudit = 0        -- int
-                                     ,@FromObjid = 1             -- bigint
-                                     ,@ToObjid = 12000           -- bigint
+                                     ,@UpdateMethod = 0          -- int
                                      ,@WithStats = 1             -- bit
                                      ,@Debug = 0;          
 
