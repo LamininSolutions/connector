@@ -59,6 +59,52 @@ ALTER PROCEDURE [dbo].[spMFDeleteObject]
    ,@ProcessBatch_ID INT = NULL OUTPUT
    ,@Debug SMALLINT = 0
 AS
+/*rST**************************************************************************
+
+================
+spMFDeleteObject
+================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @ObjectTypeId int
+    fixme description
+  @objectId int
+    fixme description
+  @Output nvarchar(2000) (output)
+    fixme description
+  @DeleteWithDestroy bit
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 /*******************************************************************************
   ** Desc:  The purpose of this procedure is to Delete object from M-Files.  
   **  

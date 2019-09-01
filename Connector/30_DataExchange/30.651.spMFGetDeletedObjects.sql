@@ -73,6 +73,57 @@ ALTER PROCEDURE [dbo].[spMFGetDeletedObjects]
    ,@Debug SMALLINT = 0
 )
 AS
+/*rST**************************************************************************
+
+=====================
+spMFGetDeletedObjects
+=====================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @MFTableName nvarchar(200)
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @LastModifiedDate datetime
+    fixme description
+  @RemoveDeleted bit
+    fixme description
+  @ProcessBatch\_ID int (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 BEGIN
     SET NOCOUNT ON;
 

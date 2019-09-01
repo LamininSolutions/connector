@@ -41,6 +41,60 @@ ALTER PROCEDURE [dbo].[spMFSearchForObject] (@ClassID     INT
 											  ,@TableName varchar(200)='' output
 											  ,@Debug SMALLINT = 0)
 AS
+/*rST**************************************************************************
+
+===================
+spMFSearchForObject
+===================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @ClassID int
+    fixme description
+  @SearchText nvarchar(2000)
+    fixme description
+  @Count int
+    fixme description
+  @OutputType int
+    fixme description
+  @XMLOutPut xml (output)
+    fixme description
+  @TableName varchar(200) (output)
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
   /*******************************************************************************
   ** Desc:  The purpose of this procedure is to search for an object in M-Files  
   **  

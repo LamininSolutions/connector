@@ -57,7 +57,55 @@ ALTER PROCEDURE [dbo].[spMFUpdateAllncludedInAppTables]
    ,@ProcessBatch_ID INT = NULL OUTPUT
    ,@Debug SMALLINT = 0
 )
-AS /*******************************************************************************
+AS
+/*rST**************************************************************************
+
+===============================
+spMFUpdateAllncludedInAppTables
+===============================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @UpdateMethod int
+    fixme description
+  @RemoveDeleted int
+    fixme description
+  @ProcessBatch\_ID int (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*******************************************************************************
   ** Desc:  The purpose of this procedure is to allow for daily processing of all the class table tables with includedinapp = 1  
   **  
   ** Version: 1.0.0.6

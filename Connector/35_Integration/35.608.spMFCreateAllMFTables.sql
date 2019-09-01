@@ -52,6 +52,48 @@ GO
 
 ALTER PROCEDURE [dbo].[spMFCreateAllMFTables] @Debug SMALLINT = 0
 AS
+/*rST**************************************************************************
+
+=====================
+spMFCreateAllMFTables
+=====================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
     BEGIN
         IF @Debug > 0
             SELECT  Name

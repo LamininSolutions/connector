@@ -82,7 +82,57 @@ ALTER PROCEDURE [dbo].[spMFUpdateTableInternal]
     @Debug SMALLINT,
     @SyncErrorFlag BIT = 0
 )
-AS /*******************************************************************************
+AS
+/*rST**************************************************************************
+
+=======================
+spMFUpdateTableInternal
+=======================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @TableName nvarchar(128)
+    fixme description
+  @Xml nvarchar(max)
+    fixme description
+  @Update\_ID int
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+  @SyncErrorFlag bit
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*******************************************************************************
     ** Desc:  The purpose of this procedure is to Change the class and update any property  of an object
     **  
     ******************************************************************************/

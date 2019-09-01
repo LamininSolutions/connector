@@ -73,6 +73,70 @@ ALTER PROCEDURE [dbo].[spMFContextMenuActionItem]
     @Debug INT = 0
 )
 AS
+/*rST**************************************************************************
+
+=========================
+spMFContextMenuActionItem
+=========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @ActionName nvarchar(100)
+    fixme description
+  @ProcedureName nvarchar(100)
+    fixme description
+  @Description nvarchar(200)
+    fixme description
+  @RelatedMenu nvarchar(100)
+    fixme description
+  @IsRemove bit
+    fixme description
+  @IsObjectContext bit
+    fixme description
+  @IsWeblink bit
+    fixme description
+  @IsAsynchronous bit
+    fixme description
+  @IsStateAction bit
+    fixme description
+  @PriorAction nvarchar(100)
+    fixme description
+  @UserGroup nvarchar(100)
+    fixme description
+  @Debug int (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 SET NOCOUNT ON;
 
 /*

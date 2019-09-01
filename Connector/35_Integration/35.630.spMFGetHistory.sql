@@ -70,6 +70,65 @@ ALTER PROCEDURE [dbo].[spMFGetHistory]
    ,@Debug INT = 0
 )
 AS
+/*rST**************************************************************************
+
+==============
+spMFGetHistory
+==============
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @MFTableName nvarchar(128)
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @Process\_id int
+    fixme description
+  @ColumnNames nvarchar(4000)
+    fixme description
+  @IsFullHistory bit
+    fixme description
+  @NumberOFDays int
+    fixme description
+  @StartDate datetime
+    fixme description
+  @Update\_ID int (output)
+    fixme description
+  @ProcessBatch\_id int (output)
+    fixme description
+  @Debug int (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 BEGIN
     BEGIN TRY
         SET NOCOUNT ON;

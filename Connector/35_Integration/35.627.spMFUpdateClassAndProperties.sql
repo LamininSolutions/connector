@@ -69,6 +69,63 @@ ALTER PROCEDURE [dbo].[spMFUpdateClassAndProperties]
    ,@Debug SMALLINT = 0 -- debug will detail all the stages and results
 )
 AS
+/*rST**************************************************************************
+
+============================
+spMFUpdateClassAndProperties
+============================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @MFTableName nvarchar(128)
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @ObjectID int
+    fixme description
+  @NewClassId int
+    fixme description
+  @ColumnNames nvarchar(1000)
+    fixme description
+  @ColumnValues nvarchar(1000)
+    fixme description
+  @Update\_IDOUT int (output)
+    fixme description
+  @ProcessBatch\_ID int (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 /*
 USAGE
 

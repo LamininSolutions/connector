@@ -42,7 +42,51 @@ SET NOEXEC OFF;
 go
 
 ALTER PROCEDURE [dbo].[spMFGetMfilesLog] ( @IsClearMfilesLog BIT = 0, @Debug smallint = 0 )
-AS /*******************************************************************************
+AS
+/*rST**************************************************************************
+
+================
+spMFGetMfilesLog
+================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @IsClearMfilesLog bit
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*******************************************************************************
   ** Desc:  The purpose of this procedure is to insert Mfiles Log details into MFEventLog_OpenXML table.  
   **  
  

@@ -72,6 +72,68 @@ ALTER PROCEDURE [dbo].[spMFResultMessageForUI]
    ,@Debug INT = 0
 )
 AS
+/*rST**************************************************************************
+
+======================
+spMFResultMessageForUI
+======================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @Processbatch\_ID int
+    fixme description
+  @Detaillevel int
+    fixme description
+  @MessageOUT nvarchar(4000) (output)
+    fixme description
+  @MessageForMFilesOUT nvarchar(4000) (output)
+    fixme description
+  @GetEmailContent bit
+    fixme description
+  @EMailHTMLBodyOUT nvarchar(max) (output)
+    fixme description
+  @RecordCount int (output)
+    fixme description
+  @UserID int (output)
+    fixme description
+  @ClassTableList nvarchar(100) (output)
+    fixme description
+  @MessageTitle nvarchar(100) (output)
+    fixme description
+  @Debug int (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 /*******************************************************************************
   ** Desc:  Format Messages for output to Context Menu UI, Mulit-Line Text Property and/or HTML
   **		Message is based on MFProcessBatch if single class table and MFProcessBatchDetail if multiple class tables affected by ProcessBatch_ID

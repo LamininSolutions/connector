@@ -48,6 +48,50 @@ ALTER PROCEDURE [dbo].[spMFCheckLicenseStatus]
    ,@ProcedureName NVARCHAR(500)
    ,@ProcedureStep sysname = 'Validate connection '
 AS
+/*rST**************************************************************************
+
+======================
+spMFCheckLicenseStatus
+======================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @InternalProcedureName nvarchar(500)
+    fixme description
+  @ProcedureName nvarchar(500)
+    fixme description
+  @ProcedureStep sysname
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 BEGIN
     DECLARE @ModuleID NVARCHAR(20);
     DECLARE @Status NVARCHAR(20);

@@ -52,6 +52,50 @@ GO
 
 ALTER PROCEDURE [dbo].[spMFDropAllClassTables] @IncludeInApp int, @Debug SMALLINT = 0
 AS
+/*rST**************************************************************************
+
+======================
+spMFDropAllClassTables
+======================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @IncludeInApp int
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
     BEGIN
 	SET NOCOUNT ON 
         IF @Debug = 1

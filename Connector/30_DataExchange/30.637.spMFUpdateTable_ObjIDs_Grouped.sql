@@ -44,7 +44,62 @@ ALTER PROCEDURE [dbo].[spMFUpdateTable_ObjIDs_Grouped]
 	  @ProcessBatch_ID INT = NULL OUTPUT,
       @Debug SMALLINT = 0
 	)
-AS /*******************************************************************************
+AS
+/*rST**************************************************************************
+
+==============================
+spMFUpdateTable_ObjIDs_Grouped
+==============================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @MFTableName nvarchar(128)
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @MFTableSchema nvarchar(128)
+    fixme description
+  @UpdateMethod int
+    fixme description
+  @ProcessId int
+    fixme description
+  @UserId nvarchar(200)
+    fixme description
+  @ProcessBatch\_ID int (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*******************************************************************************
   ** Desc:  The purpose of this procedure is to group source records into batches
   **		and compile a list of OBJIDs in CSV format to pass to spMFUpdateTable
   **  

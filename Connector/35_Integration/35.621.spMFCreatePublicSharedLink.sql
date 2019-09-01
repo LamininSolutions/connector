@@ -41,7 +41,55 @@ ALTER PROCEDURE [dbo].[spMFCreatePublicSharedLink] (
 	   ,@ObjectID int=null
 	   ,@ProcessID int=1
 )
-AS /*******************************************************************************
+AS
+/*rST**************************************************************************
+
+==========================
+spMFCreatePublicSharedLink
+==========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @TableName varchar(250)
+    fixme description
+  @ExpiryDate datetime
+    fixme description
+  @ClassID int
+    fixme description
+  @ObjectID int
+    fixme description
+  @ProcessID int
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*******************************************************************************
   ** Desc:  The purpose of this procedure is to Create  public shared link from M-files
   **  
   ** Processing Steps:

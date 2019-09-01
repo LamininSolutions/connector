@@ -40,7 +40,59 @@ ALTER PROCEDURE [dbo].[spMFSearchForObjectbyPropertyValues] (@ClassID         [I
 															  ,@IsEqual int=0
 															  ,@XMLOutPut xml output
 											                  ,@TableName varchar(200)='' output)
-AS   
+AS
+/*rST**************************************************************************
+
+===================================
+spMFSearchForObjectbyPropertyValues
+===================================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @ClassID int
+    fixme description
+  @PropertyIds nvarchar(2000)
+    fixme description
+  @PropertyValues nvarchar(2000)
+    fixme description
+  @Count int
+    fixme description
+  @OutputType int
+    fixme description
+  @XMLOutPut xml (output)
+    fixme description
+  @TableName varchar(200) (output)
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+   
   /*******************************************************************************
   ** Desc:  The purpose of this procedure is to search for an object by property name & value in M-Files  
   **  

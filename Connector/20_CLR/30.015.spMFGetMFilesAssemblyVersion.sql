@@ -44,7 +44,49 @@ GO
 ALTER PROCEDURE [dbo].[spMFGetMFilesAssemblyVersion]
    @IsUpdateAssembly bit =0 Output,
    @MFilesVersion varchar(100) Output
-AS /*******************************************************************************
+AS
+/*rST**************************************************************************
+
+============================
+spMFGetMFilesAssemblyVersion
+============================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @IsUpdateAssembly bit (output)
+    fixme description
+  @MFilesVersion varchar(100) (output)
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*******************************************************************************
   ** Desc:  The purpose of this procedure is to synchronize M-File Meta data  
   **  
   ** Version: 1.0.0.6

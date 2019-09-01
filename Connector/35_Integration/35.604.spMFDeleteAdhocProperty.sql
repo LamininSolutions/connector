@@ -53,7 +53,58 @@ ALTER PROCEDURE [dbo].[spMFDeleteAdhocProperty]
    ,@ProcessBatch_ID INT = NULL OUTPUT
    ,@Debug SMALLINT = 0
 )
-AS /*******************************************************************************
+AS
+/*rST**************************************************************************
+
+=======================
+spMFDeleteAdhocProperty
+=======================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @MFTableName nvarchar(128)
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @columnNames nvarchar(4000)
+    fixme description
+  @process\_ID smallint
+    fixme description
+  @ProcessBatch\_ID int (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*******************************************************************************
   ** Desc:  The purpose of this procedure is used to delete Adhoc property value of objects
   **  
  */

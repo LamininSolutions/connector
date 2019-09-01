@@ -66,6 +66,57 @@ ALTER PROCEDURE [dbo].[spMFUpdateMFilesToMFSQL]
    ,@debug TINYINT = 0        -- 
 )
 AS
+/*rST**************************************************************************
+
+=======================
+spMFUpdateMFilesToMFSQL
+=======================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @MFTableName nvarchar(128)
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @MFLastUpdateDate smalldatetime (output)
+    fixme description
+  @UpdateTypeID tinyint
+    fixme description
+  @Update\_IDOut int (output)
+    fixme description
+  @ProcessBatch\_ID int (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @debug tinyint
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 /*******************************************************************************
   ** Desc:  The purpose of this procedure is to syncronize records in the CLGLChart
   **		class Table from Epicor into M-Files.  

@@ -42,7 +42,49 @@ GO
 
 
 ALTER PROCEDURE [dbo].[spMFSynchronizeValueListItemsToMFiles] (  @Debug SMALLINT = 0)
-AS /*******************************************************************************
+AS
+/*rST**************************************************************************
+
+=====================================
+spMFSynchronizeValueListItemsToMfiles
+=====================================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*******************************************************************************
   ** Desc:  The purpose of this procedure is to synchronize Sql  VALUE LIST ITEM details to M-files
   **  
   ** Processing Steps:

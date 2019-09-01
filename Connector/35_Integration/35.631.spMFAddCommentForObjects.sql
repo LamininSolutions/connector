@@ -55,6 +55,55 @@ ALTER PROCEDURE dbo.spMFAddCommentForObjects
     @Comment NVARCHAR(1000),
     @Debug SMALLINT = 0
 AS
+/*rST**************************************************************************
+
+========================
+spMFAddCommentForObjects
+========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @MFTableName nvarchar(250)
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @Process\_id int
+    fixme description
+  @Comment nvarchar(1000)
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 BEGIN
 
 

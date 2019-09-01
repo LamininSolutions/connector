@@ -63,6 +63,62 @@ ALTER PROCEDURE [dbo].[spMFExportFiles]
     @Debug INT = 0
 )
 AS
+/*rST**************************************************************************
+
+===============
+spMFExportFiles
+===============
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @TableName nvarchar(128)
+    fixme description
+  @PathProperty\_L1 nvarchar(128)
+    fixme description
+  @PathProperty\_L2 nvarchar(128)
+    fixme description
+  @PathProperty\_L3 nvarchar(128)
+    fixme description
+  @IncludeDocID bit
+    fixme description
+  @Process\_id int
+    fixme description
+  @ProcessBatch\_ID int (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @Debug int (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 BEGIN
     BEGIN TRY
 

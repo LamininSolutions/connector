@@ -75,6 +75,56 @@ ALTER PROCEDURE [dbo].[spMFClassTableStats]
    ,@Debug SMALLINT = 0
 )
 AS
+/*rST**************************************************************************
+
+===================
+spMFClassTableStats
+===================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @ClassTableName nvarchar(128)
+    fixme description
+  @Flag int
+    fixme description
+  @WithReset int
+    fixme description
+  @IncludeOutput int
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 SET NOCOUNT ON;
 
 DECLARE @ClassIDs AS TABLE

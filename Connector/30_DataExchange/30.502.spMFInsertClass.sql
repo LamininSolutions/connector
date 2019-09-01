@@ -62,6 +62,54 @@ ALTER PROCEDURE [dbo].[spMFInsertClass]
       @Debug SMALLINT 
 	)
 AS
+/*rST**************************************************************************
+
+===============
+spMFInsertClass
+===============
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @Doc nvarchar(max)
+    fixme description
+  @isFullUpdate bit
+    fixme description
+  @Output int (output)
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
     SET NOCOUNT ON;
     BEGIN
         BEGIN TRY

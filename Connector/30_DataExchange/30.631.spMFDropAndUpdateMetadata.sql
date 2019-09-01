@@ -59,6 +59,58 @@ ALTER PROCEDURE [dbo].[spMFDropAndUpdateMetadata]
    ,@ProcessBatch_ID INT = NULL OUTPUT
    ,@Debug SMALLINT = 0
 AS
+/*rST**************************************************************************
+
+=========================
+spMFDropAndUpdateMetadata
+=========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @IsResetAll smallint
+    fixme description
+  @WithClassTableReset smallint
+    fixme description
+  @WithColumnReset smallint
+    fixme description
+  @IsStructureOnly smallint
+    fixme description
+  @ProcessBatch\_ID int (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 SET NOCOUNT ON;
 
 DECLARE @ProcedureStep VARCHAR(100)  = 'start'

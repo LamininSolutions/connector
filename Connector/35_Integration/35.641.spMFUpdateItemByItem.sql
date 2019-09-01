@@ -60,7 +60,55 @@ ALTER PROCEDURE [dbo].[spMFUpdateItemByItem]
     @Debug SMALLINT = 0 ,
 	@SingleItems BIT = 1, --1 = processed one by one, 0 = processed in blocks
     @SessionIDOut INT OUTPUT
-AS /*
+AS
+/*rST**************************************************************************
+
+====================
+spMFUpdateItemByItem
+====================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @TableName varchar(100)
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+  @SingleItems bit
+    fixme description
+  @SessionIDOut int (output)
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*
 update check by record from objvers list
 */
     SET NOCOUNT ON;

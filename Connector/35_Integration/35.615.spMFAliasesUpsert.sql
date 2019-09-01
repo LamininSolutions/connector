@@ -74,6 +74,58 @@ ALTER PROCEDURE [dbo].[spMFAliasesUpsert]
         @Debug           SMALLINT = 0
     )
 AS
+/*rST**************************************************************************
+
+=================
+spMFAliasesUpsert
+=================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @MFTableNames nvarchar(400)
+    fixme description
+  @Prefix nvarchar(10)
+    fixme description
+  @IsRemove bit
+    fixme description
+  @WithUpdate bit
+    fixme description
+  @ProcessBatch\_ID int (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
     BEGIN
         SET NOCOUNT ON;
 

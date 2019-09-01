@@ -54,7 +54,57 @@ ALTER PROCEDURE [dbo].[spMFProcessBatch_Upsert]
    ,@LogStatus NVARCHAR(50) = NULL   --(Initiate | In Progress | Partial | Completed | Error)
    ,@debug SMALLINT = 0              -- 
 )
-AS /*******************************************************************************
+AS
+/*rST**************************************************************************
+
+=======================
+spMFProcessBatch_Upsert
+=======================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @ProcessBatch\_ID int (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @ProcessType nvarchar(50)
+    fixme description
+  @LogType nvarchar(50)
+    fixme description
+  @LogText nvarchar(4000)
+    fixme description
+  @LogStatus nvarchar(50)
+    fixme description
+  @debug smallint
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*******************************************************************************
 
   **
   ** Author:          leroux@lamininsolutions.com

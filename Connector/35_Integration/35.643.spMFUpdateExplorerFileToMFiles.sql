@@ -60,6 +60,61 @@ ALTER PROCEDURE [dbo].[spMFUpdateExplorerFileToMFiles]
    ,@ProcessBatch_id INT = NULL OUTPUT
    ,@Debug INT = 0
 AS
+/*rST**************************************************************************
+
+==============================
+spMFUpdateExplorerFileToMFiles
+==============================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @FileName nvarchar(256)
+    fixme description
+  @FileLocation nvarchar(256)
+    fixme description
+  @MFTableName nvarchar(100)
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @SQLID int
+    fixme description
+  @IsFileDelete bit
+    fixme description
+  @ProcessBatch\_id int (output)
+    fixme description
+  @Debug int (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 BEGIN
     BEGIN TRY
         SET NOCOUNT ON;

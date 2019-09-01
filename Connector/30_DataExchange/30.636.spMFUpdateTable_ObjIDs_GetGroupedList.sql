@@ -44,7 +44,51 @@ ALTER PROCEDURE [dbo].[spMFUpdateTable_ObjIds_GetGroupedList]
        @ObjIds_FieldLenth SMALLINT = 2000
 	  ,@Debug SMALLINT = 0
 	)
-AS /*******************************************************************************
+AS
+/*rST**************************************************************************
+
+=====================================
+spMFUpdateTable_ObjIDs_GetGroupedList
+=====================================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @ObjIds\_FieldLenth smallint
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*******************************************************************************
   ** Desc:  The purpose of this procedure is to group source records into batches
   **		and compile a list of OBJIDs in CSV format to pass to spMFUpdateTable
   **  

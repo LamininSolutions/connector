@@ -50,7 +50,55 @@ ALTER PROCEDURE [dbo].[spMFInsertClassProperty]
       @Output INT OUTPUT ,
       @Debug SMALLINT = 0
     )
-AS /*******************************************************************************
+AS
+/*rST**************************************************************************
+
+=======================
+spMFInsertClassProperty
+=======================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @Doc nvarchar(max)
+    fixme description
+  @isFullUpdate bit
+    fixme description
+  @Output int (output)
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*******************************************************************************
   ** Desc:  The purpose of this procedure is to insert Class property details into MFClassProperty table.  
   **  
   ** Version: 1.0.0.6

@@ -53,7 +53,74 @@ ALTER PROCEDURE [dbo].[spMFProcessBatchDetail_Insert]
       , @debug TINYINT = 0  -- 101 for EpicorEnt Test Mode
 												
       )
-AS /*******************************************************************************
+AS
+/*rST**************************************************************************
+
+=============================
+spMFProcessBatchDetail_Insert
+=============================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @ProcessBatch\_ID int (optional)
+    Referencing the ID of the ProcessBatch logging table
+  @LogType nvarchar(50)
+    fixme description
+  @LogText nvarchar(4000)
+    fixme description
+  @LogStatus nvarchar(50)
+    fixme description
+  @StartTime datetime
+    fixme description
+  @MFTableName nvarchar(128)
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @Validation\_ID int
+    fixme description
+  @ColumnName nvarchar(128)
+    fixme description
+  @ColumnValue nvarchar(256)
+    fixme description
+  @Update\_ID int
+    fixme description
+  @LogProcedureName nvarchar(128)
+    fixme description
+  @LogProcedureStep nvarchar(128)
+    fixme description
+  @ProcessBatchDetail\_ID int (output)
+    fixme description
+  @debug tinyint
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*******************************************************************************
 
   **
   ** Author:          leroux@lamininsolutions.com

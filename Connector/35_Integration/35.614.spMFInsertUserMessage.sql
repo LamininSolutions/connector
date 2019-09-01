@@ -64,6 +64,52 @@ ALTER PROCEDURE [dbo].[spMFInsertUserMessage]
    ,@UserMessageEnabled INT = 0
    ,@Debug SMALLINT = 0
 AS
+/*rST**************************************************************************
+
+=====================
+spMFInsertUserMessage
+=====================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @ProcessBatch\_ID int (optional)
+    Referencing the ID of the ProcessBatch logging table
+  @UserMessageEnabled int
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 SET NOCOUNT ON;
 
 BEGIN TRY

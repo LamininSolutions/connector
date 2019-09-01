@@ -46,6 +46,58 @@ ALTER PROCEDURE [dbo].[spMFGetObjectvers]
    ,@Debug SMALLINT = 0
 )
 AS
+/*rST**************************************************************************
+
+=================
+spMFGetObjectvers
+=================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @TableName nvarchar(100)
+    fixme description
+  @dtModifiedDate datetime
+    fixme description
+  @MFIDs nvarchar(4000)
+    fixme description
+  @outPutXML nvarchar(max) (output)
+    fixme description
+  @ProcessBatch\_ID int (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 /*******************************************************************************
   ** Desc:  The purpose of this procedure is to get all the object vers of the class table as XML  
   **  

@@ -69,6 +69,58 @@ ALTER PROCEDURE dbo.spMFContextMenuHeadingItem
 
 )
 AS
+/*rST**************************************************************************
+
+==========================
+spMFContextMenuHeadingItem
+==========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @MenuName nvarchar(100)
+    fixme description
+  @PriorMenu nvarchar(100)
+    fixme description
+  @IsObjectContextMenu bit
+    fixme description
+  @IsRemove bit
+    fixme description
+  @UserGroup nvarchar(100)
+    fixme description
+  @Debug int (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 /*
 Procedure to add new line item in MFContextMenu
 */

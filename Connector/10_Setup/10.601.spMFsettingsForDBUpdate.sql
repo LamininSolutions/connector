@@ -81,6 +81,70 @@ ALTER PROCEDURE dbo.spMFSettingsForDBUpdate
 	  @Debug SMALLINT = 0
     )
 AS
+/*rST**************************************************************************
+
+=======================
+spMFsettingsForDBUpdate
+=======================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @MFInstallationPath nvarchar(128)
+    fixme description
+  @MFilesVersion nvarchar(128)
+    fixme description
+  @AssemblyInstallationPath nvarchar(128)
+    fixme description
+  @SQLConnectorLogin nvarchar(128)
+    fixme description
+  @UserRole nvarchar(128)
+    fixme description
+  @SupportEmailAccount nvarchar(128)
+    fixme description
+  @EmailProfile nvarchar(128)
+    fixme description
+  @DetailLogging nvarchar(128)
+    fixme description
+  @DBName nvarchar(128)
+    fixme description
+  @RootFolder nvarchar(128)
+    fixme description
+  @FileTransferLocation nvarchar(128)
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
     BEGIN
 
         SET NOCOUNT ON;

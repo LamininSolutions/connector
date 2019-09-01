@@ -42,6 +42,52 @@ ALTER PROCEDURE [dbo].[spMFSynchronizeUserAccount]
        ,@Debug          SMALLINT = 0
        ,@Out            [NVARCHAR](max) OUTPUT)
 AS
+/*rST**************************************************************************
+
+==========================
+spMFSynchronizeUserAccount
+==========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @VaultSettings nvarchar(4000)
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+  @Out nvarchar(max) (output)
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
   /*******************************************************************************
   ** Desc:  The purpose of this procedure is to synchronize M-File User Account details  
 

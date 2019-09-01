@@ -50,6 +50,67 @@ ALTER PROCEDURE [dbo].[spMFLogProcessSummaryForClassTable]
 	  , @debug TINYINT = 0
 	)
 AS
+/*rST**************************************************************************
+
+==================================
+spMFLogProcessSummaryForClassTable
+==================================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @ProcessBatch\_ID int (optional)
+    Referencing the ID of the ProcessBatch logging table
+  @MFTableName nvarchar(100)
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @IncludeStats bit
+    fixme description
+  @IncludeAudit bit
+    fixme description
+  @InsertCount int
+    fixme description
+  @UpdateCount int
+    fixme description
+  @LogProcedureName nvarchar(100)
+    fixme description
+  @LogProcedureStep nvarchar(100)
+    fixme description
+  @LogTextDetailOUT nvarchar(4000) (output)
+    fixme description
+  @LogStatusDetailOUT nvarchar(50) (output)
+    fixme description
+  @debug tinyint
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 /*******************************************************************************
   ** Desc:  Format Messages for output to Context Menu UI and/or Mulit-Line Text Property
   ** NB  this procedure relies on the use of MFSQL_Process_Batch as part of the infrastructure

@@ -81,6 +81,72 @@ ALTER PROCEDURE dbo.spMFSettingsForVaultUpdate
     @Debug SMALLINT = 0
 )
 AS
+/*rST**************************************************************************
+
+==========================
+spMFsettingsForVaultUpdate
+==========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @Username nvarchar(100)
+    fixme description
+  @Password nvarchar(100)
+    fixme description
+  @NetworkAddress nvarchar(100)
+    fixme description
+  @Vaultname nvarchar(100)
+    fixme description
+  @MFProtocolType\_ID int
+    fixme description
+  @Endpoint int
+    fixme description
+  @MFAuthenticationType\_ID int
+    fixme description
+  @Domain nvarchar(128)
+    fixme description
+  @VaultGUID nvarchar(128)
+    fixme description
+  @ServerURL nvarchar(128)
+    fixme description
+  @RootFolder nvarchar(128)
+    fixme description
+  @FileTransferLocation nvarchar(128)
+    fixme description
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 BEGIN
 
 

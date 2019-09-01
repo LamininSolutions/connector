@@ -79,6 +79,56 @@ ALTER PROCEDURE [dbo].[spMFUpdateTableWithLastModifiedDate]
     @ProcessBatch_ID     INT      = NULL OUTPUT,
     @debug               SMALLINT = 0
 AS
+/*rST**************************************************************************
+
+===================================
+spMFUpdateTableWithLastModifiedDate
+===================================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @TableName sysname
+    fixme description
+  @UpdateMethod int
+    fixme description
+  @Return\_LastModified datetime (output)
+    fixme description
+  @Update\_IDOut int (output)
+    fixme description
+  @ProcessBatch\_ID int (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @debug smallint
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
     DECLARE
         @SQL           NVARCHAR(MAX),
         @Params        NVARCHAR(MAX),

@@ -73,7 +73,70 @@ ALTER PROCEDURE [dbo].[spMFTableAudit]
    ,@ProcessBatch_ID INT = NULL OUTPUT
    ,@Debug SMALLINT = 0                -- use 2 for listing of full tables during debugging
 )
-AS /*******************************************************************************
+AS
+/*rST**************************************************************************
+
+==============
+spMFTableAudit
+==============
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @MFTableName nvarchar(128)
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @MFModifiedDate datetime
+    fixme description
+  @ObjIDs nvarchar(4000)
+    fixme description
+  @SessionIDOut int (output)
+    fixme description
+  @NewObjectXml nvarchar(max) (output)
+    fixme description
+  @DeletedInSQL int (output)
+    fixme description
+  @UpdateRequired bit (output)
+    fixme description
+  @OutofSync int (output)
+    fixme description
+  @ProcessErrors int (output)
+    fixme description
+  @ProcessBatch\_ID int (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+ /*******************************************************************************
   ** Desc:  The purpose of this procedure is to Get all Records from MFiles for the selection
   **  					
   **
