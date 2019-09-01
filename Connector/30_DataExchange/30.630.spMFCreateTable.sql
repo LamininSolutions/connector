@@ -53,17 +53,18 @@ Return
   - 1 = Success
   - -1 = Error
 Parameters
-  @ClassName
+  @ClassName nvarchar(128)
     - Valid Class Name as a string
     - Pass the class name, e.g.: 'Customer'
-  @Debug (optional)
+  @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
 
 Purpose
 =======
-To create table for a class with associate properties and other custom columns (like ID, GUID, MX\_User\_ID, MFID, ExternalID, MFVersion, FileCount, IsSingleFile, Update\_ID, and LastModified)
 
+To create table for a class with associate properties and other custom columns (like ID, GUID, MX\_User\_ID, MFID, ExternalID, MFVersion, FileCount, IsSingleFile, Update\_ID, and LastModified)
 The column **IncludedInApp** in the MFCLass table is set to 1 for the created class table.
 
 Additional Info

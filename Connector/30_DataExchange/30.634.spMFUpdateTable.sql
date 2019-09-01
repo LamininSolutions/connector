@@ -4,8 +4,6 @@ GO
 PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFUpdateTable]';
 GO
 
-
-
 /*rST**************************************************************************
 
 ===============
@@ -14,41 +12,39 @@ spMFUpdateTable
 
 Return
   - 1 = Success
-  - 0 = Partial (some records failed to be inserted)
   - -1 = Error
 Parameters
-  @MFTableName
+  @MFTableName nvarchar(200)
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
-  @Updatemethod
+  @UpdateMethod int
     - 0 = update from SQL to M-Files
     - 1 = update from M-Files to SQL
-  @User_ID (optional)
+  @UserId nvarchar(200) (optional)
     - Default = 0
     - User_Id from MX_User_Id column
     - This is NOT the M-Files user.  It is used to set and apply a user_id for a third party system. An example is where updates from a third party system must be filtered by the third party user (e.g. placing an order)
-  @MFLastModified (optional)
+  @MFModifiedDate datetime (optional)
     - Default = 0
     - Get objects from M-Files that has been modified in M-files later than this date.
-  @ObjIDs (optional)
+  @ObjIDs nvarchar(max) (optional)
     - Default = null
     - ObjID's of records (separated by comma) e.g. : '10005,13203'
     - Restricted to 4000 charactes including the commas
-  @Update_IDOut (optional, output)
+  @Update\_IDOut int (optional, output)
     Output id of the record in MFUpdateHistory logging the update ; Also added to the record in the Update_ID column on the class table
-  @ProcessBatch_ID (optional, output)
+  @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
-  @SyncErrorFlag (optional)
+  @SyncErrorFlag bit (optional)
     - Default = 0
     - This parameter is automatically set by spMFUpdateSynchronizeError when synchronization routine is called.
-  @RetainDeletions (optional)
+  @RetainDeletions bit
     - Default = 0
     - Set to 1 to keep deleted items in M-Files in the SQL table shown as deleted = 1
-  @Debug (optional)
+  @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
-
 
 Purpose
 =======
