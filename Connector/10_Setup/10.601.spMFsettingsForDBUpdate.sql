@@ -16,30 +16,9 @@ SET NOCOUNT on
 ------------------------------------------------------------------------------------------------
 	Author: leRoux Cilliers, Laminin Solutions
 	Create date: 2016-04
-	Database: 
-	Description: Procedure to allow updating of specific settings
 ------------------------------------------------------------------------------------------------
 */
 
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	2016-8-22		lc			Change Settings index
-	2017-9-2		LC			Add RootFolder setting
-	2017-11-23		lc			resolve bug for missing value
-	2018-2-16		c			add file import and export change setting
-	2018-4-28		lc			add user message setting; vault structure setting
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-
-  EXEC [spMFSettingsForDBUpdate]   
-  select * from mfsettings
-
-  
------------------------------------------------------------------------------------------------*/
 IF EXISTS ( SELECT  1
             FROM    INFORMATION_SCHEMA.ROUTINES
             WHERE   ROUTINE_NAME = 'spMFSettingsForDBUpdate'--name of procedure
@@ -67,13 +46,13 @@ GO
 ALTER PROCEDURE dbo.spMFSettingsForDBUpdate
     (
    
-	  @MFInstallationPath NVARCHAR(128) = null , -- N'C:\Program Files\M-Files'  path where M-Files is installed on SQL server
-      @MFilesVersion NVARCHAR(128) = null , -- M-Files version deployed on SQL server
-      @AssemblyInstallationPath NVARCHAR(128) = null , -- N'C:\CLR' path where the Laminin Assemblies have been copied to.
-      @SQLConnectorLogin NVARCHAR(128) = null, -- 'MFSQLConnect' default SQL login user for the App
-      @UserRole NVARCHAR(128) = null ,-- 'AppUserRole' Default role for SQL user
-      @SupportEmailAccount NVARCHAR(128) = null , -- N'support@lamininsolutions.com' email to receive system error emails
-      @EmailProfile NVARCHAR(128) = null , -- N'LSEmailProfile' DBMail profile to be used for emails
+	  @MFInstallationPath NVARCHAR(128) = null , 
+      @MFilesVersion NVARCHAR(128) = null ,
+      @AssemblyInstallationPath NVARCHAR(128) = null ,
+      @SQLConnectorLogin NVARCHAR(128) = null,
+      @UserRole NVARCHAR(128) = null ,
+      @SupportEmailAccount NVARCHAR(128) = null ,
+      @EmailProfile NVARCHAR(128) = null ,
 	  @DetailLogging nvarchar(128) = null,
       @DBName nvarchar(128) = null,
 	  @RootFolder nvarchar(128) = null,
@@ -92,27 +71,40 @@ Return
   - -1 = Error
 Parameters
   @MFInstallationPath nvarchar(128)
-    fixme description
+    Path where M-Files is installed on SQL server
+    Default assigned by installer 'C:\Program Files\M-Files'
   @MFilesVersion nvarchar(128)
-    fixme description
+    M-Files version deployed on SQL server
+    Format '11.2.4320.51'
   @AssemblyInstallationPath nvarchar(128)
-    fixme description
+    Path where the Laminin Assemblies have been copied to.
+    Default assigned by installer 'C:\MFSQL\Assemblies' 
   @SQLConnectorLogin nvarchar(128)
-    fixme description
+    SQL login user for the Connector
+....Default assigned by installer 'MFSQLConnect'
   @UserRole nvarchar(128)
-    fixme description
+    Role for SQL user
+    Default assigned by installer 'AppUserRole'
   @SupportEmailAccount nvarchar(128)
-    fixme description
+    Email to receive system error emails
+    Default assigned by installer 'support@lamininsolutions.com', semi colon separated for multiple emails
+    Depended on installing Database Mail
   @EmailProfile nvarchar(128)
-    fixme description
+    DBMail profile to be used for emails
+    Default assigned by installer 'LSEmailProfile' 
+    Depended on Database Mail installation
   @DetailLogging nvarchar(128)
-    fixme description
+    1 = include detail logging
+    Default of 1 assigned by installer
   @DBName nvarchar(128)
-    fixme description
+    Connector database name
+    Assigned by installer
   @RootFolder nvarchar(128)
-    fixme description
+    Base folder for exporting of files
+    Default assigned by installer 'C:\MFSQL\FileExport'
   @FileTransferLocation nvarchar(128)
-    fixme description
+    Base folder for importing files
+    Default assigned by installer 'C:\MFSQL\FileImport'
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
@@ -121,18 +113,57 @@ Parameters
 
 Purpose
 =======
+Procedure to allow updating of specific settings in the MFSettings table
 
 Additional Info
 ===============
+Include only the the items that need to be changed.
+Refer to MFSettings for more information on the use of the settings.
 
 Prerequisites
 =============
+  Email functions is dependent on Database Mail being installed.
 
 Warnings
 ========
+Settings have an impact throughout the Connector.
 
 Examples
 ========
+.. code:: sql
+
+    EXEC [spMFSettingsForDBUpdate]  @SupportEmailAccount = 'YourEmailAccount'
+    select * from mfsettings where name = 'SupportEmailRecipient'
+
+.. code:: sql
+
+    DECLARE @RC int
+    DECLARE @MFInstallationPath nvarchar(128)
+    DECLARE @MFilesVersion nvarchar(128) 
+    DECLARE @AssemblyInstallationPath nvarchar(128)
+    DECLARE @SQLConnectorLogin nvarchar(128)
+    DECLARE @UserRole nvarchar(128)
+    DECLARE @SupportEmailAccount nvarchar(128) = 'mfsql@lamininsolutions.com'
+    DECLARE @EmailProfile nvarchar(128)
+    DECLARE @DetailLogging nvarchar(128)
+    DECLARE @DBName nvarchar(128)
+    DECLARE @RootFolder nvarchar(128)
+    DECLARE @FileTransferLocation nvarchar(128)
+    DECLARE @Debug smallint
+
+    EXECUTE @RC = [dbo].[spMFSettingsForDBUpdate] 
+    @MFInstallationPath
+    ,@MFilesVersion
+    ,@AssemblyInstallationPath
+    ,@SQLConnectorLogin
+    ,@UserRole
+    ,@SupportEmailAccount
+    ,@EmailProfile
+    ,@DetailLogging
+    ,@DBName
+    ,@RootFolder
+    ,@FileTransferLocation
+    ,@Debug
 
 Changelog
 =========
@@ -141,6 +172,11 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2016-8-22   LC         Change Settings index
+2017-9-2    LC         Add RootFolder setting
+2017-11-23  LC         Resolve bug for missing value
+2018-2-16   LC         Add file import and export change setting
+2018-4-28   LC         Add user message setting; vault structure setting
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -203,7 +239,7 @@ Date        Author     Description
 			UPDATE [dbo].[MFSettings]
 			SET value = @FileTransferLocation
 	FROM mfsettings WHERE name = 'FileTransferLocation' AND [source_key] = 'Files_Default'
-  --select * from mfsettings
+
 
 END;
  
