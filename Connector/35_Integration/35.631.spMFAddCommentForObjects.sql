@@ -69,9 +69,9 @@ Parameters
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
   @Process\_id int
-    fixme description
+    process id of the object(s) to add the comment to
   @Comment nvarchar(1000)
-    fixme description
+    the text of the comment
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
@@ -81,17 +81,35 @@ Parameters
 Purpose
 =======
 
+Add a new comment to an object, or objects using SQL with the procedure spMFAddCommentsForObjects.
+
 Additional Info
 ===============
 
-Prerequisites
-=============
+Set the process_ID for the selected objects before executing the procedure.
+Use spGetHistory procedure to access the history of comments of an object in SQL
 
 Warnings
 ========
 
+Adding a comment is a separate process from making a change to the object. The two processes must run one after the other rather than simultaneously
+The same comment will be applied to all the selected objects.
+
 Examples
 ========
+
+.. code:: sql
+
+    UPDATE [dbo].[MFCustomer]
+    SET process_id = 5
+    WHERE id IN (1,3,6,9)
+    DECLARE @Comment NVARCHAR(100)
+    SET @Comment = 'Added a comment for illustration '
+    EXEC [dbo].[spMFAddCommentForObjects]
+        @MFTableName = 'MFCustomer',
+        @Process_id = 5,
+        @Comment = @Comment ,
+        @Debug = 0
 
 Changelog
 =========

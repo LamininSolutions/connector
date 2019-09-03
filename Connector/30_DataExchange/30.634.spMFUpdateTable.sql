@@ -211,49 +211,49 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2015-04-08  DEV2       Deleting property value from M-Files (Task 57)
-2015-04-16  DEV2       Adding update table details to MFUpdateHistory table
-2015-04-23  DEV2       Removing Last modified & Last modified by from Update data
-2015-06-24  DEV2       Skip the object failed to update in M-Files
-2015-06-30  DEV2       New error Tracing and Return Value as LeRoux instruction
-2015-07-18  DEV2       New parameter add in spMFCreateObjectInternal
-2016-02-22  LC         Improve debugging information; Remove is_template message when updatemethod = 1
-2016-03-10  DEV2       Input variable @FromCreateDate  changed to @MFModifiedDate
-2016-03-10  DEV2       New input variable added (@ObjIDs)
-2016-08-18  LC         Add defaults to parameters
-2016-08-20  LC         Add Update_ID as output paramter
-2016-08-22  LC         Update settings index
-2016-08-22  LC         Change objids to NVARCHAR(4000)
-2016-09-21  LC         Removed @UserName,@Password,@NetworkAddress and @VaultName parameters and fectch it as comma separated list in @VaultSettings parameter dbo.fnMFVaultSettings() function
-2016-10-10  LC         Change of name of settings table
-2107-05-12  LC         Set processbatchdetail column detail
-2017-06-22  LC         Add ability to modify external_id
-2017-07-03  LC         Modify objids filter to include ids not in sql
-2017-07-06  LC         Add update of filecount column in class table
-2017-08-22  DEV2       Add sync error correction
-2017-08-23  DEV2       Add exclude null properties from update
-2017-10-01  LC         Fix bug with length of fields
-2017-11-03  DEV2       Added code to check required property has value or not
-2018-04-04  DEV2       Added Licensing module validation code.
-2018-05-16  LC         Fix conversion of float to nvarchar
-2018-06-26  LC         Improve reporting of return values
-2018-08-01  LC         New parameter @RetainDeletions to allow for auto removal of deletions Default = NO
-2018-08-01  LC         Fix deletions of record bug
-2018-08-23  LC         Fix bug with presedence = 1
-2018-10-20  LC         Set Deleted to != 1 instead of = 0 to ensure new records where deleted is not set is taken INSERT
-2018-10-24  LC         Resolve bug when objids filter is used with only one object
-2018-10-30  LC         Removing cursor method for update method 0 and reducing update time by 100%
-2018-11-05  LC         Include new parapameter to validate class and property structure
-2018-12-06  LC         Fix bug t.objid not found
-2018-12-18  LC         Validate that all records have been updated, raise error if not
-2019-01-03  LC         Fix bug for updating time property
-2019-01-13  LC         Fix bug for uniqueidentifyer type columns (e.g. guid)
-2019-05-19  LC         Terminate early if connection cannot be established
-2019-06-17  LC         UPdate MFaudithistory with changes
-2019-07-13  LC         Add working that not all records have been updated
-2019-07-26  LC         Update removing of redundant items form AuditHistory
-2019-08-24  LC         Fix label of audithistory table inserts
 2019-09-02  LC         Fix conflict where class table has property with 'Name' as the name V53
+2019-08-24  LC         Fix label of audithistory table inserts
+2019-07-26  LC         Update removing of redundant items form AuditHistory
+2019-07-13  LC         Add working that not all records have been updated
+2019-06-17  LC         UPdate MFaudithistory with changes
+2019-05-19  LC         Terminate early if connection cannot be established
+2019-01-13  LC         Fix bug for uniqueidentifyer type columns (e.g. guid)
+2019-01-03  LC         Fix bug for updating time property
+2018-12-18  LC         Validate that all records have been updated, raise error if not
+2018-12-06  LC         Fix bug t.objid not found
+2018-11-05  LC         Include new parapameter to validate class and property structure
+2018-10-30  LC         Removing cursor method for update method 0 and reducing update time by 100%
+2018-10-24  LC         Resolve bug when objids filter is used with only one object
+2018-10-20  LC         Set Deleted to != 1 instead of = 0 to ensure new records where deleted is not set is taken INSERT
+2018-08-23  LC         Fix bug with presedence = 1
+2018-08-01  LC         Fix deletions of record bug
+2018-08-01  LC         New parameter @RetainDeletions to allow for auto removal of deletions Default = NO
+2018-06-26  LC         Improve reporting of return values
+2018-05-16  LC         Fix conversion of float to nvarchar
+2018-04-04  DEV2       Added Licensing module validation code.
+2017-11-03  DEV2       Added code to check required property has value or not
+2017-10-01  LC         Fix bug with length of fields
+2017-08-23  DEV2       Add exclude null properties from update
+2017-08-22  DEV2       Add sync error correction
+2017-07-06  LC         Add update of filecount column in class table
+2017-07-03  LC         Modify objids filter to include ids not in sql
+2017-06-22  LC         Add ability to modify external_id
+2107-05-12  LC         Set processbatchdetail column detail
+2016-10-10  LC         Change of name of settings table
+2016-09-21  LC         Removed @UserName,@Password,@NetworkAddress and @VaultName parameters and fectch it as comma separated list in @VaultSettings parameter dbo.fnMFVaultSettings() function
+2016-08-22  LC         Change objids to NVARCHAR(4000)
+2016-08-22  LC         Update settings index
+2016-08-20  LC         Add Update_ID as output paramter
+2016-08-18  LC         Add defaults to parameters
+2016-03-10  DEV2       New input variable added (@ObjIDs)
+2016-03-10  DEV2       Input variable @FromCreateDate  changed to @MFModifiedDate
+2016-02-22  LC         Improve debugging information; Remove is_template message when updatemethod = 1
+2015-07-18  DEV2       New parameter add in spMFCreateObjectInternal
+2015-06-30  DEV2       New error Tracing and Return Value as LeRoux instruction
+2015-06-24  DEV2       Skip the object failed to update in M-Files
+2015-04-23  DEV2       Removing Last modified & Last modified by from Update data
+2015-04-16  DEV2       Adding update table details to MFUpdateHistory table
+2015-04-08  DEV2       Deleting property value from M-Files (Task 57)
 ==========  =========  ========================================================
 
 **rST*************************************************************************/

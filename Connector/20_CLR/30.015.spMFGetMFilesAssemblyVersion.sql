@@ -56,26 +56,30 @@ Return
   - -1 = Error
 Parameters
   @IsUpdateAssembly bit (output)
-    Default = 0
-    Returns 1 if M-Files version on the M-Files Server is different from MFSettings
+    - Default = 0
+    - Returns 1 if M-Files version on the M-Files Server is different from MFSettings
   @MFilesVersion varchar(100) (output)
-    Returns M-Files version on the M-Files Server
+    - Returns M-Files version on the M-Files Server
 
 
 Purpose
 =======
-The purpose of this procedure is to validate the M-Files version and return 1 if different 
+
+The purpose of this procedure is to validate the M-Files version and return 1 if different
 
 Additional Info
 ===============
+
 Used by other procedures.
 
 Warnings
 ========
+
 This procedure returns to M-Files Version on the M-Files Server and not the SQL Server
 
 Examples
 ========
+
 .. code:: sql
 
     Exec spMFGetMFilesAssemblyVersion
@@ -87,11 +91,11 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2015-03-27  DEV2       Create procedure
-2018-04-04  DEV2       Added Licensing module validation code.
-2018-09-27  LC         Remove licensing check. this procedure is excecuted before license is active
-2019-05-19  LC         Block print of result
 2019-08-30  JC         Added documentation
+2019-05-19  LC         Block print of result
+2018-09-27  LC         Remove licensing check. this procedure is excecuted before license is active
+2018-04-04  DEV2       Added Licensing module validation code.
+2015-03-27  DEV2       Create procedure
 ==========  =========  ========================================================
 
 **rST*************************************************************************/

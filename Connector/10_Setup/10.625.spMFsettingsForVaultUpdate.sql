@@ -70,38 +70,39 @@ Return
   - 1 = Success
   - -1 = Error
 Parameters
-  @Username NVARCHAR(100) = NULL,
+  @Username nvarchar(100)
     M-Files user with vault admin rights
-  @Password NVARCHAR(100) = NULL,    
-     the password will be encrypted 
-  @NetworkAddress NVARCHAR(100) = NULL,
-    Vault server URL from SQL server
-    example'laminindev.lamininsolutions.com'
-  @Vaultname NVARCHAR(100) = NULL
-    vault name 
-  @MFProtocolType_ID INT = NULL
-    Default set by installer 
-    select ID from list in MFProtocolType
-  @Endpoint INT = NULL
-    The portnumber for accessing the vault
-    Default set by installer 2266
-  @MFAuthenticationType_ID INT = NULL
+  @Password nvarchar(100)
+    The password will be encrypted
+  @NetworkAddress nvarchar(100)
+    - Vault server URL from SQL server
+    - example: 'laminindev.lamininsolutions.com'
+  @Vaultname nvarchar(100)
+    vault name
+  @MFProtocolType_ID int
+    - Default set by installer
+    - select ID from list in MFProtocolType
+  @Endpoint int
+    - The portnumber for accessing the vault
+    - Default set by installer 2266
+  @MFAuthenticationType_ID int
     select ID from list of MFAutenticationType
-  @Domain NVARCHAR(128) = NULL
-    
-  @VaultGUID NVARCHAR(128) = NULL
+  @Domain nvarchar(128)
+    fixme description
+  @VaultGUID nvarchar(128)
     GUID from M-Files admin
-  @ServerURL NVARCHAR(128) = NULL
-    laminindev.lamininsolutions.com' 
-    Web Address of M-Files
+  @ServerURL nvarchar(128)
+    - Web Address of M-Files
+    - example: 'laminindev.lamininsolutions.com'
   @Debug (optional)
     - Default = 0
     - 1 = Standard Debug Mode
 
 Purpose
 =======
+
 Procedure to allow updating of specific settings in both MFVaultSettings and MFSettings related to the vault
-Table MFVaultSettings show the settings to connect to M-Files.  
+Table MFVaultSettings show the settings to connect to M-Files.
 MFSettings table show the other settings for the Connector.
 
 Examples
@@ -109,7 +110,7 @@ Examples
 
 .. code:: sql
 
-    -- check out the settings tables 
+    -- check out the settings tables
     SELECT * FROM mfVaultSettings
     SELECT * FROM  [MFSettings] AS [ms]
 
@@ -126,7 +127,7 @@ Examples
     --change the password
 
     EXEC spmfsettingsForVaultUpdate @Password = 'MotSys123'
-    
+
     -- It is only necessary to specify the settings that need to change
 
     DECLARE @RC INT
@@ -160,9 +161,9 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2016-04-20  LC         Created Procedure
-2016-8-22   LC         Change settings index
 2016-10-12  LC         Update procedure to allow for updating of settings into the new MFVaultSettings Table
+2016-08-22  LC         Change settings index
+2016-04-20  LC         Created Procedure
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
