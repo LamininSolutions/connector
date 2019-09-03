@@ -58,23 +58,28 @@ Parameters
   @Debug int (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
 
 
 Purpose
 =======
-
+The purpose of this procedure is to check  M-Files Version and update the assemblies.
 Additional Info
 ===============
+This procedure is used in the Agent to automatically update the assemblies
 
 Prerequisites
 =============
+M-Files version on SQL Server is the same as M-Files Server
 
 Warnings
 ========
+This procedure will fail if the SQL Server and M-Files Server have different M-Files versions.
 
 Examples
 ========
+.. code:: sql
+
+    Exec spMFCheckAndUpdateAssemblyVersion
 
 Changelog
 =========
@@ -82,26 +87,15 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2016-12-28  DEV2       Create Procedure
+2018-09-27  LC         Change procedure to work with Release 4 scripts
+2019-05-19  LC         Fix bug - insert null value in MFsettings not allowed
+2019-07-25  LC         Add more debug and error trapping, fix issue to prevent update
 2019-08-30  JC         Added documentation
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to check  M-File Version and update it
-            database drop and recreeate assembly.
-						
-  **
-  ** Author:			DevTeam2
-  ** Date:				28-12-2016
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  2018-09-27		LC		change procedure to work with Release 4 scripts
-  2019-05-19		LC		Fix bug - insert null value in MFsettings not allowed
-  2019-07-25		LC		Add more debug and error trapping, fix issue to prevent update
-  ******************************************************************************/
+ 
 BEGIN
     SET NOCOUNT ON;
 
