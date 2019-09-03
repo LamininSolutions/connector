@@ -4,6 +4,65 @@ GO
 PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFUpdateTable]';
 GO
 
+
+
+SET NOCOUNT ON;
+
+EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
+                                    ,@ObjectName = N'spMFUpdateTable'
+                                    -- nvarchar(100)
+                                    ,@Object_Release = '4.4.11.53'
+                                    -- varchar(50)
+                                    ,@UpdateFlag = 2;
+-- smallint
+GO
+
+IF EXISTS
+(
+    SELECT 1
+    FROM [INFORMATION_SCHEMA].[ROUTINES]
+    WHERE [ROUTINE_NAME] = 'spMFUpdateTable' --name of procedure
+          AND [ROUTINE_TYPE] = 'PROCEDURE' --for a function --'FUNCTION'
+          AND [ROUTINE_SCHEMA] = 'dbo'
+)
+BEGIN
+    PRINT SPACE(10) + '...Stored Procedure: update';
+
+    SET NOEXEC ON;
+END;
+ELSE
+    PRINT SPACE(10) + '...Stored Procedure: create';
+GO
+
+-- if the routine exists this stub creation stem is parsed but not executed
+CREATE PROCEDURE [dbo].[spMFUpdateTable]
+AS
+SELECT 'created, but not implemented yet.';
+--just anything will do
+GO
+
+-- the following section will be always executed
+SET NOEXEC OFF;
+GO
+
+ALTER PROCEDURE [dbo].[spMFUpdateTable]
+(
+    @MFTableName NVARCHAR(200)
+   ,@UpdateMethod INT               --0=Update from SQL to MF only; 
+                                    --1=Update new records from MF; 
+                                    --2=initialisation 
+   ,@UserId NVARCHAR(200) = NULL    --null for all user update
+   ,@MFModifiedDate DATETIME = NULL --NULL to select all records
+   ,@ObjIDs NVARCHAR(MAX) = NULL
+   ,@Update_IDOut INT = NULL OUTPUT
+   ,@ProcessBatch_ID INT = NULL OUTPUT
+   ,@SyncErrorFlag BIT = 0          -- note this parameter is auto set by the operation 
+   ,@RetainDeletions BIT = 0
+                                    --   ,@UpdateMetadata BIT = 0
+   ,@Debug SMALLINT = 0
+)
+AS
+
 /*rST**************************************************************************
 
 ===============
@@ -12,36 +71,37 @@ spMFUpdateTable
 
 Return
   - 1 = Success
+  - 0 = Partial (some records failed to be inserted)
   - -1 = Error
 Parameters
-  @MFTableName nvarchar(200)
+  @MFTableName
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
-  @UpdateMethod int
+  @Updatemethod
     - 0 = update from SQL to M-Files
     - 1 = update from M-Files to SQL
-  @UserId nvarchar(200) (optional)
+  @User_ID (optional)
     - Default = 0
     - User_Id from MX_User_Id column
     - This is NOT the M-Files user.  It is used to set and apply a user_id for a third party system. An example is where updates from a third party system must be filtered by the third party user (e.g. placing an order)
-  @MFModifiedDate datetime (optional)
+  @MFLastModified (optional)
     - Default = 0
     - Get objects from M-Files that has been modified in M-files later than this date.
-  @ObjIDs nvarchar(max) (optional)
+  @ObjIDs (optional)
     - Default = null
     - ObjID's of records (separated by comma) e.g. : '10005,13203'
     - Restricted to 4000 charactes including the commas
-  @Update\_IDOut int (optional, output)
+  @Update_IDOut (optional, output)
     Output id of the record in MFUpdateHistory logging the update ; Also added to the record in the Update_ID column on the class table
-  @ProcessBatch\_ID int (optional, output)
+  @ProcessBatch_ID (optional, output)
     Referencing the ID of the ProcessBatch logging table
-  @SyncErrorFlag bit (optional)
+  @SyncErrorFlag (optional)
     - Default = 0
     - This parameter is automatically set by spMFUpdateSynchronizeError when synchronization routine is called.
-  @RetainDeletions bit
+  @RetainDeletions (optional)
     - Default = 0
     - Set to 1 to keep deleted items in M-Files in the SQL table shown as deleted = 1
-  @Debug smallint (optional)
+  @Debug (optional)
     - Default = 0
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
@@ -193,67 +253,10 @@ Date        Author     Description
 2019-07-13  LC         Add working that not all records have been updated
 2019-07-26  LC         Update removing of redundant items form AuditHistory
 2019-08-24  LC         Fix label of audithistory table inserts
+2019-09-02  LC         Fix conflict where class table has property with 'Name' as the name V53
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
-
-
-SET NOCOUNT ON;
-
-EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
-                                    ,@ObjectName = N'spMFUpdateTable'
-                                    -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.52'
-                                    -- varchar(50)
-                                    ,@UpdateFlag = 2;
--- smallint
-GO
-
-IF EXISTS
-(
-    SELECT 1
-    FROM [INFORMATION_SCHEMA].[ROUTINES]
-    WHERE [ROUTINE_NAME] = 'spMFUpdateTable' --name of procedure
-          AND [ROUTINE_TYPE] = 'PROCEDURE' --for a function --'FUNCTION'
-          AND [ROUTINE_SCHEMA] = 'dbo'
-)
-BEGIN
-    PRINT SPACE(10) + '...Stored Procedure: update';
-
-    SET NOEXEC ON;
-END;
-ELSE
-    PRINT SPACE(10) + '...Stored Procedure: create';
-GO
-
--- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE [dbo].[spMFUpdateTable]
-AS
-SELECT 'created, but not implemented yet.';
---just anything will do
-GO
-
--- the following section will be always executed
-SET NOEXEC OFF;
-GO
-
-ALTER PROCEDURE [dbo].[spMFUpdateTable]
-(
-    @MFTableName NVARCHAR(200)
-   ,@UpdateMethod INT               --0=Update from SQL to MF only; 
-                                    --1=Update new records from MF; 
-                                    --2=initialisation 
-   ,@UserId NVARCHAR(200) = NULL    --null for all user update
-   ,@MFModifiedDate DATETIME = NULL --NULL to select all records
-   ,@ObjIDs NVARCHAR(MAX) = NULL
-   ,@Update_IDOut INT = NULL OUTPUT
-   ,@ProcessBatch_ID INT = NULL OUTPUT
-   ,@SyncErrorFlag BIT = 0          -- note this parameter is auto set by the operation 
-   ,@RetainDeletions BIT = 0
-                                    --   ,@UpdateMetadata BIT = 0
-   ,@Debug SMALLINT = 0
-)
-AS
 
 DECLARE @Update_ID    INT
        ,@return_value INT = 1;
@@ -346,11 +349,11 @@ BEGIN TRY
         EXEC @return_value = [dbo].[spMFGetMetadataStructureVersionID] @IsUpToDate = @IsUpToDate OUTPUT; -- bit
 
         IF @return_value < 0
-		        BEGIN
+        BEGIN
             SET @DebugText = 'Connection failed %i';
             SET @DebugText = @DefaultDebugText + @DebugText;
 
-            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep,@return_value);
+            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep, @return_value);
         END;
 
         -------------------------------------------------------------
@@ -760,12 +763,15 @@ BEGIN TRY
                 -------------------------------------------------------------
                 SET @Query = '';
 
+		SET @ProcedureStep = 'Datatype table';
+
                 DECLARE @DatatypeTable AS TABLE
                 (
                     [id] INT IDENTITY
                    ,[Datatypes] NVARCHAR(20)
                    ,[Type_Ids] NVARCHAR(100)
                 );
+
 
                 INSERT INTO @DatatypeTable
                 (
@@ -795,6 +801,8 @@ BEGIN TRY
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
+		SET @ProcedureStep = 'Pivot Columns';
+
                 WHILE @rownr IS NOT NULL
                 BEGIN
                     SELECT @Datatypes = [dt].[Type_Ids]
@@ -803,7 +811,7 @@ BEGIN TRY
 
                     SET @DebugText = 'DataTypes %s';
                     SET @DebugText = @DefaultDebugText + @DebugText;
-                    SET @ProcedureStep = 'Create Column Value Pair';
+
 
                     IF @Debug > 0
                     BEGIN
@@ -819,12 +827,10 @@ BEGIN TRY
                                       ON [mp].[ColumnName] = [C].[name]
                               WHERE [C].[object_id] = OBJECT_ID(@MFTableName)
                                     AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 20, 21, 23, 25 )
+                                    --AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 23, 25 )
                                     AND [mp].[ColumnName] <> 'Deleted'
                                     AND [mp].[MFDataType_ID] IN (
-                                                                    SELECT [ListItem] FROM [dbo].[fnMFParseDelimitedString](
-                                                                                                                               @Datatypes
-                                                                                                                              ,','
-                                                                                                                           )
+                                    SELECT [ListItem] FROM [dbo].[fnMFParseDelimitedString](@Datatypes ,',')
                                                                 )
                               FOR XML PATH('')
                           )
@@ -841,16 +847,15 @@ BEGIN TRY
                         SET @Query
                             = @Query
                               + 'Union All
- select ID,  Objid, MFversion, ExternalID, Name as ColumnName, CAST(value AS VARCHAR(4000)) AS Value
-        from '                       + QUOTENAME(@MFTableName)
-                              + ' t
+ select ID,  Objid, MFversion, ExternalID, ColName as ColumnName, CAST(value AS VARCHAR(4000)) AS Value
+        from ' + QUOTENAME(@MFTableName) + ' t
         unpivot
         (
-          value for name in ('       + @colsUnpivot + ')
+          value for Colname in (' + @colsUnpivot + ')
         ) unpiv
 		where 
-		'                            + @vquery + ' ';
-                    END;
+		' + @vquery + ' ';
+						 END;
 
                     SELECT @rownr =
                     (
@@ -887,8 +892,9 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
                 EXEC (@Query);
 
                 -------------------------------------------------------------
-                -- Validate class and proerty requirements
+                -- Validate class and property requirements
                 -------------------------------------------------------------
+                SET @ProcedureStep = 'Validate class and property requirements';
                 IF @IsUpToDate = 0
                 BEGIN
                     EXEC [dbo].[spMFSynchronizeSpecificMetadata] @Metadata = 'Property';
@@ -900,6 +906,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
                         FROM [dbo].[MFvwMetadataStructure] AS [mfms]
                         WHERE [mfms].[TableName] = @MFTableName
                               AND [mfms].[Property_MFID] NOT IN ( 20, 21, 23, 25 )
+                              -- AND [mfms].[Property_MFID] NOT IN (  23, 25 )
                               AND [mfms].[Required] = 1
                         EXCEPT
                         (SELECT [mp].[Name]
@@ -943,6 +950,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
                 -------------------------------------------------------------
                 -- check for required data missing
                 -------------------------------------------------------------
+                SET @ProcedureStep = 'check for required data missing';
                 IF
                 (
                     SELECT COUNT(*)
@@ -2091,36 +2099,40 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
                 RAISERROR('Proc: %s Step: %s FAILED ', 16, 1, @ProcedureName, @ProcedureStep);
         END;
 
-		-------------------------------------------------------------
-		-- Update MFaudithistory for all updated records
-		-------------------------------------------------------------
-	
-	
-		DECLARE @ObjectType INT
-		SELECT @ObjectType = mot.MFID
-		FROM MFclass mc
-		INNER JOIN [dbo].[MFObjectType] AS [mot]
-		ON mc.[MFObjectType_ID] = mot.[ID]
-		WHERE mc.MFID = @ClassId
-	
-		SET @ParmDefinition = N'@Update_ID int, @ClassID int'
-		SET @SelectQuery = N'
+        -------------------------------------------------------------
+        -- Update MFaudithistory for all updated records
+        -------------------------------------------------------------
+        DECLARE @ObjectType INT;
+
+        SELECT @ObjectType = [mot].[MFID]
+        FROM [dbo].[MFClass]                [mc]
+            INNER JOIN [dbo].[MFObjectType] AS [mot]
+                ON [mc].[MFObjectType_ID] = [mot].[ID]
+        WHERE [mc].[MFID] = @ClassId;
+
+        SET @ParmDefinition = N'@Update_ID int, @ClassID int';
+        SET @SelectQuery
+            = N'
 		UPDATE mah
 		SET [mah].[StatusFlag] = 0,  StatusName = ''Identical'', [mah].[MFVersion] = mlv.[MFVersion], recID = mlv.id
-		FROM '+ QUOTENAME(@MFTableName) + ' AS [mlv]
+		FROM ' + QUOTENAME(@MFTableName)
+              + ' AS [mlv]
 		INNER JOIN MFAuditHistory AS [mah]
 		ON mlv.[ObjID] = mah.[ObjID] AND mah.[Class] = @ClassId
 		WHERE [mlv].[Update_ID] = @Update_ID ;
 		
 
 		
-		'
+		';
 
-		
-		EXEC sp_executeSQL @Stmt = @SelectQuery, @Params = @ParmDefinition, @ClassID = @ClassID, @Update_id = @Update_ID
+        EXEC [sys].[sp_executesql] @Stmt = @SelectQuery
+                                  ,@Params = @ParmDefinition
+                                  ,@ClassID = @ClassId
+                                  ,@Update_id = @Update_ID;
 
-			SET @ParmDefinition = N'@Update_ID int, @ClassID int,@ObjectType int'
-		SET @SelectQuery = N'
+        SET @ParmDefinition = N'@Update_ID int, @ClassID int,@ObjectType int';
+        SET @SelectQuery
+            = N'
 
 		INSERT INTO [dbo].[MFAuditHistory]
 		(
@@ -2135,35 +2147,39 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
 		   ,[StatusName]
 		)
 		SELECT t.id, 0,GETDATE(), @ObjectType, @ClassId,t.[Objid],t.[MFVersion],0,''Identical''
-		FROM '+ QUOTENAME(@MFTableName) + ' AS [t]
+		FROM ' + QUOTENAME(@MFTableName)
+              + ' AS [t]
 		left JOIN MFAuditHistory AS [mah]
 		ON t.[ObjID] = mah.[ObjID] AND mah.[Class] = @ClassId
 		WHERE [t].[Update_ID] = @Update_ID AND mah.id IS null
-		;'
+		;';
 
+        EXEC [sys].[sp_executesql] @Stmt = @SelectQuery
+                                  ,@Params = @ParmDefinition
+                                  ,@ClassID = @ClassId
+                                  ,@Update_id = @Update_ID
+                                  ,@ObjectType = @ObjectType;
 
-		EXEC sp_executeSQL @Stmt = @SelectQuery, @Params = @ParmDefinition, @ClassID = @ClassID, @Update_id = @Update_ID, @ObjectType = @ObjectType
-
-		-------------------------------------------------------------
-		-- remove items from MFAuditHistory where items are not in class table after update
-		-- this section will change when the result set for Audit History changes
-		-------------------------------------------------------------
-
-		IF @ObjIDs IS NOT NULL
-        BEGIN 
-		;
-WITH CTE AS
-(
-SELECT mah.id, [mah].[ObjID] FROM [dbo].[MFAuditHistory] AS [mah]
-INNER JOIN [dbo].[fnMFParseDelimitedString](@ObjIDs,',') AS [fmpds]
-ON [fmpds].[ListItem] = [mah].[ObjID]
-WHERE [mah].[Class] = @ClassId AND [mah].[StatusFlag] = 5
-)
-DELETE FROM [dbo].[MFAuditHistory]
-WHERE id IN (SELECT id FROM CTE)
-		END
-        
-
+        -------------------------------------------------------------
+        -- remove items from MFAuditHistory where items are not in class table after update
+        -- this section will change when the result set for Audit History changes
+        -------------------------------------------------------------
+        IF @ObjIDs IS NOT NULL
+        BEGIN
+            ;
+            WITH [CTE]
+            AS (SELECT [mah].[ID]
+                      ,[mah].[ObjID]
+                FROM [dbo].[MFAuditHistory]                                   AS [mah]
+                    INNER JOIN [dbo].[fnMFParseDelimitedString](@ObjIDs, ',') AS [fmpds]
+                        ON [fmpds].[ListItem] = [mah].[ObjID]
+                WHERE [mah].[Class] = @ClassId
+                      AND [mah].[StatusFlag] = 5)
+            DELETE FROM [dbo].[MFAuditHistory]
+            WHERE [ID] IN (
+                              SELECT [CTE].[ID] FROM [CTE]
+                          );
+        END;
 
         -------------------------------------------------------------------------------------
         --Checked whether all data is updated. #1360
@@ -2178,13 +2194,13 @@ WHERE id IN (SELECT id FROM CTE)
                                       ,N'@C INT OUTPUT'
                                       ,@C = @CountUpdated OUTPUT;
 
-			IF (@CountUpdated > 0) 
-			SELECT @return_value = 3;
+            IF (@CountUpdated > 0)
+                SELECT @return_value = 3;
 
-            IF (@CountUpdated > 0) AND @Debug > 0
+            IF (@CountUpdated > 0)
+               AND @Debug > 0
             BEGIN
                 RAISERROR('Error: All data is not updated', 10, 1, @ProcedureName, @ProcedureStep);
-
             END;
         END;
 
@@ -2503,4 +2519,3 @@ BEGIN CATCH
     RETURN -1; --For More information refer Process Table
 END CATCH;
 GO
-
