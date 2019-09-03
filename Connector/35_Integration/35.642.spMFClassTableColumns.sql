@@ -64,7 +64,7 @@ Return
   - 0 = Partial (some records failed to be inserted)
   - -1 = Error
 Parameters
-  @Debug (optional)
+  @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
