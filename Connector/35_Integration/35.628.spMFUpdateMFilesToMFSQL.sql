@@ -4,28 +4,11 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFUpdateMFilesToMFSQL' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.12.52'            -- varchar(50)
+                                    ,@Object_Release = '4.4.12.53'            -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
 GO
 
-/*
-********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  ** 2017-06-08	acilliers	ProcessBatch_ID not passed into spMFAuditTable
-  ** 2017-06-08	acilliers	Incorrect LogTypeDetail value 
-  ** 2017-06-29 AC			Change LogStatusDetail to 'Completed' from 'Complete' 	
-  **2017-12-25  LC			change BatchProcessDetail log text for lastupdatedate
-  **2017-12-28  LC			add routine to reset process_id 3,4 to 0
-  **2018-5-10	LC			add error if invalid table name is specified
-  ==2018-10-20  LC			fix processing time calculation
-  **2018-10-22	LC			align logtext description for reporting, refine ProcessBatch messages
-  **2019-4-11	LC			allow for large tables
-  2019-8-5		LC			fix bug in updating single record
-  ******************************************************************************/
 
 IF EXISTS
 (
@@ -80,31 +63,65 @@ Parameters
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
   @MFLastUpdateDate smalldatetime (output)
-    fixme description
+    returns the most recent MF Last modified date 
   @UpdateTypeID tinyint
-    fixme description
+    0 = Full update; 1 = incremental update
   @Update\_IDOut int (output)
-    fixme description
+    returns the id of the last updated batch
   @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @debug tinyint
-    fixme description
+    
 
 
 Purpose
 =======
+The purpose of this procedure has migrated over time from processing records by objid to a routine that can be used by default for large and small tables to process records from M-Files to SQL.
+The procedure is fundamentally based on updating M-Files to SQL using a rapid evaluation of the object version of each object and then to update based on the object id of the object.
 
 Additional Info
 ===============
-
-Prerequisites
-=============
+Setting UpdateTypeID = 0 (Full update) will perform a full audit of the class table by validating every object version in the class and run through an update of all the objects where the version in M-Files and SQL are not identical.
+ This will run spmfUpdateTableinBatches in silent mode. Note that the Max Objid to control the update is derived as the max(objid) in the class table + 500 of the class table.
+Setting UpdateTypeID = 1 (incremental update) will perform an audit of the class table based on the date of the last modified object in the class table, and then update the records that is not identical
+Deleted records in M-Files will be identified and removed.
 
 Warnings
 ========
+Use spmfUpdateTableInBatches to initiate a class table instead of this procedure.
 
 Examples
 ========
+.. code:: sql
+
+    --Full Update from MF to SQL
+
+    DECLARE @MFLastUpdateDate SMALLDATETIME
+       ,@Update_IDOut     INT
+       ,@ProcessBatch_ID  INT;
+
+    EXEC [dbo].[spMFUpdateMFilesToMFSQL] @MFTableName = 'YourTable'                   -- nvarchar(128)
+                                    ,@MFLastUpdateDate = @MFLastUpdateDate OUTPUT -- smalldatetime
+                                    ,@UpdateTypeID = 0                            -- tinyint
+                                    ,@Update_IDOut = @Update_IDOut OUTPUT         -- int
+                                    ,@ProcessBatch_ID = @ProcessBatch_ID OUTPUT   -- int
+                                    ,@debug = 0;                                  -- tinyint
+
+    SELECT @MFLastUpdateDate AS [LastModifiedDate];
+
+    DECLARE @MFLastUpdateDate SMALLDATETIME
+       ,@Update_IDOut     INT
+       ,@ProcessBatch_ID  INT;
+
+    EXEC [dbo].[spMFUpdateMFilesToMFSQL] @MFTableName = 'YourTable'                   -- nvarchar(128)
+                                    ,@MFLastUpdateDate = @MFLastUpdateDate OUTPUT -- smalldatetime
+                                    ,@UpdateTypeID = 1                            -- tinyint
+                                    ,@Update_IDOut = @Update_IDOut OUTPUT         -- int
+                                    ,@ProcessBatch_ID = @ProcessBatch_ID OUTPUT   -- int
+                                    ,@debug = 0;                                  -- tinyint
+
+    SELECT @MFLastUpdateDate;
+
 
 Changelog
 =========
@@ -112,35 +129,25 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2016-08-11  AC         Create Procedure
+2017-06-08  AC         ProcessBatch_ID not passed into spMFAuditTable
+2017-06-08  AC         Incorrect LogTypeDetail value 
+2017-06-29  AC         Change LogStatusDetail to 'Completed' from 'Complete' 	
+2017-12-25  LC         Change BatchProcessDetail log text for lastupdatedate
+2017-12-28  LC         Add routine to reset process_id 3,4 to 0
+2018-05-10  LC         Add error if invalid table name is specified
+2018-10-20  LC         Fix processing time calculation
+2018-10-22  LC         Align logtext description for reporting, refine ProcessBatch messages
+2019-04-12  LC         Allow for large tables
+2019-08-05  LC         Fix bug in updating single record
 2019-08-30  JC         Added documentation
+2019-09-03  LC         Set default date for deleted record check to 2000-01-01
+2019-09-03  LC         Set audittableinbatches to withstats = 0
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
 
-/*******************************************************************************
-  ** Desc:  The purpose of this procedure is to syncronize records in the CLGLChart
-  **		class Table from Epicor into M-Files.  
-  **		Full Table Merge with every execution, INSERT, UPDATE, DELETE
-  **  
-  ** Version: 1.0.0.0
-  **
-  ** Processing Steps:
 
-  ** Parameters and acceptable values:
-  **			@ProcessBatch_ID:	Optional - If not provided will initialize new, else validate against existing.
-				@UpdateTypeID:		0			: Full Recordset comparison	| Update/Insert/Delete based on full compare
-									1			: Incremental based on timestamp and/last update date
-									2			: Deletes Only
-  ** 
-   	
-  **
-  ** Author:          arnie@lamininsolutions.com
-  ** Date:            2016-08-11
-  */
-/*
-
-
-  */
 BEGIN
     SET NOCOUNT ON;
 
@@ -344,7 +351,7 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + ')
                         EXEC [dbo].[spMFTableAuditinBatches] @MFTableName = @MFTableName -- nvarchar(100)
                                                             ,@FromObjid = 1              -- int
                                                             ,@ToObjid = @DefaultToObjid  -- int
-                                                            ,@WithStats = 1              -- bit
+                                                            ,@WithStats = 0              -- bit
                                                             ,@ProcessBatch_ID = @ProcessBatch_ID
                                                             ,@Debug = @debug;            -- int
      END
@@ -749,7 +756,7 @@ END
 						SET @ProcedureStep = 'Remove deletions'
 
 						EXEC [dbo].[spMFGetDeletedObjects] @MFTableName = @MFTableName      -- nvarchar(200)
-						                                  ,@LastModifiedDate = null -- datetime
+						                                  ,@LastModifiedDate = '2000-01-01' -- datetime
 						                                  ,@RemoveDeleted = 1    -- bit
 						                                  ,@ProcessBatch_ID = @ProcessBatch_ID OUTPUT                -- int
 						                                  ,@Debug = 0            -- smallint

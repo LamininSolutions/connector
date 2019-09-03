@@ -12,29 +12,11 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFGetDeletedObjects' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.52'
+                                    ,@Object_Release = '4.4.12.53'
                                     ,@UpdateFlag = 2;
 GO
 
-/*------------------------------------------------------------------------------------------------
-	Author: LSUSA\LeRouxC
-	Create date: 04/07/2019 07:06
-	Description: Remove deleted objects in M-Files in class table 
 
-	PARAMETERS:
-															
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  
------------------------------------------------------------------------------------------------*/
 
 IF EXISTS
 (
@@ -67,7 +49,7 @@ GO
 ALTER PROCEDURE [dbo].[spMFGetDeletedObjects]
 (
     @MFTableName NVARCHAR(200)
-   ,@LastModifiedDate DATETIME = NULL
+   ,@LastModifiedDate DATETIME = '2000-01-01'
    ,@RemoveDeleted BIT = 0
    ,@ProcessBatch_ID INT = NULL OUTPUT
    ,@Debug SMALLINT = 0
@@ -87,19 +69,20 @@ Parameters
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
   @LastModifiedDate datetime
-    fixme description
+    Default to 2000-01-01
+	Allows limited search for deleted object
   @RemoveDeleted bit
-    fixme description
+    Default = 1.  Deleted records in M-Files are removed from the class table.
+	If set to 0 then deleted items will be marked in the class table column 'Deleted' instead of removing the record.
   @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
-
 
 Purpose
 =======
+Identify and optionally remove deleted objects in M-Files in class table 
 
 Additional Info
 ===============
@@ -113,13 +96,26 @@ Warnings
 Examples
 ========
 
+
+    DECLARE @ProcessBatch_ID INT;
+
+    EXEC [dbo].[spMFGetDeletedObjects] @MFTableName = 'MFCustomer'      -- nvarchar(200)
+                                  ,@LastModifiedDate = '2018-01-01' -- datetime
+                                  ,@RemoveDeleted = 1    -- bit
+                                  ,@ProcessBatch_ID = @ProcessBatch_ID OUTPUT                -- int
+                                  ,@Debug = 101            -- smallint
+
+
 Changelog
 =========
 
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-07-04  LC         Create Procedure
 2019-08-30  JC         Added documentation
+2019-09-03  LC         Set LastModifiedDate default to 2000-01-01
+2019-09-03  LC         Fix bug related to vaultsettings parameter
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -202,26 +198,12 @@ BEGIN
     --DECLARE LOCAL VARIABLE
     -----------------------------------------------------
     DECLARE @Id           INT
-           --,@objID           INT
            ,@ObjectTypeId INT
-           --,@ObjVersion      INT
-           --,@XMLOut          NVARCHAR(MAX)
-           --,@ObjIDsForUpdate NVARCHAR(MAX)
-           --,@MinObjid        INT
-           --,@MaxObjid        INT
-           --,@DefaultDate     DATETIME       = '2000-01-01'
-           --                                --             @Output NVARCHAR(200) ,
-           --,@FullXml         XML           --
-           --,@SynchErrorObj   NVARCHAR(MAX) --Declared new paramater
-           --,@DeletedObjects  NVARCHAR(MAX) --Declared new paramater
            ,@ObjId        INT
            ,@ClassId      INT;
-    --,@ErrorInfo       NVARCHAR(MAX)
-    --,@MFIDs           NVARCHAR(2500) = ''
-    --,@RunTime         VARCHAR(20);
     DECLARE @Idoc INT;
     DECLARE @outputXML NVARCHAR(MAX);
-    DECLARE @Vaultsettings NVARCHAR(100);
+    DECLARE @Vaultsettings NVARCHAR(400);
 
     SET @Vaultsettings = [dbo].[FnMFVaultSettings]();
     SET @StartTime = GETUTCDATE();
@@ -279,15 +261,14 @@ BEGIN
                 ON [ob].[ID] = [mc].[MFObjectType_ID]
         WHERE [mc].[TableName] = @MFTableName;
 
+
         EXEC [dbo].[spMFGetDeletedObjectsInternal] @VaultSettings = @Vaultsettings       -- nvarchar(4000)
                                                   ,@ClassID = @ClassId                   -- int
                                                   ,@LastModifiedDate = @LastModifiedDate -- datetime
                                                   ,@outputXML = @outputXML OUTPUT;
 
-        -- nvarchar(max)
-
-        --       SELECT CAST(@outputXML AS XML);
-        IF @Debug > 9
+ --SELECT CAST(@outputXML AS XML);
+        IF @Debug > 1
         BEGIN
             RAISERROR('Proc: %s Step: %s returned %i  ', 10, 1, @ProcedureName, @ProcedureStep, @return_value);
         END;
