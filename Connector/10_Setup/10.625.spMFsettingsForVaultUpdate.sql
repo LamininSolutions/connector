@@ -13,26 +13,7 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
     @UpdateFlag = 2;
 -- smallint
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-04
-	Database: 
-	Description: Procedure to allow updating of specific settings
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	2016-8-22		lc			change settings index
-	2016-10-12		LC			Update procedure to allow for updating of settings into the new MFVaultSettings Table
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
 
-  EXEC [spMFSettingsForVaultUpdate]   
-  
------------------------------------------------------------------------------------------------*/
 IF EXISTS
 (
     SELECT 1
@@ -64,23 +45,127 @@ SET NOEXEC OFF;
 GO
 
 
-ALTER PROCEDURE dbo.spMFSettingsForVaultUpdate
+ALTER PROCEDURE dbo.spMFsettingsForVaultUpdate
 (
-    @Username NVARCHAR(100) = NULL,       --  M-Files user with vault admin rights
-    @Password NVARCHAR(100) = NULL,       -- the password will be encrypted 
-    @NetworkAddress NVARCHAR(100) = NULL, -- N'laminindev.lamininsolutions.com' -Vault server URL from SQL server
-    @Vaultname NVARCHAR(100) = NULL,      -- vault name 
-    @MFProtocolType_ID INT = NULL,        -- select items from list in MFProtocolType
-    @Endpoint INT = NULL,                 -- default 2266
-    @MFAuthenticationType_ID INT = NULL,  -- select item from list of MFAutenticationType
+    @Username NVARCHAR(100) = NULL,
+    @Password NVARCHAR(100) = NULL,
+    @NetworkAddress NVARCHAR(100) = NULL,
+    @Vaultname NVARCHAR(100) = NULL,
+    @MFProtocolType_ID INT = NULL,
+    @Endpoint INT = NULL,
+    @MFAuthenticationType_ID INT = NULL,
     @Domain NVARCHAR(128) = NULL,
-    @VaultGUID NVARCHAR(128) = NULL,      -- N'CD6AEE8F-D8F8-413E-AB2C-398B50097D39' GUID from M-Files admin
-    @ServerURL NVARCHAR(128) = NULL,      --- N'laminindev.lamininsolutions.com' Web Address of M-Files
+    @VaultGUID NVARCHAR(128) = NULL,
+    @ServerURL NVARCHAR(128) = NULL,
     @Debug SMALLINT = 0
 )
 AS
-BEGIN
+/*rST**************************************************************************
 
+==========================
+spMFsettingsForVaultUpdate
+==========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @Username NVARCHAR(100) = NULL,
+    M-Files user with vault admin rights
+  @Password NVARCHAR(100) = NULL,    
+     the password will be encrypted 
+  @NetworkAddress NVARCHAR(100) = NULL,
+    Vault server URL from SQL server
+    example'laminindev.lamininsolutions.com'
+  @Vaultname NVARCHAR(100) = NULL
+    vault name 
+  @MFProtocolType_ID INT = NULL
+    Default set by installer 
+    select ID from list in MFProtocolType
+  @Endpoint INT = NULL
+    The portnumber for accessing the vault
+    Default set by installer 2266
+  @MFAuthenticationType_ID INT = NULL
+    select ID from list of MFAutenticationType
+  @Domain NVARCHAR(128) = NULL
+    
+  @VaultGUID NVARCHAR(128) = NULL
+    GUID from M-Files admin
+  @ServerURL NVARCHAR(128) = NULL
+    laminindev.lamininsolutions.com' 
+    Web Address of M-Files
+  @Debug (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+
+Purpose
+=======
+Procedure to allow updating of specific settings in both MFVaultSettings and MFSettings related to the vault
+Table MFVaultSettings show the settings to connect to M-Files.  
+MFSettings table show the other settings for the Connector.
+
+Examples
+========
+
+.. code:: sql
+
+    -- check out the settings tables 
+    SELECT * FROM mfVaultSettings
+    SELECT * FROM  [MFSettings] AS [ms]
+
+    --the Protocol type and authentication type are referenced in related tables
+    SELECT * FROM [dbo].[MFVaultSettings] AS [mvs]
+    LEFT JOIN [dbo].[MFProtocolType] AS [mpt]
+    ON mvs.[MFProtocolType_ID] = mpt.[ID]
+    LEFT JOIN [dbo].[MFAuthenticationType] AS [mat]
+    ON mvs.[MFAuthenticationType_ID] = mat.[ID]
+
+    --updating the M-Files user name
+    EXEC [spMFSettingsForVaultUpdate] @Username = 'Admin'
+
+    --change the password
+
+    EXEC spmfsettingsForVaultUpdate @Password = 'MotSys123'
+    
+    -- It is only necessary to specify the settings that need to change
+
+    DECLARE @RC INT
+    DECLARE @Username NVARCHAR(100) = 'MFSQLConnect'
+    DECLARE @Password NVARCHAR(100) = 'Connector01'
+    DECLARE @NetworkAddress NVARCHAR(100)
+    DECLARE @Vaultname NVARCHAR(100) 
+    DECLARE @MFProtocolType_ID INT = 1
+    DECLARE @Endpoint INT = 2266
+    DECLARE @MFAuthenticationType_ID INT = 4
+    DECLARE @Domain NVARCHAR(128) 
+    DECLARE @VaultGUID NVARCHAR(128)
+    DECLARE @ServerURL NVARCHAR(128)
+    DECLARE @Debug SMALLINT
+
+    EXECUTE @RC = [dbo].[spMFSettingsForVaultUpdate] @Username
+    , @Password
+    , @NetworkAddress
+    , @Vaultname
+    , @MFProtocolType_ID
+    , @Endpoint
+    , @MFAuthenticationType_ID
+    , @Domain
+    , @VaultGUID
+    , @ServerURL
+    , @Debug
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2016-04-20  LC         Created Procedure
+2016-8-22   LC         Change settings index
+2016-10-12  LC         Update procedure to allow for updating of settings into the new MFVaultSettings Table
+==========  =========  ========================================================
+
+**rST*************************************************************************/
 
 
     SET NOCOUNT ON;
