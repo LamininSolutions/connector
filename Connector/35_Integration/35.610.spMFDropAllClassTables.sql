@@ -23,7 +23,6 @@ go
   USAGE:
   =====
   debug mode
-  EXEC [spMFDropAllClassTables] 1, 0  
   
 -----------------------------------------------------------------------------------------------*/
 IF EXISTS ( SELECT  1
@@ -63,7 +62,7 @@ Return
   - -1 = Error
 Parameters
   @IncludeInApp int
-    fixme description
+    - Drop only tables with IncludeInApp value
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
@@ -73,17 +72,14 @@ Parameters
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
+Drop all class tables.
 
 Examples
 ========
+
+.. code:: sql
+
+    EXEC [spMFDropAllClassTables] 1, 0
 
 Changelog
 =========
