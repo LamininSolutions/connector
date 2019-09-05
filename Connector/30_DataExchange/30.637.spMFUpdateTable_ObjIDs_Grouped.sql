@@ -37,13 +37,13 @@ GO
 ALTER PROCEDURE [dbo].[spMFUpdateTable_ObjIDs_Grouped]
     (
       @MFTableName NVARCHAR(128),
-	  @MFTableSchema NVARCHAR(128) = 'dbo',
-	  @UpdateMethod INT = 1, 
-      @ProcessId INT = 6     ,	-- 6 Merged Updates 
-      @UserId NVARCHAR(200) = NULL, --null for all user update
-	  @ProcessBatch_ID INT = NULL OUTPUT,
+      @MFTableSchema NVARCHAR(128) = 'dbo',
+      @UpdateMethod INT = 1,
+      @ProcessId INT = 6,
+      @UserId NVARCHAR(200) = NULL,
+      @ProcessBatch_ID INT = NULL OUTPUT,
       @Debug SMALLINT = 0
-	)
+    )
 AS
 /*rST**************************************************************************
 
@@ -59,13 +59,16 @@ Parameters
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
   @MFTableSchema nvarchar(128)
-    fixme description
-  @UpdateMethod int
-    fixme description
+    - Default = 'dbo'
+    - Schema to operate on
+  @UpdateMethod int (optional)
+    - 1 = M-Files to MFSQL (default)
+    - 0 = MFSQL to M-Files
   @ProcessId int
-    fixme description
-  @UserId nvarchar(200)
-    fixme description
+    - Default = 6 (merged updates)
+  @UserId nvarchar(200) (optional)
+    - Default = NULL
+    - Update specific user
   @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @Debug smallint (optional)
@@ -73,21 +76,23 @@ Parameters
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
 
-
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
+The purpose of this procedure is to group source records into batches and compile a list of OBJIDs in CSV format to pass to spMFUpdateTable
 
 Examples
 ========
+
+.. code:: sql
+
+    EXEC [spMFUpdateTable_ObjIDs_Grouped]
+         @MFTableName = 'CLGLChart',
+         @MFTableSchema = 'dbo',
+         @UpdateMethod = 0
+         @ProcessId = 6     , -- 6 Merged Updates
+         @UserId = NULL, --null for all user update
+         @Debug  = 1
 
 Changelog
 =========
@@ -96,67 +101,11 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2017-06-29  AC         @ObjIds_toUpdate change sizes to NVARCHAR(4000)
+2017-06-29  AC         @ObjIds_FieldLenth change default value to 2000
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to group source records into batches
-  **		and compile a list of OBJIDs in CSV format to pass to spMFUpdateTable
-  **  
-  ** Version: 1.0.0.0
-  **
-  ** Processing Steps:
-  **					1. Calculate Number of Groups in RecordSet
-  **					2. Assign Group Numbers to Source Records
-  **					3. Get ObjIDs CSV List by GroupNumber
-  **					4. Loop Through Groups - Execute [spMFUpdateTable]
-  **						- Update Process_ID = 1
-  **						- Execute [spMFUpdateTable] with ObjIDs csv list	
-  **
-  ** Parameters and acceptable values: 
-  **					@MFTableName		NVARCHAR(128)
-  **					@MFTableSchema		NVARCHAR(128)
-  **					@UpdateMethod	   0: MFSQL to M-Files; 1: M-Files to MFSQL
-  **					@ProcessId			INT	  -- The Process_ID in class table to evaluate for grouping
-  **					@UserId				NVARCHAR(200)         
-  **					@Debug				SMALLINT = 0
-  **			         	
-  ** Restart:
-  **					Restart at the beginning.  No code modifications required.
-  ** 
-  ** Tables Used:                 					  
-  **					
-  **
-  ** Return values:		
-  **					1 = success
-  **					2 = Failure	
-  **
-  ** Called By:			NONE
-  **
-  ** Calls:           
-  **					sp_executesql
-  **					spMFUpdateTable
-  **
-  ** Author:			arnie@lamininsolutions.com
-  ** Date:				2016-05-14
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  2017-06-29	ArnieC		- @ObjIds_toUpdate change sizes to NVARCHAR(4000)
-							- @ObjIds_FieldLenth change default value to 2000
-  ********************************************************************************
-  ** EXAMPLE EXECUTE
-  ********************************************************************************
-		EXEC [spMFUpdateTable_ObjIDs_Grouped]  @MFTableName = 'CLGLChart',
-							  @MFTableSchema = 'dbo',
-							  @UpdateMethod = 0
-							  @ProcessId = 6     ,	-- 6 Merged Updates
-							  @UserId = NULL, --null for all user update
-							  @Debug  = 1
-
-  ******************************************************************************/
     BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
