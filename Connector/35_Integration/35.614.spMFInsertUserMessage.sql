@@ -1,13 +1,6 @@
 
 GO
 
-/*
-CHANGE HISTORY
---------------
-2017-06-26	ACilliers	-	Remove @ClassTable,  retrieve based on ProcessBatch_ID
-						-	Update call to spMFResultMessageForUI to read the message with carriage return instead of \n
-						-	Add ItemCount based on using new methods to generate RecordCount info message in MFProcessBatchDetail
-*/
 PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFInsertUserMessage]';
 GO
 
@@ -19,17 +12,6 @@ EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@UpdateFlag = 2;
 -- smallint
 GO
-
-/*
-2018-4-18 LC set default for ProcessBatch_ID 
-2018-4-20	LC update procedure for the new MFClass table for MFUserMessages
-2018-4-28	lc	add user message enabling
-2018-5-18   add workflow and state
-2018-6-26	LC localise workflow and state
-2018-7-25	lC Resolve issue with workflow_state_id
-2018-11-15	LC	Add error logging; fix null value bug; check for duplicate messages per process batch
-2019-01-03	LC	fix bug related to column names
-*/
 
 IF EXISTS
 (
@@ -106,6 +88,17 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2019-01-03  LC         Fix bug related to column names
+2018-11-15  LC         Add error logging; fix null value bug; check for duplicate messages per process batch
+2018-07-25  LC         Resolve issue with workflow_state_id
+2018-06-26  LC         Localise workflow and state
+2018-05-18  LC         Add workflow and state
+2018-04-28  LC         Add user message enabling
+2018-04-20  LC         Update procedure for the new MFClass table for MFUserMessages
+2018-04-18  LC         Set default for ProcessBatch_ID
+2017-06-26  AC         Remove @ClassTable,  retrieve based on ProcessBatch_ID
+2017-06-26  AC         Update call to spMFResultMessageForUI to read the message with carriage return instead of \n
+2017-06-26  AC         Add ItemCount based on using new methods to generate RecordCount info message in MFProcessBatchDetail
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
