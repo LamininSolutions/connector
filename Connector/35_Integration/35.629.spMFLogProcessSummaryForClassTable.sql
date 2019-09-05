@@ -115,7 +115,7 @@ Based on any of the Error count being larger than 0, the LogStatusDetail will be
 
 The LogTextDetail is set to the following value, with only displaying the counts larger than 0:
 
-.. code:: plain
+.. code:: text
 
     #Records: @RecordCount | #Inserted: @InsertCount | #Updated: @UpdateCount | #Deleted: @DeletedCount | #Sync Errors: @SyncErrorCount | #MF Errors: @MFErrorCount | #SQL Errors: @SQLErrorCount | #MFLog Errors: @MFLogErrorCount
 
