@@ -8,21 +8,6 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@Object_Release = '4.4.12.52'     -- varchar(50)
                                     ,@UpdateFlag = 2;                  -- smallint
 GO
-
-/********************************************************************************
-  ** Change History
-  ********************************************************************************
-   Date        Author     Description
-   ----------  ---------  -----------------------------------------------------
-  2016-8-14		lc		add objid to output message
-  2016-8-22		lc			update settings index
-  2016-09-26    DevTeam2   Removed vault settings parameters and pass them as comma
-                           separated string in @VaultSettings parameter.
- 2018-8-3		LC			Suppress SQL error when no object in MF found
- 2019-8-13		DevTeam2	Added objversion to delete particular version.
- 2019-8-20		LC			Expand routine to respond to output and remove object from change history
-  ******************************************************************************/
-
 IF EXISTS
 (
     SELECT 1
@@ -70,29 +55,41 @@ Return
   - -1 = Error
 Parameters
   @ObjectTypeId int
-    fixme description
+    OBJECT Type MFID from MFObjectType
   @objectId int
-    fixme description
+    Objid of record
   @Output nvarchar(2000) (output)
-    fixme description
-  @DeleteWithDestroy bit
-    fixme description
-
+    Output message
+  @DeleteWithDestroy bit (optional)
+    - Default = 0
+    - 1 = Destroy
 
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
+An object can be deleted from M-Files using the ClassTable by using the spMFDeleteObject procedure. Is it optional to delete or destroy the object in M-Files.
 
 Warnings
 ========
 
+Note that when a object is deleted it will not show in M-Files but it will still show in the class table. However, in the class table the deleted flag will be set to 1.
+
 Examples
 ========
+
+.. code:: sql
+
+    DECLARE @return_value int, @Output nvarchar(2000)
+    SELECT @Output =N'0'
+    EXEC @return_value = [dbo].[spMFDeleteObject]
+         @ObjectTypeId =128,-- OBJECT MFID
+         @objectId =4700,-- Objid of record
+         @Output = @Output OUTPUT,
+         @DeleteWithDestroy = 0
+    SELECT @Output as N'@Output'
+    SELECT'Return Value'= @return_value
+    SELECT @Output =N'0'
+    GO
 
 Changelog
 =========
@@ -101,26 +98,21 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2019-08-20  LC         Expand routine to respond to output and remove object from change history
+2019-08-13  DEV2       Added objversion to delete particular version.
+2018-08-03  LC         Suppress SQL error when no object in MF found
+2016-09-26  DEV2       Removed vault settings parameters and pass them as comma separated string in @VaultSettings parameter.
+2016-08-22  LC         Update settings index
+2016-08-14  LC         Add objid to output message
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
 
 /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to Delete object from M-Files.  
-  **  
-  ** Version: 1.0.0.6
-  
-  ** Author:          Thejus T V
-  ** Date:            27-03-2015
-
-    */
-
-
-  /*
 1	Success object deleted
 2	Success object version destroyed
 3	Success object  destroyed
-4	 Failure object does not exist
+4	Failure object does not exist
 5	Failure object version does not exist
 6	Failure destroy latest object version not allowed
 */
