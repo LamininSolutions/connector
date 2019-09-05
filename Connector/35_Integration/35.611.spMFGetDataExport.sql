@@ -51,21 +51,10 @@ Parameters
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
 
-
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
+To export the dataset.
 
 Changelog
 =========
@@ -74,51 +63,24 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2018-04-04  DEV2       Added License module validation code
+2016-10-11  LC         Change of Settings Tablename
+2016-09-26  DEV2       Removed vault settings parameters and pass them as comma separated string in @VaultSettings parameter
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
 
-  /*******************************************************************************
-    ** Desc:  The purpose of this procedure is to Export data set 
-    **  
-    ** Version: 1.0.0.6
-    **
-    ** Processing Steps:
-    **        1. Insert data from XML into temperory data
-    **		2. Update M-Files ID with primary key values from MFWorkflow,MFValueList,MFObjectType
-    **		3. Update the Class details into MFClass
-    **		4. INsert the new class details
-    **		5. If fullUpdate 
-    **				Delete the class details deleted from M-Files
-    **
-    ** Parameters and acceptable values: 
-    **       @ExportDatasetName [NVARCHAR](2000)
-    **	   @Debug INT = 0
-    **
-    ** Restart:
-    **        Restart at the beginning.  No code modifications required.
-    ** 
-    ** Tables Used:                 
-    **					
-    ** Return values:		
-    **					
-    **
-    ** Called By:			
-    **
-    ** Calls:           spMFGetDataExportInternal
-    **					
-    ** Author:          Thejus T V
-    ** Date:            27-03-2015
-    ********************************************************************************
-    ** Change History
-    ********************************************************************************
-    ** Date        Author     Description
-    ** ----------  ---------  -----------------------------------------------------
-    ** 2016-09-26  DevTeam2   Removed vault settings parameters and pass them as comma
-	                          separated string in @VaultSettings parameter.
-		2016-10-11 LC			Change of Settings Tablename
-		2018-04-04 DEVTeam2    Added License module validation code
-    ******************************************************************************/
+/*******************************************************************************
+**
+** Processing Steps:
+** 1. Insert data from XML into temperory data
+** 2. Update M-Files ID with primary key values from MFWorkflow,MFValueList,MFObjectType
+** 3. Update the Class details into MFClass
+** 4. INsert the new class details
+** 5. If fullUpdate
+** Delete the class details deleted from M-Files
+**
+******************************************************************************/
   BEGIN
       ------------------------------------------------------
       -- SET SESSION STATE
