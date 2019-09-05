@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFGetObjectvers' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.52'      -- varchar(50)
+                                    ,@Object_Release = '4.4.12.53'      -- varchar(50)
                                     ,@UpdateFlag = 2;                   -- smallint
 GO
 
@@ -115,7 +115,7 @@ Date        Author     Description
   2018-04-04 Devteam2 Added License module validation code
   2019-07-10 LC		Add debugging and messaging
   2019-08-05	LC		Improve logging
-
+  2019-09-04  LC        Add connectiontest 
   ******************************************************************************/
 BEGIN
     SET NOCOUNT ON;
@@ -251,14 +251,31 @@ BEGIN
 
         SELECT @VaultSettings = [dbo].[FnMFVaultSettings]();
 
+		        -------------------------------------------------------------
+        -- Check connection to vault
+        -------------------------------------------------------------
+        DECLARE @IsUpToDate INT;
+
+        SET @ProcedureStep = 'Connection test: ';
+
+        EXEC @return_value = [dbo].[spMFGetMetadataStructureVersionID] @IsUpToDate = @IsUpToDate OUTPUT; -- bit
+
+        IF @return_value < 0
+        BEGIN
+            SET @DebugText = 'Connection failed %i';
+            SET @DebugText = @DefaultDebugText + @DebugText;
+
+            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep, @return_value);
+        END;
+
         ---------------------------------------------------------------
         -- Checking module access for CLR procdure  spMFGetObjectType
         ------------------------------------------------------------------
         SET @ProcedureStep = 'Check license';
 
         EXEC [dbo].[spMFCheckLicenseStatus] 'spMFGetObjectVersInternal'
-                                           ,'spMFGetObjectvers'
-                                           ,'Validating Module access for CLR proc spMFGetObjectVersInternal';
+                                           ,@ProcedureName
+                                           ,@ProcedureStep;
 
         SET @DebugText = 'Filters: Class %i , ;Date ' + CAST(@dtModifiedDate AS VARCHAR(30)) + ' ;Count objids %s ';
         SET @DebugText = @DefaultDebugText + @DebugText;
