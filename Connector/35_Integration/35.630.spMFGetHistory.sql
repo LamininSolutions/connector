@@ -70,23 +70,23 @@ Parameters
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
   @Process\_id int
-    Set process_id in the class table for records to be selected
-    Use process_id not in (1-4) e.g. 5
+    - Set process_id in the class table for records to be selected
+    - Use process_id not in (1-4) e.g. 5
   @ColumnNames nvarchar(4000)
-    Comma delimited list of the columns to be included in the export
+    - Comma delimited list of the columns to be included in the export
   @IsFullHistory bit
-     Default = 1
-     1 will include all the changes of the object for the specified column names
-     Set to 0 to specify any of the other filters
-..@SearchString nvarchar(4000)
-    Search for objects included in the object select and property selection with a specific value
-    Search is a 'contain' search
+    - Default = 1
+    - 1 will include all the changes of the object for the specified column names
+    - Set to 0 to specify any of the other filters
+  @SearchString nvarchar(4000)
+    - Search for objects included in the object select and property selection with a specific value
+    - Search is a 'contain' search
   @NumberOFDays int
-    Set this to show the last x number of days of changes
+    - Set this to show the last x number of days of changes
   @StartDate datetime
-    set to a specific date to only show change history from a specific date (e.g. for the last month)
+    - set to a specific date to only show change history from a specific date (e.g. for the last month)
   @ProcessBatch\_id int (output)
-    Processbatch id for logging
+    - Processbatch id for logging
   @Debug int (optional)
     - Default = 0
     - 1 = Standard Debug Mode
@@ -104,13 +104,14 @@ Process_id is reset to 0 after completion of the processing.
 
 Use Cases(s)
 
-  -Show coimments made on object
-  -Show a state was entered and exited
-  -Show when a property was changed
-  -Discovery reports for changes to certain properties 
+- Show coimments made on object
+- Show a state was entered and exited
+- Show when a property was changed
+- Discovery reports for changes to certain properties
 
 Prerequisites
 =============
+
 Set process_id in the class table to 5 for all the records to be included
 
 Warnings
@@ -118,10 +119,11 @@ Warnings
 
 Note that the same filter will apply to all the columns included in the run.  Split the get procedure into different runs if different filters must be applied to different columns.
 
-Producing on the history for all objects in a large table could take a considerable time to complete. Use the filters to limit restrict the number of records to fetch from M-Files to optimise the search time. 
+Producing on the history for all objects in a large table could take a considerable time to complete. Use the filters to limit restrict the number of records to fetch from M-Files to optimise the search time.
 
 Examples
 ========
+
 This procedure can be used to show all the comments  or the last 5 comments made for a object.  It is also handly to assess when a workflow state was changed
 
 .. code:: sql
@@ -135,7 +137,7 @@ This procedure can be used to show all the comments  or the last 5 comments made
     DECLARE @Process_id INT = 5
     DECLARE @ColumnNames NVARCHAR(4000) = 'Address_Line_1,Country'
     DECLARE @IsFullHistory BIT = 1
-    DECLARE @NumberOFDays INT 
+    DECLARE @NumberOFDays INT
     DECLARE @StartDate DATETIME --= DATEADD(DAY,-1,GETDATE())
     DECLARE @ProcessBatch_id INT
     DECLARE @Debug INT = 0
