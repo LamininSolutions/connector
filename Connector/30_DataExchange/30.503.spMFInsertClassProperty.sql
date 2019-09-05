@@ -7,17 +7,6 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFIns
     @Object_Release = '3.1.2.39', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 go
- /*
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  ** 07-04-2015		DEV2	resolved synchronization issue (Bug 55)
-	11-09-2017		LC		resolve issue with constraints
-  ********************************************************************************
-
-*/
 
 IF EXISTS ( SELECT  1
             FROM    [INFORMATION_SCHEMA].[ROUTINES]
@@ -76,6 +65,8 @@ Parameters
 Purpose
 =======
 
+To insert Class property details into MFClassProperty table.
+
 Additional Info
 ===============
 
@@ -95,28 +86,23 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2017-09-11  LC         Resolve issue with constraints
+2015-04-07  DEV2       Resolved synchronization issue (Bug 55)
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to insert Class property details into MFClassProperty table.  
-  **  
-  ** Version: 1.0.0.6
-  **
-  ** Processing Steps:
-  **        1. Insert data from XML into temperory data
-  **		2. Update M-Files ID with primary key values
-  **		3. Update the Class property details into MFClMFClassPropertyass
-  **		4. INsert the new class property details
-  **		5. If fullUpdate 
-  **				Delete the class property details deleted from M-Files
-  **
-  ** Author:          Thejus T V
-  ** Date:            27-03-2015
- 
-  ******************************************************************************/
 
-  
+/*******************************************************************************
+** Processing Steps:
+**        1. Insert data from XML into temperory data
+**		2. Update M-Files ID with primary key values
+**		3. Update the Class property details into MFClMFClassPropertyass
+**		4. INsert the new class property details
+**		5. If fullUpdate 
+**				Delete the class property details deleted from M-Files
+**
+******************************************************************************/
+
     SET NOCOUNT ON;
 
     BEGIN TRY
