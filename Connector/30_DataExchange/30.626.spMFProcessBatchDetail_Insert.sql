@@ -67,48 +67,78 @@ Parameters
   @ProcessBatch\_ID int (optional)
     Referencing the ID of the ProcessBatch logging table
   @LogType nvarchar(50)
-    fixme description
+    - Type of logging:
+    - Status
+    - Error
+    - Message
   @LogText nvarchar(4000)
-    fixme description
+    Include inputs or outputs of logging step
   @LogStatus nvarchar(50)
-    fixme description
+    - Indicate status of log:
+    - Start
+    - In Progress
+    - Done
   @StartTime datetime
-    fixme description
+    - Set to GETUTCDATE()
   @MFTableName nvarchar(128)
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
   @Validation\_ID int
-    fixme description
+    - Use this for a custom table with validation errors
   @ColumnName nvarchar(128)
-    fixme description
+    - Show the name of the column for the value in ColumnValue
   @ColumnValue nvarchar(256)
-    fixme description
+    - Show value such as count of records / count of errors etc
   @Update\_ID int
-    fixme description
+    - Set to Update_ID output from from the calling procedure
   @LogProcedureName nvarchar(128)
-    fixme description
+    - Set to the name of the procedure that is currently running
   @LogProcedureStep nvarchar(128)
-    fixme description
+    - Set to a description of the procedure step that is currently being executed
   @ProcessBatchDetail\_ID int (output)
-    fixme description
+    Add ProcessBatchDetail_ID as parameter to allow for calculation of duration if provided based on input of a specific ID. Procedure will use input to override the passed int StartDate and get start date from the ID provided. This will allow calculation of DurationInSecords seconds on a detail procedure level
   @debug tinyint
-    fixme description
-
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
 
 Purpose
 =======
 
+Add a record to the MFProcessBatchDetail table. This procedure is executed for specific procedure steps.
+
 Additional Info
 ===============
 
-Prerequisites
-=============
-
-Warnings
-========
+The columns to be populated will depend on the nature of the sub procedure that is monitored.
 
 Examples
 ========
+
+.. code:: sql
+
+    SET @ProcedureStep = 'Prepare Table';
+    SET @LogTypeDetail = 'Status';
+    SET @LogStatusDetail = 'Start';
+    SET @LogTextDetail = 'For UpdateMethod ' + CAST(@UpdateMethod AS VARCHAR(10));
+    SET @LogColumnName = '';
+    SET @LogColumnValue = '';
+
+    EXECUTE @return_value = [dbo].[spMFProcessBatchDetail_Insert]
+                                  @ProcessBatch_ID = @ProcessBatch_ID
+                                , @LogType = @LogTypeDetail
+                                , @LogText = @LogTextDetail
+                                , @LogStatus = @LogStatusDetail
+                                , @StartTime = @StartTime
+                                , @MFTableName = @MFTableName
+                                , @Validation_ID = @Validation_ID
+                                , @ColumnName = @LogColumnName
+                                , @ColumnValue = @LogColumnValue
+                                , @Update_ID = @Update_ID
+                                , @LogProcedureName = @ProcedureName
+                                , @LogProcedureStep = @ProcedureStep
+                                , @ProcessBatchDetail_ID =   @ProcessBatchDetail_ID output
+                                , @debug = @debug
 
 Changelog
 =========
@@ -117,32 +147,14 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2019-01-27  LC         Exclude MFUserMessage table from any logging
+2018-10-31  LC         Update logging text
+2017-06-30  AC         This will allow calculation of @DureationInSecords seconds on a detail proc level
+2017-06-30  AC         Procedure will use input to overide the passed int StartDate and get start date from the ID provided
+2017-06-30  AC         Add @ProcessBatchDetail_ID as param to allow for calculation of duration if provided based on input of a specific ID
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-
-  **
-  ** Author:          leroux@lamininsolutions.com
-  ** Date:            2016-08-27
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  add settings option to exclude procedure from executing detail logging
-	2017-06-30	AC			- Add @ProcessBatchDetail_ID as param to allow for calculation of duration if provided based on input of a specific ID
-								Procedure will use input to overide the passed int StartDate and get start date from the ID provided
-								This will allow calculation of @DureationInSecords seconds on a detail proc level
-2018-10-31	lc	update logging text								
-2019-1-27	LC	exclude MFUserMessage table from any logging
-						
-  ******************************************************************************/
-
-  /*
-
-  */
-
       BEGIN
 
             SET NOCOUNT ON;
