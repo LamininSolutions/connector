@@ -9,14 +9,6 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
     @Object_Release = '3.1.2.38', -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
- /*
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-	2017-8-22	lc			Add insert/update of userID as MFID column
-  ** ----------  ---------  -----------------------------------------------------
-  ** */
 go
 
 IF EXISTS ( SELECT  1
@@ -72,9 +64,10 @@ Parameters
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
 
-
 Purpose
 =======
+
+The purpose of this procedure is to insert Login Account details into MFLoginAccount table.
 
 Additional Info
 ===============
@@ -95,15 +88,10 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2017-08-22  LC         Add insert/update of userID as MFID column
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to insert Login Account details into MFLoginAccount table.  
-
-  ** Date:            26-05-2015
-
-  ******************************************************************************/
     BEGIN
         BEGIN TRY
             BEGIN TRANSACTION;
