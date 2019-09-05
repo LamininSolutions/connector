@@ -68,6 +68,8 @@ Parameters
 Purpose
 =======
 
+The purpose of this procedure is to insert user account details into MFUserAccount table.
+
 Additional Info
 ===============
 
@@ -90,18 +92,6 @@ Date        Author     Description
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to insert user account details into MFUserAccount table.  
-  **  
-
-  ** Date:            26-05-2015
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  ** 
-  ******************************************************************************/
     BEGIN
         BEGIN TRY
             BEGIN TRANSACTION;
