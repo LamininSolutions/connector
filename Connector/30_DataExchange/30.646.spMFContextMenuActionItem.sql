@@ -7,30 +7,6 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo',
                                      @UpdateFlag = 2;
 
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: LSUSA\lerouxc
-	Create date: 2018-5-12 09:52
-	Database: 
-	Description: Add Action item to Context Menu
-
-	PARAMETERS:
-			
-															
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE					NAME		DESCRIPTION
-2018-07-15					lc			Add state actions	
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  
-
-
-
------------------------------------------------------------------------------------------------*/
 IF EXISTS
 (
     SELECT 1
@@ -84,27 +60,33 @@ Return
   - -1 = Error
 Parameters
   @ActionName nvarchar(100)
-    fixme description
+    Name visible to the user in the contextmenu
   @ProcedureName nvarchar(100)
-    fixme description
+    Name of the procedure to be executed
   @Description nvarchar(200)
-    fixme description
+    Description is visible to the user
   @RelatedMenu nvarchar(100)
-    fixme description
-  @IsRemove bit
-    fixme description
-  @IsObjectContext bit
-    fixme description
-  @IsWeblink bit
-    fixme description
-  @IsAsynchronous bit
-    fixme description
-  @IsStateAction bit
-    fixme description
+    Menu name for the action
+  @IsRemove bit (optional)
+    - Default = 0
+    - 1 = remove the item from the table
+  @IsObjectContext bit (optional)
+    - Default = 0
+    - 1 = the action will be performed as a object context related action
+  @IsWeblink bit (optional)
+    - Default = 0
+    - 1 = the action is a url link
+  @IsAsynchronous bit (optional)
+    - Default = 0
+    - 1 = the action should be performed asynchronously
+  @IsStateAction bit (optional)
+    - Default = 0
+    - 1 = the action will be executed in a workflow state
   @PriorAction nvarchar(100)
-    fixme description
+    - NULL if not needed
+    - The name of the action that should be preceding in the menu
   @UserGroup nvarchar(100)
-    fixme description
+    The name of the user group which should be able to perform the action
   @Debug int (optional)
     - Default = 0
     - 1 = Standard Debug Mode
@@ -114,17 +96,32 @@ Parameters
 Purpose
 =======
 
+This helper procedure is used to add, update or remove an action item from the MFContextMenu table.
+
 Additional Info
 ===============
 
-Prerequisites
-=============
-
-Warnings
-========
+By setting each parameter, the correct values will be added to the columns in MFContextMenu for the different types of actions
+It is useful the add the menu heading first before adding the action (see spMFContextMenuHeadingItem)
 
 Examples
 ========
+
+.. code:: sql
+
+    EXEC [dbo].[spMFContextMenuActionItem]
+         @ActionName = 'Perform the update' ,
+         @ProcedureName = 'Custom.DoMe',
+         @Description = 'Procedure to action the update',
+         @RelatedMenu = 'Asynchronous Actions',
+         @IsRemove = 0,
+         @IsObjectContext = 0,
+         @IsWeblink = 0,
+         @IsAsynchronous = 0,
+         @IsStateAction = 0,
+         @PriorAction = 'Name if action',
+         @UserGroup = 'Internal users',
+         @Debug = 0
 
 Changelog
 =========
@@ -133,6 +130,7 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2018-07-15  LC         Add state actions
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
