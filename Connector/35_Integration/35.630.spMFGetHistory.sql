@@ -97,6 +97,13 @@ Additional Info
 When the history table is updated it will only report the versions that the property was changed. If the property included in the filter did not change, then to specific version will not be recorded in the table.
 Process_id is reset to 0 after completion of the processing.
 
+Use Cases(s)
+
+  -Show coimments made on object
+  -Show a state was entered and exited
+  -Show when a property was changed
+  -Discovery reports for changes to certain properties 
+
 Prerequisites
 =============
 Set process_id in the class table to 5 for all the records to be included
