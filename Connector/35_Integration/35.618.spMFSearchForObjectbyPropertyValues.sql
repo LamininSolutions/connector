@@ -36,10 +36,10 @@ ALTER PROCEDURE [dbo].[spMFSearchForObjectbyPropertyValues] (@ClassID         [I
                                                               ,@PropertyIds    [NVARCHAR](2000)
                                                               ,@PropertyValues [NVARCHAR](2000)
                                                               ,@Count          [INT]
-															  ,@OutputType int
-															  ,@IsEqual int=0
-															  ,@XMLOutPut xml output
-											                  ,@TableName varchar(200)='' output)
+                                                              ,@OutputType int
+                                                              ,@IsEqual int=0
+                                                              ,@XMLOutPut xml output
+                                                              ,@TableName varchar(200)='' output)
 AS
 /*rST**************************************************************************
 
@@ -52,35 +52,55 @@ Return
   - -1 = Error
 Parameters
   @ClassID int
-    fixme description
+    ID of the class
   @PropertyIds nvarchar(2000)
-    fixme description
+    Property ID’s separated by comma
   @PropertyValues nvarchar(2000)
-    fixme description
+    Property values separated by comma
   @Count int
-    fixme description
+    The maximum number of results to return
   @OutputType int
-    fixme description
+    - 0 = output to XML (default)
+    - 1 = output to temporary table and update MFSearchLog
   @XMLOutPut xml (output)
-    fixme description
+    Used if outputType = 0 then this parameter returns the result in XML format
   @TableName varchar(200) (output)
-    fixme description
-
+    Used if outputType = 1 then this parameter returns the name of the temporary file with the result
 
 Purpose
 =======
 
+To search for objects with class id and some specific property id and value.
+
 Additional Info
 ===============
 
-Prerequisites
-=============
-
-Warnings
-========
+This procedure will call spMFSearchForObjectByPropertyValuesInternal and get the objects details that satisfies the search conditions and shows the objects details in tabular format.
 
 Examples
 ========
+
+.. code:: sql
+
+    DECLARE @RC INT
+    DECLARE @ClassID INT
+    DECLARE @PropertyIds NVARCHAR(2000)
+    DECLARE @PropertyValues NVARCHAR(2000)
+    DECLARE @Count INT
+    DECLARE @OutputType INT
+    DECLARE @XMLOutPut XML
+    DECLARE @TableName VARCHAR(200)
+
+    -- TODO: Set parameter values here.
+    EXECUTE @RC = [dbo].[spMFSearchForObjectbyPropertyValues]
+       @ClassID
+      ,@PropertyIds
+      ,@PropertyValues
+      ,@Count
+      ,@OutputType
+      ,@XMLOutPut OUTPUT
+      ,@TableName OUTPUT
+    GO
 
 Changelog
 =========
@@ -89,27 +109,16 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2019-08-13  LC         Added Additional option for search procedure
+2019-05-08  LC         Change target table to a temporary table
+2018-04-04  DEV2       Added License module validation code.
+2016-09-26  DEV2       Removed vault settings parameters and pass them as comma separated string in @VaultSettings parameters.
+2016-08-27  LC         Update variable function paramaters
+2016-08-24  DEV2       TaskID 471
+2014-04-29  DEV2       RETURN statement added
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
-   
-  /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to search for an object by property name & value in M-Files  
-  **  
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  ** 29-04-2014  DEV 2      RETURN statement added
-  ** 24-8-2016	 DEV 2		TaskID 471
-  ** 27-8-2016	LC			Update variable function paramaters
-  ** 26-9-2016  DevTeam2    Removed vault settings parameters and pass them as 
-                            comma separated string in @VaultSettings parameters.
-	 2018-04-04 DevTeam2    Added License module validation code.
-	 2019-05-08	LC			Change target table to a temporary table
-	 2019-13-08	LC			added Additional option for search procedure
-  ******************************************************************************/
   BEGIN
       BEGIN TRY
           BEGIN TRANSACTION
