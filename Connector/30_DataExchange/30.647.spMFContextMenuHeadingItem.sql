@@ -7,30 +7,6 @@ EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @UpdateFlag = 2;
 
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: LSUSA\lerouxc
-	Create date: 2018-5-12 09:52
-	Database: 
-	Description: Add Heading item to Context Menu
-
-	PARAMETERS:
-			
-															
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE					NAME		DESCRIPTION
-	2018-07-15				LC			Add ability to change Heading
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  
-
-
-
------------------------------------------------------------------------------------------------*/
 IF EXISTS
 (
     SELECT 1
@@ -60,7 +36,7 @@ GO
 ALTER PROCEDURE dbo.spMFContextMenuHeadingItem
 (
 
-@MenuName NVARCHAR(100) 
+@MenuName NVARCHAR(100)
 , @PriorMenu NVARCHAR(100) = NULL
 ,@IsObjectContextMenu BIT = 0
 ,@IsRemove BIT = 0
@@ -80,35 +56,44 @@ Return
   - -1 = Error
 Parameters
   @MenuName nvarchar(100)
-    fixme description
-  @PriorMenu nvarchar(100)
-    fixme description
-  @IsObjectContextMenu bit
-    fixme description
-  @IsRemove bit
-    fixme description
+    The name visible to the user in the context menu
+  @PriorMenu nvarchar(100) (optional)
+    - Default = NULL
+    - This can be used to re-organise the menu
+  @IsObjectContextMenu bit (optional)
+    - Default = 0
+    - 1 = the heading is used for object sensitive actions
+  @IsRemove bit (optional)
+    - Default = 0
+    - 1 = remove the item from the table
   @UserGroup nvarchar(100)
-    fixme description
+    Restrict the menu item for to the users in the usergroup
   @Debug int (optional)
     - Default = 0
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
 
-
 Purpose
 =======
 
-Additional Info
-===============
+This procedure is designed to add a context menu heading item in MFContextMenu
 
 Prerequisites
 =============
 
-Warnings
-========
+It is good practice to add the menu heading first, and then to add the actions using spMFContextMenuActionItem
 
 Examples
 ========
+
+.. code:: sql
+
+    EXEC [dbo].[spMFContextMenuHeadingItem]
+         @MenuName = 'Asynchronous Actions',
+         @PriorMenu = 'Synchronous Actions',
+         @IsObjectContextMenu = 0,
+         @IsRemove = 0,
+         @UserGroup = 'All internal users'
 
 Changelog
 =========
@@ -117,6 +102,7 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2018-07-15  LC         Add ability to change Heading
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
