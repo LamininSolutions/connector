@@ -59,7 +59,7 @@ Return
   - -1 = Error
 Parameters
   @MFTableNames nvarchar(400)
-  Valid Metadata structure table
+    Valid Metadata structure table
   @Prefix nvarchar(10)
     Prefix before name
   @IsRemove bit (optional)
