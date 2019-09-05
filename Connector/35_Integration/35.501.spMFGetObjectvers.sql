@@ -75,7 +75,7 @@ Parameters
 Purpose
 =======
 
-To get all the object versions of the class table as XML  
+To get all the object versions of the class table as XML.
 
 Additional Info
 ===============
@@ -95,8 +95,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-09-04  LC         Add connection test
 2019-08-30  JC         Added documentation
-2019-09-04  LC         Add connectiontest 
 2019-08-05  LC         Improve logging
 2019-07-10  LC         Add debugging and messaging
 2018-04-04  DEV2       Added License module validation code
