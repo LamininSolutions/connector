@@ -9,12 +9,6 @@ EXEC Setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
     @Object_Release = '4.2.9.48', -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
- 
- /*
- MODIFICATIONS
- 2017-7-2	LC	Change aliase datatype to varchar(100); Edit TRANS loop
-2019-3-8	DEV2	Add insert updatecolumn
- */
 go
 
 IF EXISTS ( SELECT  1
@@ -71,6 +65,8 @@ Parameters
 Purpose
 =======
 
+To insert Workflow State details into MFWorkflowState table.
+
 Additional Info
 ===============
 
@@ -90,21 +86,11 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2019-03-08  DEV2       Add insert updatecolumn
+2017-07-02  LC         Change aliase datatype to varchar(100); Edit TRANS loop
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to insert Workflow State details into MFWorkflowState table.  
-  **  
-
-  ** Date:            27-03-2015
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  ** 
-  ******************************************************************************/
     BEGIN
         BEGIN TRY
       --      BEGIN TRANSACTION;
