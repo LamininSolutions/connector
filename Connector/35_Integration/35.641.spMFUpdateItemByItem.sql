@@ -10,25 +10,13 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFUpd
     @UpdateFlag = 2 -- smallint
 go
 
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-06
-	Database: 
-	Description: Update records of class table by ObjID from ObbVers List
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-------------------------------------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------------------------
   USAGE:
   =====
   debug mode
-  declare @Sessionid int
+  DECLARE @Sessionid int
   EXEC [spMFUpdateItemByItem] 'MFOtherDocument', 1, @SessionIDOut = @SessionID output
-  Select @SessionID
+  SELECT @SessionID
 -----------------------------------------------------------------------------------------------*/
 
 IF EXISTS ( SELECT  1
@@ -58,7 +46,7 @@ GO
 ALTER PROCEDURE [dbo].[spMFUpdateItemByItem]
     @TableName VARCHAR(100) ,
     @Debug SMALLINT = 0 ,
-	@SingleItems BIT = 1, --1 = processed one by one, 0 = processed in blocks
+    @SingleItems BIT = 1, --1 = processed one by one, 0 = processed in blocks
     @SessionIDOut INT OUTPUT
 AS
 /*rST**************************************************************************
@@ -72,31 +60,43 @@ Return
   - -1 = Error
 Parameters
   @TableName varchar(100)
-    fixme description
+    Name of table to be updated
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
-  @SingleItems bit
-    fixme description
+  @SingleItems bit (optional)
+    - Default = 1; processed one-by-one
+    - 0 = processed in blocks
   @SessionIDOut int (output)
-    fixme description
-
+    Output of the session id that was used to update the results in the MFAuditHistory Table
 
 Purpose
 =======
 
+This is a special procedure that is useful when there are data errors in M-Files and it is necessary to determine which specific records are not being able to be processed.
+
 Additional Info
 ===============
 
-Prerequisites
-=============
-
-Warnings
-========
+Note that this procedure use updatemethod 1 by default.  It returns a session id.  this id can be used to inspect the result in the MFAuditHistory Table. Refer to Using Audit History for more information on this table
 
 Examples
 ========
+
+.. code:: sql
+
+    DECLARE @RC INT
+    DECLARE @TableName VARCHAR(100) = 'MFCustomer'
+    DECLARE @Debug SMALLINT
+    DECLARE @SessionIDOut INT
+
+    -- TODO: Set parameter values here.
+    EXECUTE @RC = [dbo].[spMFUpdateItemByItem]
+                        @TableName
+                       ,@Debug
+                       ,@SessionIDOut OUTPUT
+    SELECT @SessionIDOut
 
 Changelog
 =========
