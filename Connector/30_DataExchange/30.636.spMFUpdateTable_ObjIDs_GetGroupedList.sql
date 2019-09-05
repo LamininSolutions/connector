@@ -56,27 +56,30 @@ Return
   - -1 = Error
 Parameters
   @ObjIds\_FieldLenth smallint
-    fixme description
+    Indicate the size of each group iteration CSV text field
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
 
-
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
+The purpose of this procedure is to group source records into batches and compile a list of OBJIDs in CSV format to pass to spMFUpdateTable
 
 Examples
 ========
+
+.. code:: sql
+
+    IF OBJECT_ID('tempdb..#ObjIdList') IS NOT NULL DROP TABLE #ObjIdList;
+    CREATE TABLE #ObjIdList ( [ObjId] INT  PRIMARY KEY )
+
+    INSERT #ObjIdList ( ObjId )
+    SELECT ObjID
+    FROM CLGLChart
+
+    EXEC spMFUpdateTable_ObjIDS_GetGroupedList
 
 Changelog
 =========
@@ -85,63 +88,10 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2017-06-08  AC         Change default size of @ObjIds_FieldLenth to 2000 from 4000 as NVARCHAR(4000) is same as VARCHAR(2000)
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to group source records into batches
-  **		and compile a list of OBJIDs in CSV format to pass to spMFUpdateTable
-  **  
-  ** Version: 1.0.0.0
-  **
-  ** Processing Steps:
-  **					1. Calculate Number of Groups in RecordSet
-  **					2. Assign Group Numbers to Source Records
-  **					3. Return ObjIDs CSV List by GroupNumber
-  **
-  ** Parameters and acceptable values: 
-  **					@ObjIds_FieldLenth: Indicate the size of each group iteration CSV text field   
-  **					@Debug				
-  **			         	
-  ** Restart:
-  **					Restart at the beginning.  No code modifications required.
-  ** 
-  ** Tables Used:                 					  
-  **					
-  **
-  ** Return values:		
-  **					1 = success
-  **					2 = Failure	
-  **
-  ** Called By:			NONE
-  **
-  ** Calls:           
-  **					sp_executesql
-  **					spMFUpdateTable
-  **
-  ** Author:			arnie@lamininsolutions.com
-  ** Date:				2016-05-14
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-	2017-06-08	ACILLIERS	change default size of @ObjIds_FieldLenth to 2000 from 4000 as NVARCHAR(4000) is same as VARCHAR(2000)
-  ********************************************************************************
-  ** EXAMPLE EXECUTE
-  ********************************************************************************
-		IF OBJECT_ID('tempdb..#ObjIdList') IS NOT NULL
-		   DROP TABLE  #ObjIdList;
-		CREATE TABLE #ObjIdList ( [ObjId] INT  PRIMARY KEY )
-
-		INSERT #ObjIdList
-				( ObjId )
-		SELECT ObjID
-		FROM CLGLChart
-
-		EXEC spMFUpdateTable_ObjIDS_GetGroupedList
-
-  ******************************************************************************/
     BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
