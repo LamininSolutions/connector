@@ -63,6 +63,8 @@ Parameters
 Purpose
 =======
 
+Insert ValueList Items details into MFValueListItems table.
+
 Additional Info
 ===============
 
@@ -82,20 +84,10 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2015-06-26  DEV2       Updating Column appRef
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to insert ValueList Items details into MFValueListItems table.  
-  **  
-  ** Date:            27-03-2015
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  ** 26-06-2015  DEV 2	   Updating Column appRef
-  ******************************************************************************/
     BEGIN
         BEGIN TRY
             BEGIN TRANSACTION;
