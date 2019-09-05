@@ -1,7 +1,7 @@
 
 GO
 
-PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFExportFiles]';
+PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFGetHistory]';
 GO
 
 SET NOCOUNT ON;
@@ -13,21 +13,7 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     -- varchar(50)
                                     ,@UpdateFlag = 2;
 
---select STUFF(( SELECT ','
---  , CAST([ObjID] AS VARCHAR(10))
---FROM   MFOtherDocument
--- FOR
---XML PATH('')
--- ), 1, 1, '')
--- smallint
 GO
-
-/*
-MODIFICATIONS
-Add ability to show updates in MFUpdateHistory
-Fix bug with lastmodifiedUTC date.
-2019-08-02	LC set lastmodifiedUTC datetime conversion to 105
-*/
 
 IF EXISTS
 (
@@ -84,39 +70,99 @@ Parameters
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
   @Process\_id int
-    fixme description
+    Set process_id in the class table for records to be selected
+    Use process_id not in (1-4) e.g. 5
   @ColumnNames nvarchar(4000)
-    fixme description
+    Comma delimited list of the columns to be included in the export
   @IsFullHistory bit
-    fixme description
+     1 will include all the changes of the object for the specified column names
   @NumberOFDays int
-    fixme description
+    Set this to show the last x number of days of changes
   @StartDate datetime
-    fixme description
-  @Update\_ID int (output)
-    fixme description
+    set to a specific date to only show change history from a specific date (e.g. for the last month)
   @ProcessBatch\_id int (output)
-    fixme description
+    Processbatch id for logging
   @Debug int (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
-
 
 Purpose
 =======
 
+Allows to update MFObjectChangeHistory table with the change history of the specific property of the object based on certain filters
+
 Additional Info
 ===============
 
+When the history table is updated it will only report the versions that the property was changed. If the property included in the filter did not change, then to specific version will not be recorded in the table.
+Process_id is reset to 0 after completion of the processing.
+
 Prerequisites
 =============
+Set process_id in the class table to 5 for all the records to be included
 
 Warnings
 ========
 
+Note that the same filter will apply to all the columns included in the run.  Split the get procedure into different runs if different filters must be applied to different columns.
+
 Examples
 ========
+This procedure can be used to show all the comments  or the last 5 comments made for a object.  It is also handly to assess when a workflow state was changed
+
+.. code:: sql
+
+    UPDATE mfcustomer
+    SET Process_ID = 5
+    FROM MFCustomer  WHERE id in (9,10)
+
+    DECLARE @RC INT
+    DECLARE @TableName NVARCHAR(128) = 'MFCustomer'
+    DECLARE @Process_id INT = 5
+    DECLARE @ColumnNames NVARCHAR(4000) = 'Address_Line_1,Country'
+    DECLARE @IsFullHistory BIT = 1
+    DECLARE @NumberOFDays INT 
+    DECLARE @StartDate DATETIME --= DATEADD(DAY,-1,GETDATE())
+    DECLARE @ProcessBatch_id INT
+    DECLARE @Debug INT = 0
+
+    EXECUTE @RC = [dbo].[spMFGetHistory]
+    @TableName
+    ,@Process_id
+    ,@ColumnNames
+    ,@IsFullHistory
+    ,@NumberOFDays
+    ,@StartDate
+    ,@ProcessBatch_id OUTPUT
+    ,@Debug
+
+    SELECT * FROM [dbo].[MFProcessBatch] AS [mpb] WHERE [mpb].[ProcessBatch_ID] = @ProcessBatch_id
+    SELECT * FROM [dbo].[MFProcessBatchDetail] AS [mpbd] WHERE [mpbd].[ProcessBatch_ID] = @ProcessBatch_id
+
+----
+
+Show the results of the table including the name of the property
+
+.. code:: sql
+
+    SELECT toh.*,mp.name AS propertyname FROM mfobjectchangehistory toh
+    INNER JOIN mfproperty mp
+    ON mp.[MFID] = toh.[Property_ID]
+    ORDER BY [toh].[Class_ID],[toh].[ObjID],[toh].[MFVersion],[toh].[Property_ID]
+
+----
+
+Show the results of the table for a state change
+
+.. code:: sql
+
+    SELECT toh.*,mws.name AS StateName, mp.name AS propertyname FROM mfobjectchangehistory toh
+    INNER JOIN mfproperty mp
+    ON mp.[MFID] = toh.[Property_ID]
+    INNER JOIN [dbo].[MFWorkflowState] AS [mws]
+    ON [toh].[Property_Value] = mws.mfid
+    WHERE [toh].[Property_ID] = 39
+    ORDER BY [toh].[Class_ID],[toh].[ObjID],[toh].[MFVersion],[toh].[Property_ID]
 
 Changelog
 =========
@@ -125,6 +171,9 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2019-08-02  LC         Set lastmodifiedUTC datetime conversion to 105
+2019-06-02  LC         Fix bug with lastmodifiedUTC date
+2019-01-02  LC         Add ability to show updates in MFUpdateHistory
 ==========  =========  ========================================================
 
 **rST*************************************************************************/

@@ -98,25 +98,6 @@ Date        Author     Description
 
 **rST*************************************************************************/
 
-/*******************************************************************************
-  ** Desc:  The purpose of this procedure is to get all the object vers of the class table as XML  
-  **  
-							
-  **
-  ** Author:			Kishore
-  ** Date:				20-06-2016
-
-  Change history
-
-  2016-8-22	 LC		update settings index
-  20168-22	lc		change objids to NVARCHAR(4000)
-  201509-21 DevTeam2 Removed @Username,@Password,@NetworkAddress,@VaultName Parameters and Just fetch  the vault settings in single comma separated
-                     Parameter i.e. @VaultSettings
-  2018-04-04 Devteam2 Added License module validation code
-  2019-07-10 LC		Add debugging and messaging
-  2019-08-05	LC		Improve logging
-  2019-09-04  LC        Add connectiontest 
-  ******************************************************************************/
 BEGIN
     SET NOCOUNT ON;
 
