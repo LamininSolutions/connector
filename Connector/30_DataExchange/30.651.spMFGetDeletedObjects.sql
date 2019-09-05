@@ -68,10 +68,10 @@ Parameters
   @MFTableName nvarchar(200)
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
-  @LastModifiedDate datetime
+  @LastModifiedDate datetime (optional)
     - Default = 2000-01-01
     - Allows limited search for deleted object
-  @RemoveDeleted bit
+  @RemoveDeleted bit (optional)
     - Default = 1. Deleted records in M-Files are removed from the class table.
     - If set to 0 then deleted items will be marked in the class table column 'Deleted' instead of removing the record.
   @ProcessBatch\_ID int (optional, output)
@@ -89,6 +89,7 @@ Identify and optionally remove deleted objects in M-Files in class table.
 Examples
 ========
 
+.. code:: sql
 
     DECLARE @ProcessBatch_ID INT;
 
