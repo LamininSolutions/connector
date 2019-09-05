@@ -53,31 +53,48 @@ Return
   - -1 = Error
 Parameters
   @TableName varchar(250)
-    fixme description
+    Name of class table
   @ExpiryDate datetime
-    fixme description
-  @ClassID int
-    fixme description
-  @ObjectID int
-    fixme description
-  @ProcessID int
-    fixme description
-
+    Set to NULL to getdata() + 1 month
+  @ClassID int (optional)
+    - Default = NULL
+    - Class_ID of the Record
+  @ObjectID int (optional)
+    - Default = NULL
+    - ObjID column of the Record
+  @ProcessID int (optional)
+    - Default = 1
+    - set process_id = 0 to update all the records with singlefile = 1 in the class
+    - set process_id to a number > 4 if you want to create the link for a set list of records
 
 Purpose
 =======
 
+Create or update the link to the specified object and add the link in the MFPublicLink table. A join can then be used to access the link and include it in any custom view.
+
 Additional Info
 ===============
 
-Prerequisites
-=============
+If you are making updates to a record and want to set the public link at the same time then run the shared link procedure after setting the process_id and before updating the records to M-Files.
+
+The expire date can be set for the number of weeks or month from the current date by using the dateadd function (e.g. Dateadd(m,6,Getdate())).
 
 Warnings
 ========
 
+This procedure will use the ServerURL setting in MFSettings and expects eiher 'http://' or 'https://' and a fully qualified dns name as the value. Example: 'http://contoso.com'
+
 Examples
 ========
+
+.. code:: sql
+
+    EXEC dbo.spMFCreatePublicSharedLink
+         @TableName = 'ClassTableName', -- varchar(250)
+         @ExpiryDate = '2017-05-21',    -- datetime
+         @ClassID = nul,                -- int
+         @ObjectID = ,                  -- int
+         @ProcessID = 0                 -- int
 
 Changelog
 =========
@@ -86,45 +103,10 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2018-04-04  DEV2       Added Licensing module validation code
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to Create  public shared link from M-files
-  **  
-  ** Processing Steps:
-  **					
-  **
-  ** Parameters and acceptable values: 
-  **					@TableName Varchar(250)
-						,@ExpiryDate Datetime
-                        ,@ClassID int=null
-                       ,@ObjectID int=null
-  **					
-  **			         	
-  ** Restart:
-  **					Restart at the beginning.  No code modifications required.
-  ** 
-  ** Tables Used:                 					  
-  **					
-  **
-  ** Return values:		
-  **					
-  **
-  ** Called By:			
-  **
-  ** Calls:           
-  **														
-  **
-  ** Author:			DevTeam2(Rheal)
-  ** Date:				05 -15-2017
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-     2018-04-04  DevTeam 2  Added Licensing module validation code.
-  ******************************************************************************/
       BEGIN
             SET NOCOUNT ON
 
