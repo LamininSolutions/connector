@@ -9,28 +9,6 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@UpdateFlag = 2;                -- smallint
 GO
 
-/*
- ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  2016-8-22		lc			change objids to NVARCHAR(4000)
-  2017-08-28	lc		change sequence of params
-  2017-08-28	lc			add logging
-  2017-08-28	lc		add param for update required
-  2017-12-27	lc		remove incorrect error message
-  2017-12-28	lc		change insert to merge on audit table, 
-  2018-08-01	lc		resolve issue with having try catch in transaction processing
-  2018-12-15	lc		add ability to get result for selected objids
-  2019-4-11	LC			add validation table exists
-  2019-4-11		lc		add large table protection
-2019-4-11		LC		fix collection object type in table	
-2019-5-18		LC		add additional exception for deleted in SQL but not deleted in MF
-2019-6-22		LC		objid parameter not yet functional
-2019-08-16		LC		fix bug for removing destroyed objects
-  ---------------
-*/
-
 IF EXISTS
 (
     SELECT 1
@@ -88,21 +66,21 @@ Parameters
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
   @MFModifiedDate datetime
-    fixme description
+    Filter by MFiles Last Modified date as a datetime string. Set to null if all records must be selected
   @ObjIDs nvarchar(4000)
-    fixme description
+    Filter by comma delimited string of objid of the objects to process. Set as null if all records must be included
   @SessionIDOut int (output)
-    fixme description
+    Output of the session id used to update table MFAuditHistory
   @NewObjectXml nvarchar(max) (output)
-    fixme description
+    Output of the objver of the record set as a result in nvarchar datatype. This can be converted to an XML record for further processing
   @DeletedInSQL int (output)
-    fixme description
+    Output the number of items that will be marked as deleted when processing the next spmfUpdateTable
   @UpdateRequired bit (output)
-    fixme description
+    Set to 1 if any condition exist where M-Files and SQL is not the same.  This can be used to trigger a spmfUpdateTable only when it necessary
   @OutofSync int (output)
-    fixme description
+    If > 0 then the next updatetable procedure will have synchronisation errors
   @ProcessErrors int (output)
-    fixme description
+    If > 0 then there are unresolved errors in the table with process_id = 3 or 4
   @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @Debug smallint (optional)
@@ -110,21 +88,47 @@ Parameters
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
 
-
 Purpose
 =======
+
+Update MFAuditHistory and return the sessionid and the M-Files objver of the selection class as a varchar that can be converted to XML if there is a need for further processing of the result.
 
 Additional Info
 ===============
 
-Prerequisites
-=============
+At the same time spMFTableAudit will set the deleted flag for all the records in the Class Table that is deleted in M-Files.  This is particularly relevant when this procedure is used in conjunction with the spMFUpdateTable procedure with the filter MFLastModified set.
 
-Warnings
-========
+See also spMFTableAuditInBatches for large scale class tables.
 
 Examples
 ========
+
+.. code:: sql
+
+    DECLARE @SessionIDOut INT
+           ,@NewObjectXml NVARCHAR(MAX)
+           ,@DeletedInSQL INT
+           ,@UpdateRequired BIT
+           ,@OutofSync INT
+           ,@ProcessErrors INT
+           ,@ProcessBatch_ID INT;
+
+    EXEC [dbo].[spMFTableAudit]
+               @MFTableName = N'MFCustomer' -- nvarchar(128)
+              ,@MFModifiedDate = null -- datetime
+              ,@ObjIDs = null -- nvarchar(4000)
+              ,@SessionIDOut = @SessionIDOut OUTPUT -- int
+              ,@NewObjectXml = @NewObjectXml OUTPUT -- nvarchar(max)
+              ,@DeletedInSQL = @DeletedInSQL OUTPUT -- int
+              ,@UpdateRequired = @UpdateRequired OUTPUT -- bit
+              ,@OutofSync = @OutofSync OUTPUT -- int
+              ,@ProcessErrors = @ProcessErrors OUTPUT -- int
+              ,@ProcessBatch_ID = @ProcessBatch_ID OUTPUT -- int
+              ,@Debug = 0 -- smallint
+
+    SELECT @SessionIDOut AS 'session', @UpdateRequired AS UpdateREquired, @OutofSync AS OutofSync, @ProcessErrors AS processErrors
+    SELECT * FROM [dbo].[MFProcessBatch] AS [mpb] WHERE [mpb].[ProcessBatch_ID] = @ProcessBatch_ID
+    SELECT * FROM [dbo].[MFProcessBatchDetail] AS [mpbd] WHERE [mpbd].[ProcessBatch_ID] = @ProcessBatch_ID
 
 Changelog
 =========
@@ -133,27 +137,35 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2019-08-16  LC         Fix bug for removing destroyed objects
+2019-06-22  LC         Objid parameter not yet functional
+2019-05-18  LC         Add additional exception for deleted in SQL but not deleted in MF
+2019-04-11  LC         Fix collection object type in table
+2019-04-11  LC         Add large table protection
+2019-04-11  LC         Add validation table exists
+2018-12-15  LC         Add ability to get result for selected objids
+2018-08-01  LC         Resolve issue with having try catch in transaction processing
+2017-12-28  LC         Change insert to merge on audit table
+2017-12-27  LC         Remove incorrect error message
+2017-08-28  LC         Add param for update required
+2017-08-28  LC         Add logging
+2017-08-28  LC         Change sequence of params
+2016-08-22  LC         Change objids to NVARCHAR(4000)
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to Get all Records from MFiles for the selection
-  **  					
-  **
-  ** Author:			leRoux Cilliers
-  ** Date:				17-07-2016
 
-  USAGE
-  Declare @SessionIDOut int, @return_Value int, @NewXML nvarchar(max)
-  exec @return_Value = spMFTableAudit 'MFOtherdocument' , null, null, 1, @SessionIDOut = @SessionIDOut output, @NewObjectXml = @NewXML output
-  Select @SessionIDOut ,@return_Value, @NewXML
+/*
 
+DECLARE @SessionIDOut int, @return_Value int, @NewXML nvarchar(max)
+EXEC @return_Value = spMFTableAudit 'MFOtherdocument' , null, null, 1, @SessionIDOut = @SessionIDOut output, @NewObjectXml = @NewXML output
+SELECT @SessionIDOut ,@return_Value, @NewXML
 
-  ******************************************************************************/
+*/
 
 -------------------------------------------------------------
 -- CONSTANTS: MFSQL Class Table Specific
-------------------------------------------------------------- 
+-------------------------------------------------------------
 SET NOCOUNT ON;
 
 DECLARE @ProcessType AS NVARCHAR(50);
