@@ -7,25 +7,6 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFCre
     @Object_Release = '2.0.2.4', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-03
-	Database: 
-	Description: Create all Class Tables where Included in App is 1 or 2
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  debug mode
-  EXEC [spMFCreateAllMFTables] 1  
-  
------------------------------------------------------------------------------------------------*/
 IF EXISTS ( SELECT  1
             FROM    INFORMATION_SCHEMA.ROUTINES
             WHERE   ROUTINE_NAME = 'spMFCreateAllMFTables'--name of procedure
@@ -67,21 +48,17 @@ Parameters
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
 
-
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
+Create all Class Tables where Included in App is 1 or 2
 
 Examples
 ========
+
+.. code:: sql
+
+    EXEC [spMFCreateAllMFTables] 1
 
 Changelog
 =========
