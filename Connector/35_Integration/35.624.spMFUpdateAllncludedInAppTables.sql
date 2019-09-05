@@ -9,19 +9,6 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@UpdateFlag = 2;                                 -- smallint
 GO
 
-/*	 ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  ** 14-07-2015  DEV 2	   Debug mode added
-  ** 9-9-2016	LC			Add return value
-  ** 9-6-2017   lc			Set default of updatemethod to 1
-  ** 9-6-2017   lc          change to use spmfupdateMfilestoSQL method
-  ** 28-8-2017	LC			convert proc to include logging and process batch control
-  2018-11-18	LC			Remove duplicate Audit process
-  ******************************************************************************/
-
 IF EXISTS
 (
     SELECT 1
@@ -69,9 +56,10 @@ Return
   - -1 = Error
 Parameters
   @UpdateMethod int
-    fixme description
+    - Default = 1
   @RemoveDeleted int
-    fixme description
+    - Default = 1
+    - Remove all the deleted objects when this process is run
   @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @Debug smallint (optional)
@@ -79,21 +67,19 @@ Parameters
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
 
-
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
+The purpose of this procedure is to allow for daily processing of all the class table tables with includedinapp = 1.
 
 Examples
 ========
+
+.. code:: sql
+
+    DECLARE @Return int
+    EXEC @Return = spMFUpdateAllncludedInAppTables 2, 0
+    SELECT @return
 
 Changelog
 =========
@@ -102,28 +88,15 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2018-11-18  LC         Remove duplicate Audit process
+2017-08-28  LC         Convert proc to include logging and process batch control
+2017-06-09  LC         Change to use spmfupdateMfilestoSQL method
+2017-06-09  LC         Set default of updatemethod to 1
+2016-09-09  LC         Add return value
+2015-07-14  DEV2       Debug mode added
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to allow for daily processing of all the class table tables with includedinapp = 1  
-  **  
-  ** Version: 1.0.0.6
-  **
-  ** Processing Steps:
-  **       1.) Create cursor for MFClass Table select records with IncludeInApp = 1
-  **       2.) Execute spMFUpdateTable for each record
-  **
-   ** Author:          LEROUX
-  ** Date:            11/07/2015 
-
-  USAGE
-
-  Declare @Return int
-  exec @Return = spMFUpdateAllncludedInAppTables 2, 0
-  Select @return
-
-  */
 SET NOCOUNT ON;
 
 -------------------------------------------------------------
