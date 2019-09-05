@@ -9,24 +9,6 @@ EXEC [setup].[spMFSQLObjectsControl]
   , @UpdateFlag = 2
 
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: LSUSA\LeRouxC
-	Create date: 14/07/2019 11:25
-	Database: 
-	Description: PARAMETERS:
-															
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  
------------------------------------------------------------------------------------------------*/
 IF EXISTS (	  SELECT	1
 			  FROM		[INFORMATION_SCHEMA].[ROUTINES]
 			  WHERE		[ROUTINE_NAME] = 'spMFDeploymentDetails' --name of procedure
@@ -73,21 +55,10 @@ Parameters
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
 
-
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
+Print deployment details
 
 Changelog
 =========
