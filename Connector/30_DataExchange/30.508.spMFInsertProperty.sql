@@ -11,24 +11,6 @@ EXEC [setup].[spMFSQLObjectsControl]
 -- smallint
 
 GO
-/*
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -------------------------------------------------------------
-  ** 15-05-2015  Dev 2	   Checking for duplicate ColumnName and auto renaming if exists
-  ** 27-05-2015  Dev 2	   New logic for inserting details from M-Files as per LeRoux
-  ** 14-07-2015  DEV 2      MFValuelist_ID column Added in MFProperty
-	2017-08-22		LC		fix bug with contstraints
-	2017-08-22		LC		improve logging  
-	2017-09-11		LC		update constraints
-	2017-11-23		LC		Localization of last modifed columns
-	2017-11-30		LC		Remove duplicate _ID from State_ID
-	2017-12-28      Dev2            Change join condition at #1162
-	2018-11-4		lc		enhancement to deal with changes in datatype
-	**********************************************************************************
-*/
 IF EXISTS (	  SELECT	1
 			  FROM		[INFORMATION_SCHEMA].[ROUTINES]
 			  WHERE		[ROUTINE_NAME] = 'spMFInsertProperty' --name of procedure
@@ -87,6 +69,8 @@ Parameters
 Purpose
 =======
 
+Insert Property details into MFProperty table.
+
 Additional Info
 ===============
 
@@ -106,15 +90,20 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2018-11-04  LC         Enhancement to deal with changes in datatype
+2017-12-28  DEV2       Change join condition at #1162
+2017-11-30  LC         Remove duplicate _ID from State_ID
+2017-11-23  LC         Localization of last modifed columns
+2017-09-11  LC         Update constraints
+2017-08-22  LC         Improve logging
+2017-08-22  LC         Fix bug with contstraints
+2015-07-14  DEV2       MFValuelist_ID column Added in MFProperty
+2015-05-27  DEV2       New logic for inserting details from M-Files as per LeRoux
+2015-05-15  DEV2       Checking for duplicate ColumnName and auto renaming if exists
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to insert Property details into MFProperty table.  
-  **  
 
-  ** Date:            27-03-2015
-*****/
 	BEGIN
 		DECLARE @trancount INT;
 		SET @trancount = @@trancount;
