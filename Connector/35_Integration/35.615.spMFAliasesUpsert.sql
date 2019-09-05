@@ -59,24 +59,19 @@ Return
   - -1 = Error
 Parameters
   @MFTableNames nvarchar(400)
-    - Property
-    - Class
-    - ObjectType
-    - Valuelist
-    - ValuelistItem
+  Valid Metadata structure table
   @Prefix nvarchar(10)
     Prefix before name
   @IsRemove bit (optional)
     - Default = 0
     - If 1 then aliases with prefix will be removed.
   @WithUpdate bit
-    fixme description
+    Set to 1 push updates to M-Files
   @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
 
 Purpose
 =======
@@ -97,7 +92,7 @@ The following metadata tables include aliases:
 
 The aliases can be synchronized with M-Files.  A switch on the procedure will determine if the update takes place from M-Files or to M-Files.
 
-The following procedures will only update from M-Files:
+The following procedures will only update from M-Files to SQL:
 
 - spMFSyncronizeMetadata
 - spMFDropAndUpdateMetadata
