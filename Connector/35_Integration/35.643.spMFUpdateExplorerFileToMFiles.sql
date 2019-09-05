@@ -13,16 +13,6 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
 -- smallint
 GO
 
-/*
- ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-
-  ********************************************************************************
-*/
-
 IF EXISTS
 (
     SELECT 1
@@ -71,38 +61,64 @@ Return
   - -1 = Error
 Parameters
   @FileName nvarchar(256)
-    fixme description
+    Name of file
   @FileLocation nvarchar(256)
-    fixme description
+    UNC path or Fully qualified path to file
   @MFTableName nvarchar(100)
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
   @SQLID int
-    fixme description
-  @IsFileDelete bit
-    fixme description
+    the ID column on the class table
+  @IsFileDelete bit (optional)
+    - Default = 0
+    - 1 = the file should be deleted in folder
   @ProcessBatch\_id int (output)
-    fixme description
+    Output ID in MFProcessBatch for logging the process
   @Debug int (optional)
     - Default = 0
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
 
-
 Purpose
 =======
+
+MFSQL Connector file import provides the capability of attaching a file to a object in a class table.
 
 Additional Info
 ===============
 
-Prerequisites
-=============
+This functionality will:
+
+- Add the file to an object.  If the object exist as a multidocument object with no files attached, the file will be added to the multidocument object and converted to a single file object.  If the files already exist for the object, the file will be added to the collection.
+- The object must pre-exist in the class table. The class table metadata will be applied to object when adding the file. This procedure will add a new object from the class table, or update an existing object in M-Files using the class table metadata.
+- The source file will optionally be deleted from the source folder.
 
 Warnings
 ========
 
+The procedure use the ID in the class table and not the objid column to reference the object.  This allows for referencing an record which does not yet exist in M-Files.
+
 Examples
 ========
+
+.. code:: sql
+
+    DECLARE @ProcessBatch_id INT;
+    DECLARE @FileLocation NVARCHAR(256) = 'C:\Share\Fileimport\2\'
+    DECLARE @FileName NVARCHAR(100) = 'CV - Tommy Hart.docx'
+    DECLARE @TableName NVARCHAR(256) = 'MFOtherDocument'
+    DECLARE @SQLID INT = 1
+
+    EXEC [dbo].[spMFUpdateExplorerFileToMFiles]
+        @FileName = @FileName
+       ,@FileLocation = @FileLocation
+       ,@SQLID = @SQLID
+       ,@MFTableName = @TableName
+       ,@ProcessBatch_id = @ProcessBatch_id OUTPUT
+       ,@Debug = 0
+       ,@IsFileDelete = 0
+
+    SELECT * from [dbo].[MFFileImport] AS [mfi]
 
 Changelog
 =========
