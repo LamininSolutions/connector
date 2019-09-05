@@ -10,9 +10,6 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
 GO
 
 /*
-2018-08-01	lc		add debugging
-2019-1-21	LC		remove unnecessary log entry for dbcc
-2019-1-26	LC		Resolve issues with commits
 */
 
 IF EXISTS
@@ -68,31 +65,59 @@ Parameters
   @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @ProcessType nvarchar(50)
-    fixme description
+    - Debug
+    - Upsert
+    - Create
+    - Setup
+    - Error
   @LogType nvarchar(50)
-    fixme description
+    - Start
+    - End
   @LogText nvarchar(4000)
-    fixme description
+    - Text string for updating user
   @LogStatus nvarchar(50)
-    fixme description
+    - Initiate
+    - In Progress
+    - Partial
+    - Completed
+    - Error
   @debug smallint
-    fixme description
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
 
 
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
+Batch multi-function processing with logging.
 
 Examples
 ========
+
+.. code:: sql
+
+    DECLARE @ProcessBatch_ID INT = 0;
+
+    EXEC [dbo].[spMFProcessBatch_Upsert]
+               @ProcessBatch_ID = @ProcessBatch_ID OUTPUT
+              ,@ProcessType = 'Test'
+              ,@LogText = 'Testing'
+              ,@LogStatus = 'Start'
+              ,@debug = 1
+
+    SELECT * FROM MFProcessBatch WHERE ProcessBatch_ID = @ProcessBatch_ID
+
+    WAITFOR DELAY '00:00:02'
+
+    EXEC [dbo].[spMFProcessBatch_Upsert]
+               @ProcessBatch_ID = @ProcessBatch_ID
+              ,@ProcessType = 'Test'
+              ,@LogText = 'Testing Complete'
+              ,@LogStatus = 'Complete'
+              ,@debug = 1
+
+    SELECT * FROM MFProcessBatch WHERE ProcessBatch_ID = @ProcessBatch_ID
 
 Changelog
 =========
@@ -101,50 +126,14 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2019-01-26  LC         Resolve issues with commits
+2019-01-21  LC         Remove unnecessary log entry for dbcc
+2018-10-31  LC         Improve debugging comments
+2018-08-01  LC         Add debugging
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
 
-  **
-  ** Author:          leroux@lamininsolutions.com
-  ** Date:            2016-08-27
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-    add settings option to exclude procedure from executing detail logging
-	2018-10-31	LC improve debugging comments
-  ******************************************************************************/
-
-/*
-  DECLARE @ProcessBatch_ID INT = 0;
-  
-  EXEC [dbo].[spMFProcessBatch_Upsert]
-
-      @ProcessBatch_ID = @ProcessBatch_ID OUTPUT
-    , @ProcessType = 'Test'
-    , @LogText = 'Testing'
-    , @LogStatus = 'Start'
-    , @debug = 1
-  
-	select * from MFProcessBatch where ProcessBatch_ID = @ProcessBatch_ID
-
-	WAITFOR DELAY '00:00:02'
-
-  EXEC [dbo].[spMFProcessBatch_Upsert]
-
-      @ProcessBatch_ID = @ProcessBatch_ID
-    , @ProcessType = 'Test'
-    , @LogText = 'Testing Complete'
-    , @LogStatus = 'Complete'
-    , @debug = 1
-  
-	select * from MFProcessBatch where ProcessBatch_ID = @ProcessBatch_ID
-
-
-  */
 SET NOCOUNT ON;
 
 SET XACT_ABORT ON;
