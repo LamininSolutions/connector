@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFGetHistory'
                                     -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.52'
+                                    ,@Object_Release = '4.4.12.53'
                                     -- varchar(50)
                                     ,@UpdateFlag = 2;
 
@@ -47,10 +47,10 @@ ALTER PROCEDURE [dbo].[spMFGetHistory]
     @MFTableName NVARCHAR(128)
    ,@Process_id INT = 0
    ,@ColumnNames NVARCHAR(4000)
-   --	@SearchString nvarchar(4000),
-   ,@IsFullHistory BIT
-   ,@NumberOFDays INT = -1
-   ,@StartDate DATETIME = '1901-01-10'
+   ,@SearchString nvarchar(4000) = null
+   ,@IsFullHistory BIT = 1
+   ,@NumberOFDays INT = null
+   ,@StartDate DATETIME = null
    ,@Update_ID INT = NULL OUTPUT
    ,@ProcessBatch_id INT = NULL OUTPUT
    ,@Debug INT = 0
@@ -75,7 +75,12 @@ Parameters
   @ColumnNames nvarchar(4000)
     Comma delimited list of the columns to be included in the export
   @IsFullHistory bit
+     Default = 1
      1 will include all the changes of the object for the specified column names
+     Set to 0 to specify any of the other filters
+..@SearchString nvarchar(4000)
+    Search for objects included in the object select and property selection with a specific value
+    Search is a 'contain' search
   @NumberOFDays int
     Set this to show the last x number of days of changes
   @StartDate datetime
@@ -112,6 +117,8 @@ Warnings
 ========
 
 Note that the same filter will apply to all the columns included in the run.  Split the get procedure into different runs if different filters must be applied to different columns.
+
+Producing on the history for all objects in a large table could take a considerable time to complete. Use the filters to limit restrict the number of records to fetch from M-Files to optimise the search time. 
 
 Examples
 ========
@@ -177,6 +184,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-09-05  LC         Reset defaults
+2019-09-05  LC         Add searchstring option
 2019-08-30  JC         Added documentation
 2019-08-02  LC         Set lastmodifiedUTC datetime conversion to 105
 2019-06-02  LC         Fix bug with lastmodifiedUTC date
@@ -283,6 +292,8 @@ BEGIN
         SET @LogStatusDetail = 'Started';
         SET @StartTime = GETUTCDATE();
 
+        IF (SELECT OBJECT_ID('tempdb..#TempProperty')) IS NOT NULL
+        DROP TABLE #TempProperty;
         CREATE TABLE [#TempProperty]
         (
             [ID] INT IDENTITY(1, 1)
@@ -521,22 +532,10 @@ BEGIN
         SET @LogColumnValue = CAST(@rowcount AS VARCHAR(5));
         SET @StartTime = GETUTCDATE();
 
-        /*
-select @VaultSettings as 'VaultSettings'
-select @ObjectType as 'ObjectType'
-select @ObjIDs as 'ObjIDs'
-Select @PropertyIDs as 'PropertyIDs'
---select @SearchString as 'SearchString'
-select @IsFullHistory as 'IsFullHistory'
-select @NumberOFDays as 'NumberOFDays'
-select @StartDate as 'StartDate'
-*/
         UPDATE [dbo].[MFUpdateHistory]
         SET [ObjectDetails] = @ObjIDs
            ,[ObjectVerDetails] = @PropertyIDs
         WHERE [Id] = @Update_ID;
-
-        DECLARE @SearchString NVARCHAR(4000) = NULL;
 
         -- note that ability to use a search criteria is not yet active.
 
@@ -606,6 +605,8 @@ select @StartDate as 'StartDate'
         --------------------------------------------------------------------------------
         SET @ProcedureStep = 'Creating temp table #Temp_ObjectHistory';
 
+        IF (SELECT OBJECT_ID('tempdb..#TempObjIDs')) IS NOT NULL
+        DROP TABLE #TempObjids;
         CREATE TABLE [#Temp_ObjectHistory]
         (
             [RowNr] INT IDENTITY
