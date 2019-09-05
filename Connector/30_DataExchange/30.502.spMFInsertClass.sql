@@ -9,24 +9,6 @@ EXEC Setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
     @Object_Release = '4.2.7.46', -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
- /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to insert Class details into MFClass table.  
-  **  
-
-  ** Date:            27-03-2015
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  ** 27-05-2015  DEV 2      INSERT/UPDATE logic changed
-  ** 14-07-2015  DEV 2      MFValuelist_ID column removed from MFClass
-  ** 20-07-2015  DEV 2	    TableName Duplicate Issue Resolved
-  ** 19-03-2016  LC			No error for duplicate Report Class
-  ** 26-03-2018	Dev2		Workflow required check
-	2018-11-10	LC			Add includedinApp update for User Messager table
-  ******************************************************************************/
- 
 go
 
 IF EXISTS ( SELECT  1
@@ -87,6 +69,8 @@ Parameters
 Purpose
 =======
 
+The purpose of this procedure is to insert Class details into MFClass table.
+
 Additional Info
 ===============
 
@@ -106,6 +90,12 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2018-11-10  LC         Add includedinApp update for User Messager table
+2018-03-26  DEV2       Workflow required check
+2016-03-19  LC         No error for duplicate Report Class
+2015-07-20  DEV2       TableName Duplicate Issue Resolved
+2015-07-14  DEV2       MFValuelist_ID column removed from MFClass
+2015-05-27  DEV2       INSERT/UPDATE logic changed
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
