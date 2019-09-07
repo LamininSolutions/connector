@@ -1,3 +1,122 @@
+/*rST**************************************************************************
+
+=====
+MFLog
+=====
+
+Columns
+=======
+
++--------------------------------------------------------------------+------------------+-----------------+----------------------+----------------+------------+---------------+
+| Key                                                                | Name             | Data Type       | Max Length (Bytes)   | Nullability    | Identity   | Default       |
++====================================================================+==================+=================+======================+================+============+===============+
+|  Cluster Primary Key PK\_MFLog: LogID \  Indexes idx\_MFLog\_id    | LogID            | int             | 4                    | NOT NULL       | 1 - 1      |               |
++--------------------------------------------------------------------+------------------+-----------------+----------------------+----------------+------------+---------------+
+|                                                                    | SPName           | nvarchar(max)   | max                  | NULL allowed   |            |               |
++--------------------------------------------------------------------+------------------+-----------------+----------------------+----------------+------------+---------------+
+|                                                                    | Update\_ID       | int             | 4                    | NULL allowed   |            |               |
++--------------------------------------------------------------------+------------------+-----------------+----------------------+----------------+------------+---------------+
+|                                                                    | ExternalID       | nvarchar(50)    | 100                  | NULL allowed   |            |               |
++--------------------------------------------------------------------+------------------+-----------------+----------------------+----------------+------------+---------------+
+|                                                                    | ErrorNumber      | int             | 4                    | NULL allowed   |            |               |
++--------------------------------------------------------------------+------------------+-----------------+----------------------+----------------+------------+---------------+
+|                                                                    | ErrorMessage     | nvarchar(max)   | max                  | NULL allowed   |            |               |
++--------------------------------------------------------------------+------------------+-----------------+----------------------+----------------+------------+---------------+
+|                                                                    | ErrorProcedure   | nvarchar(max)   | max                  | NULL allowed   |            |               |
++--------------------------------------------------------------------+------------------+-----------------+----------------------+----------------+------------+---------------+
+|                                                                    | ProcedureStep    | nvarchar(max)   | max                  | NULL allowed   |            |               |
++--------------------------------------------------------------------+------------------+-----------------+----------------------+----------------+------------+---------------+
+|                                                                    | ErrorState       | nvarchar(max)   | max                  | NULL allowed   |            |               |
++--------------------------------------------------------------------+------------------+-----------------+----------------------+----------------+------------+---------------+
+|                                                                    | ErrorSeverity    | int             | 4                    | NULL allowed   |            |               |
++--------------------------------------------------------------------+------------------+-----------------+----------------------+----------------+------------+---------------+
+|                                                                    | ErrorLine        | int             | 4                    | NULL allowed   |            |               |
++--------------------------------------------------------------------+------------------+-----------------+----------------------+----------------+------------+---------------+
+|                                                                    | CreateDate       | datetime        | 8                    | NULL allowed   |            | (getdate())   |
++--------------------------------------------------------------------+------------------+-----------------+----------------------+----------------+------------+---------------+
+
+Indexes
+=======
+
++------------------------------------------+------------------+---------------+----------+
+| Key                                      | Name             | Key Columns   | Unique   |
++==========================================+==================+===============+==========+
+|  Cluster Primary Key PK\_MFLog: LogID    | PK\_MFLog        | LogID         | YES      |
++------------------------------------------+------------------+---------------+----------+
+|                                          | idx\_MFLog\_id   | LogID         |          |
++------------------------------------------+------------------+---------------+----------+
+
+Used By
+=======
+
+- MFvwLogTableStats
+- spMFAddCommentForObjects
+- spMFAliasesUpsert
+- spMFChangeClass
+- spMFCheckAndUpdateAssemblyVersion
+- spMFCreateAllLookups
+- spMFCreatePublicSharedLink
+- spMFCreateTable
+- spMFCreateValueListLookupView
+- spMFCreateWorkflowStateLookupView
+- spMFDeleteAdhocProperty
+- spMFDeleteHistory
+- spMFDeleteObjectList
+- spMFDeploymentDetails
+- spMFDropAndUpdateMetadata
+- spMFExportFiles
+- spMFGetDeletedObjects
+- spMFGetHistory
+- spMFGetMetadataStructureVersionID
+- spMFGetMfilesLog
+- spMFGetObjectvers
+- spMFInsertClass
+- spMFInsertClassProperty
+- spMFInsertLoginAccount
+- spMFInsertObjectType
+- spMFInsertProperty
+- spMFInsertUserAccount
+- spMFInsertUserMessage
+- spMFInsertValueList
+- spMFInsertValueListItems
+- spMFInsertWorkflow
+- spMFInsertWorkflowState
+- spMFLogError\_EMail
+- spMFLogProcessSummaryForClassTable
+- spMFProcessBatch\_EMail
+- spMFProcessBatchDetail\_Insert
+- spMFSearchForObject
+- spMFSearchForObjectbyPropertyValues
+- spMFSynchronizeClasses
+- spMFSynchronizeFilesToMFiles
+- spmfSynchronizeLookupColumnChange
+- spMFSynchronizeMetadata
+- spMFSynchronizeProperties
+- spMFSynchronizeSpecificMetadata
+- spMFSynchronizeUnManagedObject
+- spMFSynchronizeValueListItemsToMFiles
+- spmfSynchronizeWorkFlowSateColumnChange
+- spMFSynchronizeWorkflowsStates
+- spMFTableAudit
+- spMFUpdateAllncludedInAppTables
+- spMFUpdateClassAndProperties
+- spMFUpdateItemByItem
+- spMFUpdateMFilesToMFSQL
+- spMFUpdateTable
+- spMFUpdateTableinBatches
+- spMFUpdateTableInternal
+
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-09-07  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
 go
 SET NOCOUNT ON; 
 GO
