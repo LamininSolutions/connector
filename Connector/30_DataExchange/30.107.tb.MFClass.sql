@@ -1,19 +1,11 @@
-go
-
-
-PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
-    + '.[dbo].[MFClass]';
-
-GO
-
 /*rST**************************************************************************
 
-===========
-dbo.MFClass
-===========
+=======
+MFClass
+=======
 
 Columns
--------
+=======
 
 +----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
 | Name                 | Data Type       | Max Length (Bytes)   | Nullability    | Description                                               |
@@ -47,10 +39,8 @@ Columns
 | IsWorkflowEnforced   | bit             | 1                    | NULL allowed   | Workflow is enforced = 1                                  |
 +----------------------+-----------------+----------------------+----------------+-----------------------------------------------------------+
 
---------------
-
 Indexes
--------
+=======
 
 +-----------------------------------------+-----------------------------------+--------------------+----------+
 | Key                                     | Name                              | Key Columns        | Unique   |
@@ -64,10 +54,8 @@ Indexes
 |                                         | udx\_MFClass\_MFID                | MFID               |          |
 +-----------------------------------------+-----------------------------------+--------------------+----------+
 
---------------
-
 Foreign Keys
-------------
+============
 
 +-------------------------------+-----------------------------------------------------------------------+
 | Name                          | Columns                                                               |
@@ -77,10 +65,8 @@ Foreign Keys
 | FK\_MFClass\_ObjectType\_ID   | MFObjectType\_ID->\  [dbo].[MFObjectType].[ID]                        |
 +-------------------------------+-----------------------------------------------------------------------+
 
---------------
-
 Permissions
------------
+===========
 
 +------------------+--------------+--------------------+-----------+
 | Type             | Action       | Owning Principal   | Columns   |
@@ -88,20 +74,11 @@ Permissions
 | GrantWithGrant   | REFERENCES   | db\_MFSQLConnect   | ID        |
 +------------------+--------------+--------------------+-----------+
 
-
---------------
-
 Uses
-----
+====
 
--  `[dbo].[MFObjectType] <MFObjectType.rst>`__
--  `[dbo].[MFWorkflow] <MFWorkflow.rst>`__
-
-
-
-**rST*************************************************************************/
-
-/*rST**************************************************************************
+- MFObjectType
+- MFWorkflow
 
 Examples
 ========
@@ -110,7 +87,7 @@ Examples
 
     -- show all tables included in app
     Select * from MFClass where includeInApp = 1
-    
+
     -- use metadata structure view to explore class relationships with other objects
     SELECT * FROM [dbo].[MFvwMetadataStructure] AS [mfms] WHERE class = 'Customer'
 
@@ -120,14 +97,18 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2017-7-6    LC         Add column for filepath
-2017-8-22   LC         Add column for syncprecedence
+2017-07-06  LC         Add column for filepath
+2017-08-22  LC         Add column for syncprecedence
 ==========  =========  ========================================================
-
 
 **rST*************************************************************************/
 
+GO
 
+PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
+    + '.[dbo].[MFClass]';
+
+GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFClass', -- nvarchar(100)
