@@ -44,6 +44,46 @@ CREATE FUNCTION [dbo].[fnMFCapitalizeFirstLetter] (@String VARCHAR(250) --STRING
 )
 RETURNS VARCHAR(200)
 AS
+/*rST**************************************************************************
+
+=========================
+fnMFCapitalizeFirstLetter
+=========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @String varchar(250)
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
   BEGIN
       -----------------------------
       --DECLARE VARIABLES

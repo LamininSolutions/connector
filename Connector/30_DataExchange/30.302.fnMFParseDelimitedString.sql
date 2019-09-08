@@ -25,6 +25,48 @@ RETURNS @tblList TABLE
       )
        WITH EXECUTE AS CALLER
 AS
+/*rST**************************************************************************
+
+========================
+fnMFParseDelimitedString
+========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @List varchar(max)
+    fixme description
+  @Delimeter char
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
     BEGIN
 		INSERT @tblList( [ListItem] )
 		VALUES  ( 'not implemented' )
@@ -67,6 +109,48 @@ RETURNS @tblList TABLE
       , ListItem VARCHAR(1000)
       )
 AS
+/*rST**************************************************************************
+
+========================
+fnMFParseDelimitedString
+========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @List varchar(max)
+    fixme description
+  @Delimeter char
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
     BEGIN
 
         DECLARE @ListItem VARCHAR(1000)

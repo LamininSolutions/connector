@@ -28,6 +28,46 @@ GO
 CREATE FUNCTION [dbo].[fnMFReplaceSpecialCharacter] (@ColumnName [NVARCHAR](2000))
 RETURNS VARCHAR(2000)
 AS
+/*rST**************************************************************************
+
+===========================
+fnMFReplaceSpecialCharacter
+===========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @ColumnName nvarchar(2000)
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
   BEGIN
       -------------------------------------
       --Replace Special Characters

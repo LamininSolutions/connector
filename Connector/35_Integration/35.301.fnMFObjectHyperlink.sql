@@ -43,6 +43,53 @@ CREATE FUNCTION fnMFObjectHyperlink (
 	)
 RETURNS NVARCHAR(250)
 AS
+/*rST**************************************************************************
+
+===================
+fnMFObjectHyperlink
+===================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @MFTableName nvarchar(100)
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @MFObject\_MFID int
+    fixme description
+  @ObjectGUID nvarchar(50)
+    fixme description
+  @HyperLinkType int
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 BEGIN
 	/*-------------------------------
     Declare the return variable here

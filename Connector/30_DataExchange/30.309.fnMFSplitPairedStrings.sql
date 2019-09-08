@@ -69,6 +69,52 @@ RETURNS @temptable TABLE (
   PairColumn1    VARCHAR(MAX),
   PairColumn2 VARCHAR(MAX))
 AS
+/*rST**************************************************************************
+
+======================
+fnMFSplitPairedStrings
+======================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @PairColumn1 varchar(max)
+    fixme description
+  @PairColumn2 varchar(max)
+    fixme description
+  @Delimiter char
+    fixme description
+  @Delimiter\_MultiLookup char
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
   BEGIN
       DECLARE @idx   INT
               ,@idx1 INT

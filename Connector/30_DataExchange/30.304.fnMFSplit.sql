@@ -64,6 +64,50 @@ RETURNS @temptable TABLE (
   PropertyID    VARCHAR(MAX),
   PropertyValue VARCHAR(MAX))
 AS
+/*rST**************************************************************************
+
+=========
+fnMFSplit
+=========
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @PropertyIDs varchar(max)
+    fixme description
+  @PropertyValues varchar(max)
+    fixme description
+  @Delimiter char
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
   BEGIN
       DECLARE @idx   INT
               ,@idx1 INT

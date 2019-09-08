@@ -51,6 +51,48 @@ CREATE FUNCTION fnMFVariableTableName
 )
 RETURNS NVARCHAR(100)
 AS
+/*rST**************************************************************************
+
+=====================
+fnMFVariableTableName
+=====================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @TablePrefix nvarchar(100)
+    fixme description
+  @TableSuffix nvarchar(20)
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 BEGIN
     -- Declare the return variable here
     DECLARE @TableName NVARCHAR(100);

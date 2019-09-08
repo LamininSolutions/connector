@@ -29,6 +29,50 @@ CREATE FUNCTION [dbo].fnMFMultiLookupUpsert (@ItemList NVARCHAR(4000), @ChangeLi
 
 RETURNS VARCHAR(4000)
 AS
+/*rST**************************************************************************
+
+=====================
+fnMFMultiLookupUpsert
+=====================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @ItemList nvarchar(4000)
+    fixme description
+  @ChangeList nvarchar(4000)
+    fixme description
+  @UpdateType smallint
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
   BEGIN
      
 	 

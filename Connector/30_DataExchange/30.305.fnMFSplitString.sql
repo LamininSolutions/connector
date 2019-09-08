@@ -50,6 +50,48 @@ RETURNS @Output TABLE (
       Item NVARCHAR(1000)
 )
 AS
+/*rST**************************************************************************
+
+===============
+fnMFSplitString
+===============
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @Input nvarchar(max)
+    fixme description
+  @Character char
+    fixme description
+
+
+Purpose
+=======
+
+Additional Info
+===============
+
+Prerequisites
+=============
+
+Warnings
+========
+
+Examples
+========
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-08-30  JC         Added documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 BEGIN
       DECLARE @StartIndex INT, @EndIndex INT
  
