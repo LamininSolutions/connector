@@ -33,30 +33,6 @@ AS
 	GO
 SET NOEXEC OFF
 	GO
-/*
-!~
-=========================================================================================
-OBJECT:        fnMFSplit
-=========================================================================================
-OBJECT TYPE:   Table Valued Function
-========================================================================================
-PARAMETERS:		@PropertyIDs    - multiple property id's separated by ',' ie: 1,2,3
-				@PropertyValues - multiple property values's separated by ',' ie: a,b,c
-				@Delimiter      - delimiter, i.e. ','
-=========================================================================================
-PURPOSE:    Converts a delimited list into a table
-=========================================================================================
-DESCRIPTION:  
-=========================================================================================
-NOTES:        
-        SELECT * FROM dbo.fnMFSplit('1,2,3','a,b,c',',')      
-=========================================================================================
-HISTORY:
-      09/13/2014 - Arnie Cilliers - Initial Version - QA
-
-=========================================================================================
-~!
-*/
 alter FUNCTION [dbo].[fnMFSplit] (@PropertyIDs     VARCHAR(MAX)
                                ,@PropertyValues VARCHAR(MAX)
                                ,@Delimiter      CHAR(1))
@@ -75,27 +51,23 @@ Return
   - -1 = Error
 Parameters
   @PropertyIDs varchar(max)
-    fixme description
+    Multiple property id's separated by ',' ie: 1,2,3
   @PropertyValues varchar(max)
-    fixme description
+    Multiple property values's separated by ',' ie: a,b,c
   @Delimiter char
-    fixme description
-
+    Delimiter, i.e. ','
 
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
+Converts a delimited list into a table
 
 Examples
 ========
+
+.. code:: sql
+
+    SELECT * FROM dbo.fnMFSplit('1,2,3','a,b,c',',')
 
 Changelog
 =========
@@ -104,6 +76,7 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2014-09-13  AC         Initial Version - QA
 ==========  =========  ========================================================
 
 **rST*************************************************************************/

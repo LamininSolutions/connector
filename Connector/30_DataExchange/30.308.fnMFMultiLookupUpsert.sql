@@ -10,11 +10,6 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'fnMFMul
     @UpdateFlag = 2 -- smallint
 GO
 
-/*
-Add or remove list of items from a delimited string
-fix bug for deletions
-*/
-
 IF EXISTS ( SELECT  1
             FROM    information_schema.[ROUTINES]
             WHERE   [ROUTINES].[ROUTINE_NAME] = 'fnMFMultiLookupUpsert'--name of procedire
@@ -49,18 +44,6 @@ Parameters
 
 Purpose
 =======
-
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
 
 Changelog
 =========

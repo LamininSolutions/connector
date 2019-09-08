@@ -11,8 +11,6 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'fnMFRep
 GO
 
 /*
-2017-12-03	LC fix bug of adding 2 underscores
-2019-08-06	LC	add brackets as exclusion
 */
 
 IF EXISTS ( SELECT  1
@@ -41,21 +39,10 @@ Parameters
   @ColumnName nvarchar(2000)
     fixme description
 
-
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
+Replace special characters
 
 Changelog
 =========
@@ -64,6 +51,8 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2019-08-06  LC         Add brackets as exclusion
+2017-12-03  LC         Fix bug of adding 2 underscores
 ==========  =========  ========================================================
 
 **rST*************************************************************************/

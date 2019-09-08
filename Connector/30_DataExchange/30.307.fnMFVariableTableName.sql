@@ -13,7 +13,6 @@ GO
 
 /*
 MODIFICATIONS
-2018-02-28	lc	Include an alternative method of setting the file name based on unique identifyer. this is controlled by using a flag.
 */
 IF EXISTS
 (
@@ -28,21 +27,6 @@ BEGIN
 END;
 GO
 
-
--- =============================================
--- Author:		leRoux Cilliers
--- Create date: 2016-05-15
--- Description:	Create Unique Table Name
--- =============================================
-/*
-	Sample:
-	SELECT  [dbo].[fnMFVariableTableName]( 'tmpTest','1')
-*/
--- =============================================
--- Author:		leRoux Cilliers
--- Create date: 2016-05-15
--- Description:	Create Unique Table Name
--- =============================================
 CREATE FUNCTION fnMFVariableTableName
 (
     -- Add the parameters for the function here
@@ -62,25 +46,21 @@ Return
   - -1 = Error
 Parameters
   @TablePrefix nvarchar(100)
-    fixme description
+    Table name prefix
   @TableSuffix nvarchar(20)
-    fixme description
-
+    Table name suffix
 
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
+Create Unique Table Name
 
 Examples
 ========
+
+.. code:: sql
+
+    SELECT [dbo].[fnMFVariableTableName]( 'tmpTest','1')
 
 Changelog
 =========
@@ -89,6 +69,7 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2018-02-28  LC         Include an alternative method of setting the file name based on unique identifyer. this is controlled by using a flag.
 ==========  =========  ========================================================
 
 **rST*************************************************************************/

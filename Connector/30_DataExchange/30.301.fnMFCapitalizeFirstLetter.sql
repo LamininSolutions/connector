@@ -19,27 +19,6 @@ BEGIN
 END	
 GO
 
-/*
-!~
-===============================================================================================
-OBJECT:        fnMFCapitalizeFirstLetter
-===============================================================================================
-OBJECT TYPE:   Scalar Valued Function
-===============================================================================================
-PARAMETERS:		@String - input string to concat words and capitalize first letter of each word
-===============================================================================================
-PURPOSE:       Used to capitalize first letter of each word and concatinate it
-===============================================================================================
-DESCRIPTION:  
-===============================================================================================
-NOTES:                
-===============================================================================================
-HISTORY:
-      09/13/2014 - Dev 2 - Initial Version - QA
-
-===============================================================================================
-~!
-*/
 CREATE FUNCTION [dbo].[fnMFCapitalizeFirstLetter] (@String VARCHAR(250) --STRING NEED TO FORMAT
 )
 RETURNS VARCHAR(200)
@@ -55,23 +34,12 @@ Return
   - -1 = Error
 Parameters
   @String varchar(250)
-    fixme description
-
+    Input string to concat words and capitalize first letter of each word
 
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
+Used to capitalize first letter of each word and concatenate it
 
 Changelog
 =========
@@ -80,6 +48,7 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2014-09-13  DEV2       Initial Version - QA
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -157,4 +126,4 @@ Date        Author     Description
       RETURN @ResultString
   END
   go
-  
+

@@ -36,25 +36,21 @@ Return
   - -1 = Error
 Parameters
   @List varchar(max)
-    fixme description
+    Delimited list to convert to key value pair tabl
   @Delimeter char
-    fixme description
-
+    Delimiter, i.e. ','
 
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
+Converts a delimited list into a table.
 
 Examples
 ========
+
+.. code:: sql
+
+    SELECT * FROM dbo.fnParseDelimitedString('A,B,C',',')
 
 Changelog
 =========
@@ -63,6 +59,8 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2017-12-17  LC         Increase size of listitem to ensure that it will catr for longer names
+2014-09-13  AC         Initial Version - QA
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -75,29 +73,6 @@ Date        Author     Description
 	GO
 SET NOEXEC OFF
 	GO
-/*
-!~
-===============================================================================
-OBJECT:        fnParseDelimitedString
-===============================================================================
-OBJECT TYPE:   Table Valued Function
-===============================================================================
-PARAMETERS:		@List - Delimited list to convert to key value pair tabl
-				@Delimiter - delimiter, i.e. ','
-===============================================================================
-PURPOSE:    Converts a delimited list into a table
-===============================================================================
-DESCRIPTION:  
-===============================================================================
-NOTES:        
-        SELECT * FROM dbo.fnParseDelimitedString('A,B,C',',')      
-===============================================================================
-HISTORY:
-      09/13/2014 - Arnie Cilliers - Initial Version - QA
-	  17/12/2017	LeRoux			Increase size of listitem to ensure that it will catr for longer names
-===============================================================================
-~!
-*/ 
 ALTER FUNCTION [dbo].[fnMFParseDelimitedString]
       (
         @List VARCHAR(MAX)

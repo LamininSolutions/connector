@@ -13,8 +13,6 @@ GO
 /*
 MODIFICATIONS
 
-2017-9-5	LC		UPDATE BUG IN URL
-2019-5-15	LC		Update options available
 */
 
 IF EXISTS ( SELECT  1
@@ -27,13 +25,6 @@ BEGIN
 END	
 GO
 
-/*--------------------------------------------
- =============================================
- Author:leRoux Cilliers
- Create date: 2015-06-16
- Description:M-Files Object Hyperlink
- =============================================
---------------------------------------------*/
 CREATE FUNCTION fnMFObjectHyperlink (
     --Add the parameters for the function here
 	@MFTableName NVARCHAR(100)
@@ -67,14 +58,7 @@ Parameters
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
+M-Files Object Hyperlink
 
 Examples
 ========
@@ -86,6 +70,8 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2019-05-15  LC         Update options available
+2017-09-05  LC         UPDATE BUG IN URL
 ==========  =========  ========================================================
 
 **rST*************************************************************************/

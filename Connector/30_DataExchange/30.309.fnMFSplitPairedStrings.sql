@@ -33,33 +33,7 @@ AS
 	GO
 SET NOEXEC OFF
 	GO
-/*
-!~
-=========================================================================================
-OBJECT:        fnMFSplitPairedStrings
-=========================================================================================
-OBJECT TYPE:   Table Valued Function
-========================================================================================
-PARAMETERS:		@PropertyIDs    - multiple property id's separated by ',' ie: 1,2,3
-				@PropertyValues - multiple property values's separated by ',' ie: a,b,c
-				@Delimiter      - delimiter, i.e. ','
-				@Delimiter_MultiLookup - second delimited used to split multilookop value, e.g. '#'
-=========================================================================================
-PURPOSE:    Converts a delimited list with two pairing columns into a table, caters for a value as a delimited list 
-=========================================================================================
-DESCRIPTION:  
-=========================================================================================
-NOTES:        
-        SELECT * FROM dbo.fnMFSplitPairedStrings('1,2,3','a,b,c',',','#')      
-=========================================================================================
-HISTORY:
-      09/13/2014 - Arnie Cilliers - Initial Version - QA
-	  2017-12-21	leRoux Cilliers	Change name of function.  Allow for including multilookup value with multiDelimiter, change names of parameters
 
-
-=========================================================================================
-~!
-*/
 alter FUNCTION [dbo].[fnMFSplitPairedStrings] (@PairColumn1     VARCHAR(MAX)
                                ,@PairColumn2 VARCHAR(MAX)
                                ,@Delimiter      CHAR(1)
@@ -80,29 +54,25 @@ Return
   - -1 = Error
 Parameters
   @PairColumn1 varchar(max)
-    fixme description
+    Multiple property id's separated by ',' ie: 1,2,3
   @PairColumn2 varchar(max)
-    fixme description
+    Multiple property values's separated by ',' ie: a,b,c
   @Delimiter char
-    fixme description
+    Delimiter, i.e. ','
   @Delimiter\_MultiLookup char
-    fixme description
-
+    Second delimited used to split multilookop value, e.g. '#'
 
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
+Converts a delimited list with two pairing columns into a table, caters for a value as a delimited list
 
 Examples
 ========
+
+.. code:: sql
+
+    SELECT * FROM dbo.fnMFSplitPairedStrings('1,2,3','a,b,c',',','#')
 
 Changelog
 =========
@@ -111,6 +81,8 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2017-12-21  LC         Change name of function.  Allow for including multilookup value with multiDelimiter, change names of parameters
+2014-09-13  AC         Initial Version - QA
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -162,4 +134,4 @@ Date        Author     Description
       RETURN
   END;
   go
-  
+

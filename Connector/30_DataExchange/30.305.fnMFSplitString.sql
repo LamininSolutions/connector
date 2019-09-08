@@ -19,28 +19,6 @@ BEGIN
 END	
 GO
 
-/*
-!~
-===============================================================================================
-OBJECT:        fnSplitString
-===============================================================================================
-OBJECT TYPE:   Table Valued Function
-===============================================================================================
-PARAMETERS:		@Input - multiple column Name's separated by ',' ie: 1,2,3
-				@Delimiter      - delimiter, i.e. ','
-===============================================================================================
-PURPOSE:       Used to Converts a delimited list into a table
-===============================================================================================
-DESCRIPTION:  
-===============================================================================================
-NOTES:        SELECT * FROM dbo.fnSplitString('a,b,c',',')           
-===============================================================================================
-HISTORY:
-      14/05/2015 - Dev 2 - Initial Version - QA
-
-===============================================================================================
-~!
-*/
 CREATE FUNCTION [dbo].[fnMFSplitString]
 (    
       @Input NVARCHAR(MAX),
@@ -61,25 +39,21 @@ Return
   - -1 = Error
 Parameters
   @Input nvarchar(max)
-    fixme description
+    Multiple column Name's separated by ',' ie: 1,2,3
   @Character char
-    fixme description
-
+    Delimiter, i.e. ','
 
 Purpose
 =======
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
+Used to Converts a delimited list into a table
 
 Examples
 ========
+
+.. code:: sql
+
+    SELECT * FROM dbo.fnSplitString('a,b,c',',')
 
 Changelog
 =========
@@ -88,6 +62,7 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2015-05-14  DEV2       Initial Version - QA
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
