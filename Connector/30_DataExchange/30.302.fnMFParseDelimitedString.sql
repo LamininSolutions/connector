@@ -25,6 +25,26 @@ RETURNS @tblList TABLE
       )
        WITH EXECUTE AS CALLER
 AS
+    BEGIN
+		INSERT @tblList( [ListItem] )
+		VALUES  ( 'not implemented' )
+        RETURN 
+    END
+	GO
+SET NOEXEC OFF
+	GO
+ALTER FUNCTION [dbo].[fnMFParseDelimitedString]
+      (
+        @List VARCHAR(MAX)
+      , @Delimeter CHAR(1)
+      )
+RETURNS @tblList TABLE
+      (
+        ID INT IDENTITY(1, 1)
+      , ListItem VARCHAR(1000)
+      )
+AS
+
 /*rST**************************************************************************
 
 ========================
@@ -61,67 +81,6 @@ Date        Author     Description
 2019-08-30  JC         Added documentation
 2017-12-17  LC         Increase size of listitem to ensure that it will catr for longer names
 2014-09-13  AC         Initial Version - QA
-==========  =========  ========================================================
-
-**rST*************************************************************************/
-
-    BEGIN
-		INSERT @tblList( [ListItem] )
-		VALUES  ( 'not implemented' )
-        RETURN 
-    END
-	GO
-SET NOEXEC OFF
-	GO
-ALTER FUNCTION [dbo].[fnMFParseDelimitedString]
-      (
-        @List VARCHAR(MAX)
-      , @Delimeter CHAR(1)
-      )
-RETURNS @tblList TABLE
-      (
-        ID INT IDENTITY(1, 1)
-      , ListItem VARCHAR(1000)
-      )
-AS
-/*rST**************************************************************************
-
-========================
-fnMFParseDelimitedString
-========================
-
-Return
-  - 1 = Success
-  - -1 = Error
-Parameters
-  @List varchar(max)
-    fixme description
-  @Delimeter char
-    fixme description
-
-
-Purpose
-=======
-
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
-
-Changelog
-=========
-
-==========  =========  ========================================================
-Date        Author     Description
-----------  ---------  --------------------------------------------------------
-2019-08-30  JC         Added documentation
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
