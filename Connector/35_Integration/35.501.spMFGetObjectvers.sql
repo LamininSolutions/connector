@@ -245,19 +245,19 @@ BEGIN
 		        -------------------------------------------------------------
         -- Check connection to vault
         -------------------------------------------------------------
-        DECLARE @IsUpToDate INT;
+        --DECLARE @IsUpToDate INT;
 
-        SET @ProcedureStep = 'Connection test: ';
+        --SET @ProcedureStep = 'Connection test: ';
 
-        EXEC @return_value = [dbo].[spMFGetMetadataStructureVersionID] @IsUpToDate = @IsUpToDate OUTPUT; -- bit
+        --EXEC @return_value = [dbo].[spMFGetMetadataStructureVersionID] @IsUpToDate = @IsUpToDate OUTPUT; -- bit
 
-        IF @return_value < 0
-        BEGIN
-            SET @DebugText = 'Connection failed %i';
-            SET @DebugText = @DefaultDebugText + @DebugText;
+        --IF @return_value < 0
+        --BEGIN
+        --    SET @DebugText = 'Connection failed %i';
+        --    SET @DebugText = @DefaultDebugText + @DebugText;
 
-            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep, @return_value);
-        END;
+        --    RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep, @return_value);
+        --END;
 
         ---------------------------------------------------------------
         -- Checking module access for CLR procdure  spMFGetObjectType

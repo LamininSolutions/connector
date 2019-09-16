@@ -36,7 +36,7 @@ GO
 ALTER PROCEDURE dbo.spMFContextMenuHeadingItem
 (
 
-@MenuName NVARCHAR(100)
+@MenuName NVARCHAR(100) 
 , @PriorMenu NVARCHAR(100) = NULL
 ,@IsObjectContextMenu BIT = 0
 ,@IsRemove BIT = 0

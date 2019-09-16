@@ -11,7 +11,7 @@ SET NOCOUNT ON;
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFUpdateTable'
                                     -- nvarchar(100)
-                                    ,@Object_Release = '4.4.11.53'
+                                    ,@Object_Release = '4.4.13.53'
                                     -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
@@ -346,15 +346,15 @@ BEGIN TRY
 
         SET @ProcedureStep = 'Connection test: ';
 
-        EXEC @return_value = [dbo].[spMFGetMetadataStructureVersionID] @IsUpToDate = @IsUpToDate OUTPUT; -- bit
+        --EXEC @return_value = [dbo].[spMFGetMetadataStructureVersionID] @IsUpToDate = @IsUpToDate OUTPUT; -- bit
 
-        IF @return_value < 0
-        BEGIN
-            SET @DebugText = 'Connection failed %i';
-            SET @DebugText = @DefaultDebugText + @DebugText;
+        --IF @return_value < 0
+        --BEGIN
+        --    SET @DebugText = 'Connection failed %i';
+        --    SET @DebugText = @DefaultDebugText + @DebugText;
 
-            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep, @return_value);
-        END;
+        --    RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep, @return_value);
+        --END;
 
         -------------------------------------------------------------
         -- Set process type
@@ -826,8 +826,11 @@ BEGIN TRY
                                   INNER JOIN [dbo].[MFProperty] AS [mp]
                                       ON [mp].[ColumnName] = [C].[name]
                               WHERE [C].[object_id] = OBJECT_ID(@MFTableName)
-                                    AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 20, 21, 23, 25 )
-                                    --AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 23, 25 )
+--                                    AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 20, 21, 23, 25 )
+--AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 23, 25 )
+							  AND ISNULL([mp].[MFID], -1) NOT IN ( - 1 ) 
+                              --Removed values to update created and updated values in m-files
+                                    --AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 20, 21, 23, 25 )
                                     AND [mp].[ColumnName] <> 'Deleted'
                                     AND [mp].[MFDataType_ID] IN (
                                     SELECT [ListItem] FROM [dbo].[fnMFParseDelimitedString](@Datatypes ,',')

@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFTableAudit' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.12.52'   -- varchar(50)
+                                    ,@Object_Release = '4.4.13.53'   -- varchar(50)
                                     ,@UpdateFlag = 2;                -- smallint
 GO
 
@@ -136,6 +136,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-09-12  LC         Fix bug - remove deleted objects from table
 2019-08-30  JC         Added documentation
 2019-08-16  LC         Fix bug for removing destroyed objects
 2019-06-22  LC         Objid parameter not yet functional
