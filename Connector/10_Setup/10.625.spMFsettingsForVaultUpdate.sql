@@ -168,6 +168,7 @@ Date        Author     Description
 
 **rST*************************************************************************/
 
+BEGIN
 
     SET NOCOUNT ON;
 
