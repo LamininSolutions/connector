@@ -6,5 +6,5 @@ jobs:
         if [[ ($TRAVIS_BRANCH == master) &&
               ($TRAVIS_PULL_REQUEST == false) ]] ; then
           curl -LO --retry 3 https://raw.githubusercontent.com/plume-lib/trigger-travis/master/trigger-travis.sh
-          sh trigger-travis.sh LamininSolutions mfsql-documentation $TRAVIS_ACCESS_TOKEN
+          sh trigger-travis.sh LamininSolutions mfsql-connector $TRAVIS_ACCESS_TOKEN
         fi
