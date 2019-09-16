@@ -8,33 +8,39 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL Primary key
 MFID int (not null)
-  fixme description
+  Assigned and maintained by M-Files
 Name varchar(100) (not null)
-  fixme description
+  Class name
 Alias nvarchar(100)
-  fixme description
+  - Alias from MF
+  - Can be created in bulk by connector
 IncludeInApp smallint
-  fixme description
+  - 1 = class table created
+  - 2 = transactional processing
+  - Automatically set on table creation
 TableName varchar(100)
-  fixme description
+  Targeted Table name of class
 MFObjectType\_ID int
-  fixme description
+  ID of the object type in MFObjectType table
 MFWorkflow\_ID int
-  fixme description
+  ID of the workflow in assigned to the class in MFWorkflow table
 FileExportFolder nvarchar(500)
-  fixme description
+  - User assigned
+  - Used in the exporting of files from M-Files process
 SynchPrecedence int
-  fixme description
+  - Used to assign presedence
 ModifiedOn datetime (not null)
-  fixme description
+  Date last updated
 CreatedOn datetime (not null)
-  fixme description
+  Date initially created in SQL
 Deleted bit (not null)
-  fixme description
+  - Show deleted classed
+  - Deleted classes records is automatically removed at next synchronisation
 IsWorkflowEnforced bit
-  fixme description
+  - Maintained by M-files
+  - Controls the rules to force workflow on class table
 
 Indexes
 =======
