@@ -8,33 +8,40 @@ Columns
 =======
 
 ProcessBatchDetail\_ID int (primarykey, not null)
-  fixme description
+  SQL Primary key
 ProcessBatch\_ID int
-  fixme description
+  Foreign key for Process Batch
 LogType nvarchar(50)
-  fixme description
+  - System
+  - Admin
+  - User
 ProcedureRef nvarchar(258)
-  fixme description
+  Show procedure name
 LogText nvarchar(4000)
-  fixme description
+  Default show procedure step
 Status nvarchar(50)
-  fixme description
+  In Progress
 DurationSeconds decimal(18,4)
-  fixme description
+  Auto calculated value for individual process duration in seconds
 CreatedOn datetime
-  fixme description
+  Default to GetDate()
 CreatedOnUTC datetime
-  fixme description
+  Default to GetUTCDate()
 MFTableName nvarchar(128)
-  fixme description
+  Show name of table being process if relevant
 Validation\_ID int
-  fixme description
+  Show id of validation code if relevant
 ColumnName nvarchar(128)
-  fixme description
+  Show column name that value is related to
 ColumnValue nvarchar(256)
-  fixme description
+  Calculated value depending on sub process
 Update\_ID int
-  fixme description
+  MFUpdateHistory ID
+
+Additional Info
+===============
+
+The MFProcessBatchDetail records individual records for key events of each MFProcessBatch.
 
 Indexes
 =======

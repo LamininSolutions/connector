@@ -93,6 +93,16 @@ Setting UpdateTypeID = 1 (incremental update) will perform an audit of the class
 
 Deleted records in M-Files will be identified and removed.
 
+The following importing scenarios apply:
+
+- If the file already exist for the object then the existing file in M-Files will be overwritten. M-Files version control will record the prior version of the record.
+- If the object is new in the class table (does not yet have a objid and guid) then the object will first be created in M-Files and then the file will be added.
+- If the object in M-Files is a multifile document with no files, then the object will be converted to a single file object.
+- if the object in M-files already have a file or files, then it would convert to a multifile object and the additional file will be added
+- If the filename or location of the file cannot be found, then a error will be added in the filerror column in the MFFileImport Table.
+- If the parameter option @IsFileDelete is set to 1, then the originating file will be deleted.  The default is to not delete.
+- The MFFileImport table keeps track of all the file importing activity.
+
 Warnings
 ========
 

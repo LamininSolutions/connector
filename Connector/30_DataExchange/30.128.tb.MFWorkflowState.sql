@@ -8,7 +8,7 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL Primay key
 Name varchar(100) (not null)
   fixme description
 Alias varchar(100)
@@ -25,6 +25,11 @@ Deleted bit (not null)
   fixme description
 IsNameUpdate bit
   fixme description
+
+Additional Info
+===============
+
+Workflow State MFiles Metadata
 
 Indexes
 =======
@@ -67,6 +72,7 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-09-07  JC         Added documentation
+2017-07-02  LC         Change datatype of alias to varchar(100)
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -87,23 +93,8 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFWorkf
     @UpdateFlag = 2 -- smallint
 GO
 
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-02
-	Database: 
-	Description: Workflow State MFiles Metadata	
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	2017-7-2		lc			change datatype of alias to varchar(100)
-------------------------------------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  Select * from MFWorkflowState
-  
+SELECT * FROM MFWorkflowState
 -----------------------------------------------------------------------------------------------*/
 
 

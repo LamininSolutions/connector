@@ -8,27 +8,32 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL primary key
 AccountName nvarchar(250) (not null)
-  fixme description
+  Full name of account (e.g. domain\username)
 UserName nvarchar(250) (not null)
-  fixme description
+  Name user sign in with
 MFID int
-  fixme description
+  M-Files internal ID for user
 FullName nvarchar(250)
-  fixme description
+  Given full name in login account properties
 AccountType nvarchar(250)
-  fixme description
+  M-Files or Windows account
 DomainName nvarchar(250)
-  fixme description
+  Domain if windows user account type
 EmailAddress nvarchar(250)
-  fixme description
+  Email in login account properties
 LicenseType nvarchar(250)
-  fixme description
+  Named, concurrent, read only, none
 Enabled bit
-  fixme description
+  1 = enabled
 Deleted bit
-  fixme description
+  1 = deleted in M-Files
+
+Additional Info
+===============
+
+The MFLoginAccount will only include objects related to the vault. It does not include all the login accounts on the server.
 
 Used By
 =======

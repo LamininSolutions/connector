@@ -8,21 +8,21 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL Primary Key
 Name varchar(100)
   fixme description
 Alias nvarchar(100)
   fixme description
 MFID int
-  fixme description
+  M-Files ID
 OwnerID int
-  fixme description
+  Owner MFID
 ModifiedOn datetime (not null)
-  fixme description
+  When was the record last modified
 CreatedOn datetime (not null)
-  fixme description
+  When was the record created
 Deleted bit (not null)
-  fixme description
+  Is deleted
 RealObjectType bit
   fixme description
 

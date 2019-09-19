@@ -24,15 +24,25 @@ NewOrUpdatedObjectVer xml
 NewOrUpdatedObjectDetails xml
   fixme description
 SynchronizationError xml
-  fixme description
+  Object version of the record that has error
 MFError xml
-  fixme description
+  Listing of the records with errors
 DeletedObjectVer xml
   fixme description
 UpdateStatus varchar(25)
   fixme description
 CreatedAt datetime
   fixme description
+
+Additional Info
+===============
+
+Every update that is processed through spMFUpdateTable is logged in the MFUpdateHistory Table.
+
+As soon as the update is initiated an ID is reserved from MFUpdateHistory and the items related to the update is recorded in the table as XML records. Note that this table potentially could include large XML records and it is not recommended to perform a select statement on this table without any filters. It is also important to ensure that this table is maintained and that old records are regularly deleted. See spMFDeleteHistory.
+
+The significance and nature of the contents of the columns in the MFUpdateHistory table will depend and the parameters of the MFUpdateTable procedure and the outcome of the procedure.
+
 
 Indexes
 =======

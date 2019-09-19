@@ -42,6 +42,17 @@ IsWorkflowEnforced bit
   - Maintained by M-files
   - Controls the rules to force workflow on class table
 
+Additional Info
+===============
+
+Update the following columns in the class table for the desired classes:
+
+- IncludedInApp:  Set to 1 for all classes that should be included. Set to 2 if transaction based updates should be triggered.
+- TableName: The name in this column will be used as the Table Name for the class.
+  The default is set to prefix the class name with 'MF' and remove all special characters.
+  This name can be changed and the custom name will be maintained when a metadata synchronization takes place.
+- FilePath: The filepath is used to export the files when spMFExportFiles is executed. The default is set to 'C:\MFSQLConnector_Files'.
+
 Indexes
 =======
 

@@ -8,11 +8,16 @@ Columns
 =======
 
 MFClass\_ID int (primarykey, not null)
-  fixme description
+  ID column of MFClass
 MFProperty\_ID int (primarykey, not null)
-  fixme description
+  ID column of MFProperty
 Required bit (not null)
-  fixme description
+  If the property is required on the class
+
+Additional Info
+===============
+
+Used to index the relationship of Properties with Classes.
 
 Indexes
 =======

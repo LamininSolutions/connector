@@ -8,7 +8,7 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL primary key
 Name varchar(100) (not null)
   fixme description
 Alias nvarchar(100)
@@ -21,6 +21,11 @@ CreatedOn datetime (not null)
   fixme description
 Deleted bit (not null)
   fixme description
+
+Additional Info
+===============
+
+Workflow MFiles metadata.
 
 Indexes
 =======
@@ -60,26 +65,13 @@ Date        Author     Description
 
 **rST*************************************************************************/
 
-SET NOCOUNT ON; 
+SET NOCOUNT ON;
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-02
-	Database: 
-	Description: Workflow MFiles metadata	
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  Select * from MFWorkflow
-  
------------------------------------------------------------------------------------------------*/
+/*
+
+SELECT * FROM MFWorkflow
+
+*/
 
 PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
     + '.[dbo].[MFWorkflow]';

@@ -8,11 +8,16 @@ Columns
 =======
 
 Id int (primarykey, not null)
-  fixme description
+  SQL primary key
 XMLData xml
-  fixme description
+  Event log data
 LoadedDateTime datetime
-  fixme description
+  Time of saving event log
+
+Additional Info
+===============
+
+The event log is XML format in the MFEventLog_OpenXML table by executing the spMFGetMFilesLog procedure.
 
 Used By
 =======

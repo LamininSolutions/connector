@@ -8,15 +8,16 @@ Columns
 =======
 
 UserID int (primarykey, not null)
-  fixme description
+  M-Files internal ID for user
 LoginName nvarchar(250)
-  fixme description
+  Name user sign in with
 InternalUser bit
-  fixme description
+  - 1 = Internal user
+  - 0 = External user
 Enabled bit
-  fixme description
+  1 = enabled
 Deleted bit
-  fixme description
+  1 = deleted in M-Files
 
 Indexes
 =======

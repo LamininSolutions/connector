@@ -8,7 +8,7 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL Primary Key
 GUID nvarchar(100)
   fixme description
 MX\_User\_ID uniqueidentifier
@@ -69,6 +69,11 @@ Deleted bit
   fixme description
 Update\_ID int
   fixme description
+
+Additional Info
+===============
+
+Contains messages emanating from the MFProcessBatch Table intended for user consumption.
 
 Used By
 =======

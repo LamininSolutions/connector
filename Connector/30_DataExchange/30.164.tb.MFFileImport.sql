@@ -8,13 +8,13 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL primary key
 FileName varchar(100)
-  fixme description
+  File name
 FileUniqueRef varchar(100)
-  fixme description
+  Full file path
 CreatedOn datetime (not null)
-  fixme description
+  Date of import
 SourceName varchar(100)
   fixme description
 TargetClassID int
@@ -30,9 +30,13 @@ Version int
 FileObjectID int
   fixme description
 FileCheckSum nvarchar(max)
-  fixme description
+  Checksum of file
 ImportError nvarchar(4000)
-  fixme description
+  Import related errors
+
+
+Additional Info
+===============
 
 Used By
 =======

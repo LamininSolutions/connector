@@ -8,33 +8,40 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL Primary Key
 Name nvarchar(100)
   fixme description
 MFID nvarchar(20)
-  fixme description
+  M-Files ID
 MFValueListID int
-  fixme description
+  Associated MFValueList primary key
 OwnerID int
   fixme description
 ModifiedOn datetime (not null)
-  fixme description
+  When was the row last modified
 CreatedOn datetime (not null)
-  fixme description
+  When was the row created
 Deleted bit (not null)
-  fixme description
+  Is deleted
 AppRef nvarchar(25)
-  fixme description
+  AppRef of the Valuelist item
 Owner\_AppRef nvarchar(25)
-  fixme description
+  AppRef of the Valuelist item that owns the item
 ItemGUID nvarchar(200)
-  fixme description
+  This is the M-Files internally assigned guid and can be used as an alternative unique reference to the item
 DisplayID nvarchar(200)
-  fixme description
+  Usually this is the same as the MFID, This id can be used in M-Files external connector to set a different ID to the MFID
 Process\_ID int
-  fixme description
+  - 0 = use M-Files value
+  - 1 = use SQL value to update M-Files
+  - 2 = delete item in M-Files
 IsNameUpdate bit
   fixme description
+
+Additional Info
+===============
+
+The MFValuelistItem table is a single table with all the valuelist items in the vault.
 
 Indexes
 =======
@@ -66,8 +73,19 @@ Used By
 - spMFSynchronizeValueListItems
 - spMFSynchronizeValueListItemsToMFiles
 
+Examples
+========
 
-Changelog
+.. code:: sql
+
+    SELECT mvli.*, mvl.name, mvli2.name FROM [dbo].[MFValueListItems] AS [mvli]
+    left JOIN [dbo].[MFValueList] AS [mvl]
+    ON mvl.id = mvli.[MFValueListID]
+
+    INNER JOIN [dbo].[MFValueListItems] AS [mvli2]
+    ON mvli2.[AppRef] = mvli.[Owner_AppRef]
+    WHERE mvli.[OwnerID] <> 0
+
 =========
 
 ==========  =========  ========================================================

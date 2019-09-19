@@ -8,11 +8,16 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL Primary Key
 ProtocolType nvarchar(250)
   fixme description
 MFProtocolTypeValue nvarchar(200)
   fixme description
+
+Additional Info
+===============
+
+Allow for HTTPS and localhost protocol Types and flexible port endpoints.
 
 Used By
 =======

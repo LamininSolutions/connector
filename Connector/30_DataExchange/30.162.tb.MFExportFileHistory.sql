@@ -8,33 +8,36 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL primary key
 FileExportRoot nvarchar(100)
-  fixme description
+  - Rootfolder is automatically set to C:\MFSQL\FileExport and can be changed in MFSettings
+  - Rootfolder + FileExportFolder
+  - The FileExportFolder is class specific and is set in the MFClass table by class. It defaults to NULL.
+  - The FileExportFolder will separate the files for different classes in the folder system.
 SubFolder\_1 nvarchar(100)
-  fixme description
+  This parameter is set in the spMFExportFiles procedure
 SubFolder\_2 nvarchar(100)
-  fixme description
+  This parameter is set in the spMFExportFiles procedure
 SubFolder\_3 nvarchar(100)
-  fixme description
+  This parameter is set in the spMFExportFiles procedure
 MultiDocFolder nvarchar(100)
   fixme description
 FileName nvarchar(256)
-  fixme description
+  M-Files filename of the file
 ClassID int
-  fixme description
+  M-Files class ID of the related class table
 ObjID int
-  fixme description
+  M-Files ObjID for the metadata object
 ObjType int
-  fixme description
+  M-Files ObjectType for the class
 Version int
-  fixme description
+  Version number of the object that contained the exported file
 FileCheckSum nvarchar(100)
-  fixme description
+  Calculated checksum for the exported file
 FileCount int
-  fixme description
+  The count of the files in the object
 Created datetime
-  fixme description
+  The date and time of the export of the file
 FileObjectID int
   fixme description
 

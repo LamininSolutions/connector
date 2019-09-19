@@ -8,15 +8,15 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL Primary Key
 TableName varchar(200)
-  fixme description
+  Temporary table name
 SearchClassID int
   fixme description
 SearchText varchar(500)
-  fixme description
+  Search text used to generate the row
 SearchDate datetime
-  fixme description
+  Date of search
 ProcessID int
   fixme description
 

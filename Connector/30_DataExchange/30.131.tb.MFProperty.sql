@@ -8,27 +8,27 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL primary key
 Name varchar(100)
-  fixme description
+  Name of the property
 Alias varchar(100) (not null)
   fixme description
 MFID int (not null)
-  fixme description
+  M-Files ID of the property
 ColumnName varchar(100)
-  fixme description
+  Name of the column
 MFDataType\_ID int
-  fixme description
+  M-Files datatype ID
 PredefinedOrAutomatic bit
-  fixme description
+  If the property is automatically calculated
 ModifiedOn datetime (not null)
   fixme description
 CreatedOn datetime (not null)
   fixme description
 Deleted bit
-  fixme description
+  Has the property been deleted
 MFValueList\_ID int
-  fixme description
+  Primary key of the MFValueList table
 
 Indexes
 =======
@@ -86,7 +86,6 @@ Used By
 - spMFUpdateTableInternal
 - spMFUpdateTableWithLastModifiedDate
 
-
 Changelog
 =========
 
@@ -101,22 +100,9 @@ Date        Author     Description
 SET NOCOUNT ON 
 GO
 /*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-02
-	Database: {Database}
-	Description: Property MFiles Metadata 	
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
   USAGE:
   =====
   Select * from MFProperty
-  
 -----------------------------------------------------------------------------------------------*/
 
 PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())

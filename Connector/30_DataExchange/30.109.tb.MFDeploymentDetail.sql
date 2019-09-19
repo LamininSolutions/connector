@@ -8,15 +8,20 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL Primary Key
 LSWrapperVersion nvarchar(100)
-  fixme description
+  LS wrapper version
 MFilesAPIVersion nvarchar(100)
-  fixme description
+  M-Files API version
 DeployedBy nvarchar(250)
-  fixme description
+  Who deployed the connector
 DeployedOn datetime
-  fixme description
+  When was the connector deployed
+
+Additional Info
+===============
+
+This table is maintained by the connector.
 
 Used By
 =======
