@@ -14,6 +14,7 @@ Modifications
 2018-07-09		lc	Change name of MFModule table to MFLicenseModule
 2019-1-19		LC	Add return values
 2019-09-15      LC  Redo licensing logic, only update license every 10 days
+2019-09-20      LC  parameterise email notification, send only 1 email a day
 */
 
 IF EXISTS
@@ -48,6 +49,7 @@ ALTER PROCEDURE [dbo].[spMFCheckLicenseStatus]
     @InternalProcedureName NVARCHAR(500)
    ,@ProcedureName NVARCHAR(500)
    ,@ProcedureStep sysname = 'Validate connection '
+   ,@ExpiryNotification INT = 30
    ,@Debug INT = 0
 AS
 SET NOCOUNT ON
@@ -74,7 +76,7 @@ SELECT @VaultSettings = [dbo].[FnMFVaultSettings]()
 -- Get module
 -------------------------------------------------------------
 
-SELECT @ModuleID = module FROM setup.[MFSQLObjectsControl] AS [moc] WHERE [moc].[Name] = @InternalProcedureName
+SELECT @ModuleID = [moc].[Module] FROM [setup].[MFSQLObjectsControl] AS [moc] WHERE [moc].[Name] = @InternalProcedureName
 
 SELECT @ModuleID = ISNULL(@ModuleID,'1')
 -------------------------------------------------------------
@@ -112,6 +114,7 @@ DECLARE @ErrorCode  NVARCHAR(5)
        ,@ExpiryDate NVARCHAR(10);
 DECLARE @LicenseExpiry DATETIME;
 DECLARE @LastValidate DATETIME;
+DECLARE @LicenseExpiryTXT  NVARCHAR(10)
 
 SET @DebugText = ' Module %s';
 SET @DebugText = @DefaultDebugText + @DebugText;
@@ -124,20 +127,88 @@ BEGIN
     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ModuleID);
 END;
 
--------------------------------------------------------------
 
 -------------------------------------------------------------
-IF
-(
-    SELECT COUNT(*) FROM [MFModule] WHERE [Module] = @ModuleID
-) > 0
+--pre-check
+-------------------------------------------------------------
+Set @Procedurestep = 'Pre-checks '
+
+
+Declare @Checkstatus int = 0
+
+Select @CheckStatus = case when  (select count(*) from [sys].[objects] where name = 'MFModule') <> 1 then 1 --MFModule table does not exist
+when (SELECT COUNT(*) FROM [dbo].[MFModule] WHERE [Module] = @ModuleID) <> 1 then 2 -- Module not in table
+when (SELECT isnull(license,'') FROM [dbo].[MFModule] WHERE [Module] = @ModuleID) = '' then 3
+ELSE 9
+end
+
+
+
+if @Checkstatus > 3
+Begin
+Select @license = license from [dbo].[MFModule] where module = @ModuleID
+
+        EXEC [dbo].[spMFDecrypt] @EncryptedPassword = @license          -- nvarchar(2000)
+                                ,@DecryptedPassword = @license OUTPUT; -- nvarchar(2000)
+
+IF @Debug > 0
+begin
+SELECT *
+        FROM [dbo].[fnMFParseDelimitedString](@license, '|')
+END
+
+
+
+Select @checkstatus = case when NOT exists(SELECT *
+
+        FROM [dbo].[fnMFParseDelimitedString](@license, '|') AS [fmss]
+        WHERE [fmss].[ID] = 4) then 4
+        ELSE 9
+		end
+
+
+END
+
+
+if  @Checkstatus = 1
+BEGIN  -- check MFmodule of exist
+Set @DebugText = 'MFModule does not exist Checkstatus %i'
+END
+
+IF @Checkstatus = 2
 BEGIN  -- check module of exist
-    IF 
-    (
-        SELECT [license] FROM [MFModule] WHERE [Module] = @ModuleID
-    ) IS NULL
-    BEGIN
+Set @DebugText = 'Module does not exist Checkstatus %i'
+END
 
+IF @Checkstatus = 3
+BEGIN  -- check license initialised
+Set @DebugText = 'license has not yet been initialised Checkstatus %i'
+END
+
+IF @Checkstatus = 4
+BEGIN  -- check Expiry date exist
+SET @ErrorCode = 2
+Set @DebugText = 'License Assembly is invalid Checkstatus %i'
+END
+
+IF @Checkstatus > 4
+BEGIN  -- check Expiry date exist
+Set @DebugText = 'License is valid Checkstatus %i'
+END
+
+Set @DebugText = @DefaultDebugText + @DebugText
+IF @debug > 0
+	Begin
+		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@Checkstatus );
+	END
+
+    -------------------------------------------------------------
+-- initialise license
+-------------------------------------------------------------
+Set @Procedurestep = 'initialise license'
+
+if @Checkstatus = 3
+Begin
     Set @DebugText = '%s'
     Set @DebugText = @DefaultDebugText + @DebugText
     Set @Procedurestep = 'Creating new license code for module '
@@ -152,23 +223,37 @@ BEGIN  -- check module of exist
                                        ,@ModuleID = @ModuleID             -- nvarchar(20)
                                        ,@Status = @Status OUTPUT;       -- nvarchar(20)
 
-Set @DebugText = '%s'
+Set @DebugText = ' Return spMFValidateModule module %s Status %s  '
 Set @DebugText = @DefaultDebugText + @DebugText
-Set @Procedurestep = 'License Status '
 
 IF @debug > 0
 	Begin
-		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@Status );
+		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@ModuleID,@status );
 	END
-
-        SELECT @LicenseExpiry = CONVERT(DATE, [fmss].[ListItem], 105)
+    SELECT @LicenseExpiryTXT =  [fmss].[ListItem]
         FROM [dbo].[fnMFParseDelimitedString](@Status, '|') AS [fmss]
         WHERE [fmss].[ID] = 2;
-
+        SELECT @LicenseExpiry = case when LEN(@LicenseExpiryTXT)>0 THEN dbo.fnMFTextToDate(@LicenseExpiryTXT,'/')
+		else convert(date,dateadd(DAY,1,GetDate()))
+		END
         SELECT @ErrorCode = [fmss].[ListItem]
         FROM [dbo].[fnMFParseDelimitedString](@Status, '|') AS [fmss]
         WHERE [fmss].[ID] = 1;
 
+Set @ProcedureStep = 'Get Status'
+
+Set @DebugText = ' License expiry '+cast(@licenseExpiry as nvarchar(25))+ ' ErrorCode %s  '
+Set @DebugText = @DefaultDebugText + @DebugText
+
+IF @Debug > 0
+BEGIN
+    SELECT @LicenseExpiry, @ErrorCode;
+
+    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep,@ErrorCode);
+END;
+
+
+ 
         SELECT @license = @ModuleID + '|' + @Status + '|' + CAST(CONVERT(DATE, GETDATE()) AS VARCHAR(10));
 
         EXEC [dbo].[spMFEncrypt] @Password = @license                          -- nvarchar(2000)
@@ -191,8 +276,10 @@ IF @debug > 0
         UPDATE [mm]
         SET [mm].[license] = @EcryptedPassword
            ,[mm].[DateLastChecked] = GETUTCDATE()
-        FROM [MFModule] [mm]
+        FROM [dbo].[MFModule] [mm]
         WHERE [mm].[Module] = @ModuleID;
+
+        SET @Checkstatus = 9
 
         Set @DebugText = 'License %s'
         Set @DebugText = @DefaultDebugText + @DebugText
@@ -204,13 +291,16 @@ IF @debug > 0
         	END
 
     END -- end create new license
-    ELSE -- license alraedy exist and can be checked
-    BEGIN
+
+
+IF @Checkstatus <> 4
+BEGIN
+
         -------------------------------------------------------------
         -- Validate license
         -------------------------------------------------------------
         SELECT @EcryptedPassword = [license]
-        FROM [MFModule]
+        FROM [dbo].[MFModule]
         WHERE [Module] = @ModuleID;
 
         EXEC [dbo].[spMFDecrypt] @EncryptedPassword = @EcryptedPassword          -- nvarchar(2000)
@@ -241,10 +331,10 @@ IF @debug > 0
         WHERE [fmss].[ID] = 4;
 
         SET @DebugText
-            = ' Module %s ResultCode %s Expiry Date ' + CONVERT(NVARCHAR, @ExpiryDate, 105) + ' Last Validated '
-              + CONVERT(NVARCHAR, @LastValidate, 105);
+            = ' Module %s ResultCode %s Expiry Date ' + CONVERT(NVARCHAR, @ExpiryDate) + ' Last Validated '
+              + CONVERT(NVARCHAR, @LastValidate);
         SET @DebugText = @DefaultDebugText + @DebugText;
-        SET @ProcedureStep = 'licence check result';
+        SET @ProcedureStep = 'License check result';
 
         IF @Debug > 0
         BEGIN
@@ -256,51 +346,85 @@ IF @debug > 0
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ModuleID, @ErrorCode);
         END;
 
+
         -------------------------------------------------------------
         -- LICENSE EXPIRY
         -------------------------------------------------------------
+        SET @ProcedureStep = 'License expiry notification';
         DECLARE @RemainingDays   INT
                ,@lastCheckedDays INT;
 
-        SELECT @RemainingDays   = DATEDIFF(DAY, GETUTCDATE(), CONVERT(DATETIME, @ExpiryDate, 105))
+        SELECT @RemainingDays   = DATEDIFF(DAY, GETUTCDATE(), CONVERT(DATE, @ExpiryDate))
               ,@lastCheckedDays = DATEDIFF(DAY, @LastValidate, GETUTCDATE());
 
         SET @DebugText = ' Remaining Days %i LastCheckedDays %i ';
         SET @DebugText = @DefaultDebugText + @DebugText;
-        SET @ProcedureStep = 'License expire';
+
 
         IF @Debug > 0
         BEGIN
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @RemainingDays, @lastCheckedDays);
         END;
-END
+
         -------------------------------------------------------------
         -- re-check license
         -------------------------------------------------------------
-        IF @RemainingDays < 30
+        IF @RemainingDays <= @ExpiryNotification
         BEGIN
-            SET @DebugText = ' License is expiring on ' + CONVERT(NVARCHAR, @ExpiryDate, 105);
+            SET @DebugText = ' License is expiring on ' + CONVERT(NVARCHAR(25), @ExpiryDate);
             SET @DebugText = @DefaultDebugText + @DebugText;
-            SET @ProcedureStep = 'Expiry eminent: ';
+            SET @ProcedureStep = 'Expiry Notification ';
+
+            IF (SELECT COUNT(*) FROM MFlog WHERE [ErrorNumber] = 90003 AND [CreateDate] > DATEADD(DAY,-1,GETDATE())) = 0
+            Begin
+            --------------------------------------------------
+			-- INSERTING ERROR DETAILS INTO LOG TABLE
+			--------------------------------------------------
+			INSERT INTO [dbo].[MFLog] ( [SPName]
+									  , [ErrorNumber]
+									  , [ErrorMessage]
+									  , [ErrorProcedure]
+									  , [ErrorState]
+									  , [ErrorSeverity]
+									  , [ErrorLine]
+									  , [ProcedureStep]
+									  )
+			VALUES (
+					   @ProcedureName
+					 , 90003
+					 , ' License is expiring on ' + CONVERT(NVARCHAR(25), @ExpiryDate)
+					 , ERROR_PROCEDURE()
+					 , 'WARNING'
+					 , 0
+					 , 0
+					 , @ProcedureStep
+				   );
+            END
 
             IF @Debug > 0
             BEGIN
-                RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
             END;
-        END;
+        END; --remaining days < 30
+
+        END --validate license checkstatus > 4
 
         -------------------------------------------------------------
         -- LICENSE REQUIRE RECHECKING
         -------------------------------------------------------------
-        IF @lastCheckedDays > 0
+        IF @lastCheckedDays > 0 AND @Checkstatus > 4
         BEGIN TRY
             EXEC [dbo].[spMFValidateModule] @VaultSettings = @VaultSettings -- nvarchar(2000)
                                            ,@ModuleID = @ModuleID             -- nvarchar(20)
                                            ,@Status = @Status OUTPUT;       -- nvarchar(20)
 
-            SELECT @LicenseExpiry = CONVERT(DATE, [fmss].[ListItem], 105)
-            FROM [dbo].[fnMFParseDelimitedString](@Status, '|') AS [fmss]
-            WHERE [fmss].[ID] = 2;
+    SELECT @LicenseExpiryTXT =  [fmss].[ListItem]
+        FROM [dbo].[fnMFParseDelimitedString](@Status, '|') AS [fmss]
+        WHERE [fmss].[ID] = 2;
+
+        SELECT @LicenseExpiry = case when LEN(@LicenseExpiryTXT)>0 THEN dbo.fnMFTextToDate(@LicenseExpiryTXT,'/')
+		else convert(date,dateadd(DAY,1,GetDate()))
+		END
         SELECT @ErrorCode = [fmss].[ListItem]
         FROM [dbo].[fnMFParseDelimitedString](@Status, '|') AS [fmss]
         WHERE [fmss].[ID] = 1;
@@ -313,7 +437,7 @@ END
             UPDATE [mm]
             SET [mm].[license] = @EcryptedPassword
                ,[mm].[DateLastChecked] = GETUTCDATE()
-            FROM [MFModule] [mm]
+            FROM [dbo].[MFModule] [mm]
             WHERE [mm].[Module] = @ModuleID;
 
             
@@ -375,20 +499,47 @@ END
             -------------------------------------------------------------
             -- re-check license
             -------------------------------------------------------------
-            IF @RemainingDays < 30
-            BEGIN
-                SET @DebugText = ' License is expiring on ' + CONVERT(NVARCHAR, @ExpiryDate, 105);
-                SET @DebugText = @DefaultDebugText + @DebugText;
-                SET @ProcedureStep = 'Expiry eminent: ';
+
+        IF @RemainingDays <= @ExpiryNotification
+        BEGIN
+            SET @DebugText = ' License is expiring on ' + CONVERT(NVARCHAR(25), @ExpiryDate);
+            SET @DebugText = @DefaultDebugText + @DebugText;
+            SET @ProcedureStep = 'Expiry Notification ';
+
+            IF (SELECT COUNT(*) FROM MFlog WHERE [ErrorNumber] = 90003 AND [CreateDate] > DATEADD(DAY,-1,GETDATE())) = 0
+            Begin
+            --------------------------------------------------
+			-- INSERTING ERROR DETAILS INTO LOG TABLE
+			--------------------------------------------------
+			INSERT INTO [dbo].[MFLog] ( [SPName]
+									  , [ErrorNumber]
+									  , [ErrorMessage]
+									  , [ErrorProcedure]
+									  , [ErrorState]
+									  , [ErrorSeverity]
+									  , [ErrorLine]
+									  , [ProcedureStep]
+									  )
+			VALUES (
+					   @ProcedureName
+					 , 90003
+					 , ' License is expiring on ' + CONVERT(NVARCHAR(25), @ExpiryDate)
+					 , ERROR_PROCEDURE()
+					 , 'WARNING'
+					 , 0
+					 , 0
+					 , @ProcedureStep
+				   );
+            END
 
                 IF @Debug > 0
                 BEGIN
-                    RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
-            END;
-        END TRY -- update license check
+            END; --remain days < 30
+        END TRY -- update license check check status > 4
         BEGIN CATCH
-            SET @DebugText = '';
+            SET @DebugText = @@Error;
             SET @DebugText = @DefaultDebugText + @DebugText;
             SET @ProcedureStep = 'License check failed';
 
@@ -396,7 +547,10 @@ END
             BEGIN
                 RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
             END;
-        END CATCH;
+        END CATCH; --update license check
+
+
+
 
 -------------------------------------------------------------
 -- Report error codes
@@ -455,10 +609,6 @@ END
         		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@ErrorCode );
         	END
         RETURN @ErrorCode;
-END; -- module is valid
-ELSE
-BEGIN
-    RAISERROR('Module is invalid', 16, 1);
-END;
+
 
 GO

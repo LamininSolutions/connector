@@ -6,7 +6,7 @@ SET NOCOUNT ON;
 EXEC [setup].[spMFSQLObjectsControl]
 	@SchemaName = N'dbo'
   , @ObjectName = N'spMFInsertProperty' -- nvarchar(100)
-  , @Object_Release = '4.2.7.46'		-- varchar(50)
+  , @Object_Release = '4.4.13.53'		-- varchar(50)
   , @UpdateFlag = 2;
 -- smallint
 
@@ -582,6 +582,73 @@ END
 				BEGIN
 					RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
 				END;
+
+-------------------------------------------------------------
+-- check for conflict of column names
+-------------------------------------------------------------s
+Set @Procedurestep = 'Column Naming conflicts'
+;
+DECLARE @NamingConflict AS TABLE (MFID INT, Name NVARCHAR(100))
+DECLARE @NamingConflictString AS NVARCHAR(400)
+;
+WITH cte AS
+(
+SELECT REPLACE(name,' ','_') ColumnName, name FROM [dbo].[MFProperty] AS [mp] WHERE mp.[MFDataType_ID] IN (8,9)
+),cte2 as
+(SELECT REPLACE(mp.[ColumnName],'_',' ') AS name FROM [dbo].[MFProperty] AS [mp]
+WHERE MP.ColumnName IN (SELECT columnName FROM cte))
+INSERT INTO @NamingConflict
+(
+    MFID, [Name]
+)
+SELECT mp2.MFID, mp2.name FROM [dbo].[MFProperty] AS [mp2]
+INNER JOIN [cte2]
+ON [cte2].[name] = [mp2].[Name]
+;
+WITH cte AS
+(
+SELECT name as ColumnName, name FROM [dbo].[MFProperty] AS [mp] WHERE mp.[MFDataType_ID] IN (8,9)
+),cte2 as
+(SELECT mp.[ColumnName] AS name FROM [dbo].[MFProperty] AS [mp]
+WHERE MP.ColumnName IN (SELECT columnName FROM cte))
+INSERT INTO @NamingConflict
+(
+    MFID, [Name]
+)
+SELECT mp2.MFID, mp2.name FROM [dbo].[MFProperty] AS [mp2]
+INNER JOIN [cte2]
+ON [cte2].[name] = [mp2].[Name]
+
+Set @DebugText = ''
+Set @DebugText = @DefaultDebugText + @DebugText
+
+
+IF @debug > 0
+	BEGIN
+    SELECT 'conflict' AS Conflict ,* FROM @NamingConflict AS [nc]
+		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+	END
+
+IF (SELECT COUNT(*) FROM @NamingConflict AS [nc]) > 0
+BEGIN
+
+;
+SELECT @NamingConflictString = STUFF((SELECT ',' + nc.Name + ' (' + CAST(nc.MFID AS VARCHAR(5)) +')'  FROM @NamingConflict AS [nc] 
+FOR XML PATH('') 
+),1,1,'')
+
+Set @DebugText = ' properties: '+@NamingConflictString+' must be renamed in M-Files to avoid duplication conflicts'
+Set @DebugText = @DefaultDebugText + @DebugText
+
+
+IF @debug > 0
+	Begin
+		RAISERROR(@DebugText,16,1,@ProcedureName,@ProcedureStep );
+	END
+
+END
+
+
 			-----------------------------------------------------------
 			--Delete the records of Property which not exists in new vault
 			-----------------------------------------------------------

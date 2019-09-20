@@ -186,6 +186,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-09-19  LC         Resolve dropping of temp table
 2019-09-05  LC         Reset defaults
 2019-09-05  LC         Add searchstring option
 2019-08-30  JC         Added documentation
@@ -739,8 +740,10 @@ BEGIN
         EXEC (@VQuery);
 
         --truncate table MFObjectChangeHistory
+        IF (SELECT OBJECT_ID('tempdb..#Temp_ObjectHistory')) IS NOT NULL
         DROP TABLE [#Temp_ObjectHistory];
-        DROP TABLE [#TempObjIDs];
+         IF (SELECT OBJECT_ID('tempdb..#TempObjIDs')) IS NOT NULL
+        DROP TABLE #TempObjids;
 
         SET @ProcessType = @ProcedureName;
         SET @LogText = @ProcedureName + ' Ended ';

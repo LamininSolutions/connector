@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFCreateTable' -- nvarchar(100)
-                                    ,@Object_Release = '4.2.7.46'     -- varchar(50)
+                                    ,@Object_Release = '4.4.13.53'    -- varchar(50)
                                     ,@UpdateFlag = 2;
 
 
@@ -188,11 +188,10 @@ Date        Author     Description
 2017-11-29  LC         Add error message of file does not exist or table already exist
 2018-04-17  LC         Add condition to only create trigger on table if includedinApp is set to 2 (for transaction based tables.)
 2018-10-30  LC         Add creating unique index on objid and externalid
+2019-09-20  LC         allow for ID at end of name of a lookup property
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
-
-
 BEGIN
     SET NOCOUNT ON;
 
@@ -331,9 +330,10 @@ BEGIN
                 SELECT *
                 FROM
                 (
-                    SELECT REPLACE([ColumnName], '_ID', '') AS [ColumnName]
-                          ,1                                AS [MFDataType_ID]
-                          ,'False'                          AS [PredefinedOrAutomatic]
+                    -- SELECT REPLACE([ColumnName], '_ID', '') AS [ColumnName]
+                    SELECT SUBSTRING([ColumnName], 1, LEN([ColumnName]) - 3) AS [ColumnName]
+                          ,1                                                 AS [MFDataType_ID]
+                          ,'False'                                           AS [PredefinedOrAutomatic]
                     FROM [#Temp]
                     WHERE [MFDataType_ID] IN (
                                                  SELECT [ID] FROM [dbo].[MFDataType] WHERE [MFTypeID] IN ( 9 )
@@ -343,9 +343,10 @@ BEGIN
                 SELECT *
                 FROM
                 (
-                    SELECT REPLACE([ColumnName], '_ID', '') AS [ColumnName]
-                          ,9                                AS [MFDataType_ID]
-                          ,'False'                          AS [PredefinedOrAutomatic]
+                    --  SELECT REPLACE([ColumnName], '_ID', '') AS [ColumnName]
+                    SELECT SUBSTRING([ColumnName], 1, LEN([ColumnName]) - 3) AS [ColumnName]
+                          ,9                                                 AS [MFDataType_ID]
+                          ,'False'                                           AS [PredefinedOrAutomatic]
                     FROM [#Temp]
                     WHERE [MFDataType_ID] IN (
                                                  SELECT [ID] FROM [dbo].[MFDataType] WHERE [MFTypeID] = 10
@@ -398,7 +399,8 @@ BEGIN
                        ,@classPropertyName VARCHAR(100)
                        ,@Workflow          VARCHAR(100)
                        ,@State             VARCHAR(100)
-                       ,@SingleFile        VARCHAR(100);
+                       ,@SingleFile        VARCHAR(100)
+                       ,@WorkflowName  VARCHAR(100)
 
                 ;
 
@@ -410,18 +412,33 @@ BEGIN
                 FROM [dbo].[MFProperty]
                 WHERE [MFID] = 100;
 
-                SELECT @Workflow = [ColumnName]
+                SELECT @Workflow = [ColumnName], @WorkflowName = name
                 FROM [dbo].[MFProperty]
-                WHERE [MFID] = 39;
+                WHERE [MFID] = 38;
 
                 SELECT @State = [ColumnName]
                 FROM [dbo].[MFProperty]
-                WHERE [MFID] = 38;
+                WHERE [MFID] = 39;
 
                 ------Added By DevTeam2 For Task 937
                 SELECT @SingleFile = [ColumnName]
                 FROM [dbo].[MFProperty]
                 WHERE [MFID] = 22;
+
+-------------------------------------------------------------
+-- test duplicates
+-------------------------------------------------------------
+
+SELECT @State =   CASE
+                        WHEN
+                        (
+                            SELECT COUNT(*) FROM [#Temp] AS [t] WHERE [t].[ColumnName] = @State
+
+                        ) > 0 THEN
+                            @WorkflowName +'_' + @State
+                        ELSE
+                            @State
+                    END
 
                 ------Added By DevTeam2 For Task 937
 
@@ -439,7 +456,9 @@ BEGIN
                ,(REPLACE(@Workflow, '_ID', ''), 'NVARCHAR(100)', 'NULL')
                ,(@State, 'INTEGER', 'NULL')
                ,(REPLACE(@State, '_ID', ''), 'NVARCHAR(100)', 'NULL')
-               ,(@SingleFile, 'BIT', 'NOT NULL DEFAULT(0)'); ------Added By DevTeam2 For Task 937
+               ,(@SingleFile, 'BIT', 'NOT NULL DEFAULT(0)');
+
+                ------Added By DevTeam2 For Task 937
 
                 IF NOT EXISTS
                 (
@@ -620,9 +639,8 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_' + @TableName + '_Objid
 ON dbo.' +      @TableName + '(Objid)
 WHERE Objid IS NOT NULL;';
 
---select @SQL
-    --           EXEC (@SQL);
-
+                --select @SQL
+                --           EXEC (@SQL);
                 SET @SQL
                     = N'
 IF NOT EXISTS(SELECT 1 
@@ -633,7 +651,7 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_' + @TableName + '_ExternalID
 ON dbo.' +      @TableName + '(ExternalID)
 WHERE ExternalID IS NOT NULL;';
 
-      --          EXEC (@SQL);
+                --          EXEC (@SQL);
 
                 /*************************************************************************
 STEP Add trigger to table
@@ -655,8 +673,8 @@ NOTES
                 IF @Debug = 1
                     RAISERROR('Table %s Created', 10, 1, @TableName);
 
-				IF (OBJECT_ID('tempdb..#Temp')) IS NOT null
-                DROP TABLE [#Temp];
+                IF (OBJECT_ID('tempdb..#Temp')) IS NOT NULL
+                    DROP TABLE [#Temp];
             END;
             ELSE
             BEGIN
@@ -666,8 +684,8 @@ NOTES
                 IF @Debug = 1
                     RAISERROR('Table %s Already Exist', 10, 1, @TableName);
 
-				IF (OBJECT_ID('tempdb..#Temp')) IS NOT null
-                DROP TABLE [#Temp];
+                IF (OBJECT_ID('tempdb..#Temp')) IS NOT NULL
+                    DROP TABLE [#Temp];
             END;
         END;
         ELSE
@@ -677,8 +695,8 @@ NOTES
             -----------------------------------------------------------------------------
             RAISERROR('Entered Class Name does not Exists in MFClass Table', 10, 1, @ProcedureName, @ProcedureStep);
 
-            IF (OBJECT_ID('tempdb..#Temp')) IS NOT null
-			DROP TABLE [#Temp];
+            IF (OBJECT_ID('tempdb..#Temp')) IS NOT NULL
+                DROP TABLE [#Temp];
 
             RETURN -1;
         END;
