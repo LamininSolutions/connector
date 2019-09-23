@@ -22,29 +22,34 @@ EXEC spmfupdatetable 'MFPurchaseInvoice',1
 
 --execute from here
 
-SELECT * FROM [dbo].[MFOpportunity] AS [mo]
-UPDATE MFOpportunity
+UPDATE [MFPurchaseInvoice]
 SET Process_ID = 5
 
 DECLARE @RC INT
-DECLARE @TableName NVARCHAR(128) = 'MFOpportunity'
+DECLARE @TableName NVARCHAR(128) = 'MFPurchaseInvoice'
 DECLARE @Process_id INT = 5
-DECLARE @ColumnNames NVARCHAR(4000) = 'Currency_ID'
+DECLARE @ColumnNames NVARCHAR(4000) = 'State'
 DECLARE @IsFullHistory BIT = 1
 DECLARE @NumberOFDays INT  
+DECLARE @SearchString NVARCHAR(MAX) = null
 DECLARE @StartDate DATETIME --= DATEADD(DAY,-1,GETDATE())
 DECLARE @ProcessBatch_id INT
-DECLARE @Debug INT = 0
+DECLARE @Debug INT = 1
+DECLARE @Update_ID        INT
 
-EXECUTE @RC = [dbo].[spMFGetHistory] 
-   @TableName
-  ,@Process_id
-  ,@ColumnNames
-  ,@IsFullHistory
- ,@NumberOFDays
- ,@StartDate
-  ,@ProcessBatch_id OUTPUT
-  ,@Debug
+
+EXEC [dbo].[spMFGetHistory] @MFTableName =  @TableName   -- nvarchar(128)
+                           ,@Process_id = @Process_id    -- int
+                           ,@ColumnNames = @ColumnNames   -- nvarchar(4000)
+                           ,@SearchString = null  -- nvarchar(4000)
+                           ,@IsFullHistory = @IsFullHistory -- bit
+                           ,@NumberOFDays = @NumberOFDays  -- int
+                           ,@StartDate = @StartDate     -- datetime
+                           ,@Update_ID = @Update_ID OUTPUT                         -- int
+                           ,@ProcessBatch_id = @ProcessBatch_id OUTPUT            -- int
+                           ,@Debug = @debug         -- int
+
+
 
 SELECT * FROM [dbo].[MFProcessBatch] AS [mpb] WHERE [mpb].[ProcessBatch_ID] = @ProcessBatch_id
 SELECT * FROM [dbo].[MFProcessBatchDetail] AS [mpbd] WHERE [mpbd].[ProcessBatch_ID] = @ProcessBatch_id
@@ -158,17 +163,17 @@ ON mvli.[MFID] = moch.[Property_Value] AND mfms.[Valuelist_ID] = mvli.[MFValueLi
 
 --creating a valuelist item view for currency
 
-EXEC [dbo].[spMFCreateValueListLookupView] @ValueListName = 'Currency' -- nvarchar(128)
-                                          ,@ViewName = 'vwCurrency'      -- nvarchar(128)
-                                          ,@Schema = 'Custom'        -- nvarchar(20)
-                                          ,@Debug = 0         -- smallint
+--EXEC [dbo].[spMFCreateValueListLookupView] @ValueListName = 'Currency' -- nvarchar(128)
+--                                          ,@ViewName = 'vwCurrency'      -- nvarchar(128)
+--                                          ,@Schema = 'Custom'        -- nvarchar(20)
+--                                          ,@Debug = 0         -- smallint
 
-SELECT * FROM [dbo].[MFObjectChangeHistory] AS [moch]
-INNER JOIN [dbo].[MFProperty] AS [mp]
-ON moch.[Property_ID] = mp.mfid
-INNER JOIN custom.[VLvwCurrency] AS [vlc]
-ON vlc.[MFID_ValueListItems] = moch.[Property_Value] AND vlc.[ID_ValueList] = mp.[MFValueList_ID]
-ON 
+--SELECT * FROM [dbo].[MFObjectChangeHistory] AS [moch]
+--INNER JOIN [dbo].[MFProperty] AS [mp]
+--ON moch.[Property_ID] = mp.mfid
+--INNER JOIN custom.[VLvwCurrency] AS [vlc]
+--ON vlc.[MFID_ValueListItems] = moch.[Property_Value] AND vlc.[ID_ValueList] = mp.[MFValueList_ID]
+--ON 
 
 -- working with a multi lookup valuelist
 
@@ -184,6 +189,6 @@ ON mvli.[MFID] = [fmpds].[ListItem] AND mfms.[Valuelist_ID] = mvli.[MFValueListI
 SELECT * FROM [dbo].[MFObjectChangeHistory] AS [moch]
 INNER JOIN [dbo].[MFvwMetadataStructure] AS [mfms]
 ON [mfms].[Property_MFID] = moch.[Property_ID] AND moch.[Class_ID] = mfms.[class_MFID]
-INNER JOIN [dbo].[MFAccount] AS [ma]
+INNER JOIN [dbo].[MFPurchaseInvoice] AS [ma]
 ON moch.[Property_Value] = ma.[ObjID]
 WHERE [mfms].[IsObjectType] = 1

@@ -95,6 +95,34 @@ ON mvs.[MFAuthenticationType_ID] = mat.[ID]
 -- only specify the items that should change
 -- to add multiple users to the support email, separate the email addresses by ; eg 'myemail@gmail.com;support@lamininsolutions.lcom'
 
+DECLARE 
+@MFInstallationPath	nvarchar(128),
+@MFilesVersion	nvarchar(128),
+@AssemblyInstallationPath	nvarchar(128),
+@SQLConnectorLogin	nvarchar(128),
+@UserRole	nvarchar(128),
+@SupportEmailAccount	nvarchar(128),
+@EmailProfile	nvarchar(128),
+@DetailLogging	nvarchar(128),
+@DBName	nvarchar(128),
+@RootFolder	nvarchar(128),
+@FileTransferLocation	nvarchar(128),
+@Debug	SMALLINT;
+
+
+EXEC [dbo].[spMFSettingsForDBUpdate] @MFInstallationPath = @MFInstallationPath       -- nvarchar(128)
+                                    ,@MFilesVersion = @MFilesVersion            -- nvarchar(128)
+                                    ,@AssemblyInstallationPath = @AssemblyInstallationPath -- nvarchar(128)
+                                    ,@SQLConnectorLogin = @SQLConnectorLogin        -- nvarchar(128)
+                                    ,@UserRole = @UserRole                 -- nvarchar(128)
+                                    ,@SupportEmailAccount = @SupportEmailAccount      -- nvarchar(128)
+                                    ,@EmailProfile = @EmailProfile             -- nvarchar(128)
+                                    ,@DetailLogging = @DetailLogging            -- nvarchar(128)
+                                    ,@DBName = @DBName                   -- nvarchar(128)
+                                    ,@RootFolder = @RootFolder               -- nvarchar(128)
+                                    ,@FileTransferLocation = @FileTransferLocation     -- nvarchar(128)
+                                    ,@Debug = @Debug                    -- smallint
+                              
 
 
 					
