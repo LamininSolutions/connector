@@ -90,11 +90,11 @@ Additional Info
 
 The following will be automatically executed in sequence
 
-test Connection
-Update Metadata structure
-create class tables
-create all related lookups
-create menu items in Context menu
+- test Connection
+- Update Metadata structure
+- create class tables
+- create all related lookups
+- create menu items in Context menu
 
 On completion login to vault and action update reporting data to update class tables from M-Files to SQL
 
@@ -103,20 +103,19 @@ Alternatively use spMFUpdateTable to pull records into class table
 Warnings
 ========
 
-The procedure is useful to create a limited number of classes for reporting (max 10) at a time. 
+The procedure is useful to create a limited number of classes for reporting (max 10) at a time.
 
 Examples
 ========
 
 .. code:: sql
 
-    EXEC [spMFSetup_Reporting] @Classes = 'Customer, Drawing' 
+    EXEC [spMFSetup_Reporting] @Classes = 'Customer, Drawing'
                                 ,@Debug = 0   -- int
 
 .. code:: sql
-    Select * from MFContextMenu
 
-    select * from 
+    SELECT * FROM MFContextMenu
 
 Changelog
 =========
