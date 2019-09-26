@@ -46,7 +46,7 @@ Return
   - 1 = Success
   - -1 = Error
 Parameters
-  @IncludedInApp int 
+  @IncludedInApp int
     Default = 1
   @Debug smallint (optional)
     - Default = 0
@@ -65,16 +65,15 @@ Examples
     EXEC [spMFCreateAllMFTables]
 
 -----
-    or
 
 .. code:: sql
 
-     UPDATE mc
-     SET [mc].[IncludeInApp] = 4
-     FROM MFclass mc
-     INNER JOIN MFObjectType mo
-     ON [mo].[ID] = [mc].[MFObjectType_ID]
-     WHERE mo.name = 'Document' AND [mc].[IncludeInApp] IS NULL
+    UPDATE mc
+    SET [mc].[IncludeInApp] = 4
+    FROM MFclass mc
+    INNER JOIN MFObjectType mo
+    ON [mo].[ID] = [mc].[MFObjectType_ID]
+    WHERE mo.name = 'Document' AND [mc].[IncludeInApp] IS NULL
 
     EXEC [spMFCreateAllMFTables] = 4
 
