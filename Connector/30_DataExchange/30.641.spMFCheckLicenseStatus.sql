@@ -96,7 +96,6 @@ Examples
 ========
 
 .. code:: sql
-
 ....Check the license for a procedure
     EXEC [dbo].[spMFCheckLicenseStatus] @InternalProcedureName = 'spMFGetclass' -- nvarchar(500)
                                    ,@ProcedureName = 'test'        -- nvarchar(500)
@@ -105,7 +104,6 @@ Examples
 ----
 
 .. code:: sql
-
 ....Force the checking of the  license against the server
     EXEC [dbo].[spMFCheckLicenseStatus] @InternalProcedureName = 'spMFGetclass' -- nvarchar(500)
                                    ,@ProcedureName = 'test'        -- nvarchar(500)

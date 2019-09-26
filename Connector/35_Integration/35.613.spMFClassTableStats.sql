@@ -10,34 +10,6 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
 -- smallint
 GO
 
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-02
-	Database: 
-	Description: Listing of Class Table stats
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	2016-8-22		lc			mflastmodified date show in local time
-	2016-9-9		lc			add input parameter to only show table requested
-	2017-6-16		LC			remove flag = 1 from listing
-	2017-6-29		lc			change mflastmodified date to localtime
-	2017-7-22		lc			add parameter to allow the temp table to persist
-	2017-11-23		lc			MF_lastModified set to deal with localization
-	2017-12-27		lc			run tableaudit for each table to update status from MF
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-
-  EXEC [spMFClassTableStats]  null , 0,1,0
-
-  exec spmfclasstablestats 'MFCustomer'
-  
------------------------------------------------------------------------------------------------*/
-
 IF EXISTS
 (
     SELECT 1
@@ -165,7 +137,16 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-09-26  LC         Update documentation
 2019-08-30  JC         Added documentation
+2017-12-27  LC         run tableaudit for each table to update status from MF
+2017-11-23  LC         MF_lastModified set to deal with localization
+2017-07-22  LC         add parameter to allow the temp table to persist
+2017-06-29  LC         change mflastmodified date to localtime
+2017-06-16  LC         remove flag = 1 from listing
+2016-09-09  LC         add input parameter to only show table requested
+2016-08-22  LC         mflastmodified date show in local time
+2016-02-30  DEV2       Created procedure
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -346,37 +327,13 @@ print ''' + @TableName + ' has not been created'';
 
     
 
-        --   declare @SessionIDOut    int
-        --         , @NewObjectXml    nvarchar(max)
-        --         , @DeletedInSQL    int
-        --         , @UpdateRequired  bit
-        --         , @OutofSync       int
-        --         , @ProcessErrors   int
-        --         , @ProcessBatch_ID INT
-        --         ,@MFModifiedDate DATETIME
-        --,@MFClassTableUpdate DATETIME
         EXEC [dbo].[spMFTableAuditinBatches] @MFTableName = @TableName -- nvarchar(100)
                                             ,@FromObjid = 1            -- int
                                             ,@ToObjid = @ToObjid       -- int
                                             ,@WithStats = 0            -- bit
                                             ,@Debug = 0;
 
-                                                                       -- int
-
-        --exec [dbo].[spMFTableAudit] @MFTableName = @TableName
-        --                         , @MFModifiedDate = @MFModifiedDate
-        --                          --@ObjIDs = ?,
-        --                          , @SessionIDOut = @SessionIDOut output
-        --                          , @NewObjectXml = @NewObjectXml output
-        --                          , @DeletedInSQL = @DeletedInSQL output
-        --                          , @UpdateRequired = @UpdateRequired output
-        --                          , @OutofSync = @OutofSync output
-        --                          , @ProcessErrors = @ProcessErrors output
-        --                          , @ProcessBatch_ID = @ProcessBatch_ID output
-        --                          , @Debug = @Debug;
-
-        --if @Debug > 0
-        --    select @SessionIDOut as [sessionID];
+ 
         SELECT @MFCount = COUNT(*)
         FROM [dbo].[MFAuditHistory] AS [mah]
         WHERE [mah].[Class] = @ID

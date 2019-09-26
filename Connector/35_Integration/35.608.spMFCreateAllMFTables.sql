@@ -4,7 +4,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFCreateAllMFTables', -- nvarchar(100)
-    @Object_Release = '2.0.2.4', -- varchar(50)
+    @Object_Release = '4.4.13.53', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
 IF EXISTS ( SELECT  1
@@ -22,6 +22,7 @@ GO
 	
 -- if the routine exists this stub creation stem is parsed but not executed
 CREATE PROCEDURE [dbo].[spMFCreateAllMFTables]
+
 AS
     SELECT  'created, but not implemented yet.';
 --just anything will do
@@ -31,7 +32,9 @@ GO
 SET NOEXEC OFF;
 GO
 
-ALTER PROCEDURE [dbo].[spMFCreateAllMFTables] @Debug SMALLINT = 0
+ALTER PROCEDURE [dbo].[spMFCreateAllMFTables] 
+@IncludedInApp INT = 1,
+@Debug SMALLINT = 0
 AS
 /*rST**************************************************************************
 
@@ -43,22 +46,37 @@ Return
   - 1 = Success
   - -1 = Error
 Parameters
+  @IncludedInApp int 
+    Default = 1
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
 
 Purpose
 =======
 
-Create all Class Tables where Included in App is 1 or 2
+Create all Class Tables for IncludedinApp = 1 by default, or as set in the @IncludedInApp parameter 
 
 Examples
 ========
 
 .. code:: sql
 
-    EXEC [spMFCreateAllMFTables] 1
+    EXEC [spMFCreateAllMFTables]
+
+-----
+    or
+
+.. code:: sql
+
+     UPDATE mc
+     SET [mc].[IncludeInApp] = 4
+     FROM MFclass mc
+     INNER JOIN MFObjectType mo
+     ON [mo].[ID] = [mc].[MFObjectType_ID]
+     WHERE mo.name = 'Document' AND [mc].[IncludeInApp] IS NULL
+
+    EXEC [spMFCreateAllMFTables] = 4
 
 Changelog
 =========
@@ -66,7 +84,9 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-09-26  LC         Add parameter to allow for setting up custom list for creating tables
 2019-08-30  JC         Added documentation
+2016-04-01  DEV2       Create procedure
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -75,14 +95,14 @@ Date        Author     Description
         IF @Debug > 0
             SELECT  Name
             FROM    MFClass
-            WHERE   IncludeInApp IN ( 1, 2 );
+            WHERE   IncludeInApp = @IncludedInApp;
 
         DECLARE @tableName VARCHAR(MAX);
         DECLARE tbCursor CURSOR
         FOR
             SELECT  TableName
             FROM    MFClass
-            WHERE   IncludeInApp IN ( 1, 2 );
+            WHERE   IncludeInApp = @IncludedInApp;
         OPEN tbCursor;
         FETCH NEXT FROM tbCursor INTO @tableName;
 
