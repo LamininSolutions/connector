@@ -24,6 +24,10 @@ Structure
 4. Examples
 5. Changelog
 
+Web-site error check
+--------------------
+https://travis-ci.org/lamininsolutions
+
 rST cheatsheet
 --------------
 
