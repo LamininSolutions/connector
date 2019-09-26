@@ -69,7 +69,7 @@ Return
 Parameters
   @InternalprocedureName
     - Procedure to be checked
-  @ProcedureName 
+  @ProcedureName
     Procedure from where the check is performed
   @ProcedureStep
     Procedure step for checking the license
@@ -90,21 +90,26 @@ The procedure performs a check of the license for a specific procedure. The lice
 
 Additional Info
 ===============
+
 The license will be checked on the M-Files server once a day.  The validity is based on the allocation of the procedure to a specific module.
 
 Examples
 ========
 
+Check the license for a procedure
+
 .. code:: sql
-....Check the license for a procedure
+
     EXEC [dbo].[spMFCheckLicenseStatus] @InternalProcedureName = 'spMFGetclass' -- nvarchar(500)
                                    ,@ProcedureName = 'test'        -- nvarchar(500)
                                    ,@ProcedureStep = 'test'         -- sysname
 
 ----
 
+Force the checking of the  license against the server
+
 .. code:: sql
-....Force the checking of the  license against the server
+
     EXEC [dbo].[spMFCheckLicenseStatus] @InternalProcedureName = 'spMFGetclass' -- nvarchar(500)
                                    ,@ProcedureName = 'test'        -- nvarchar(500)
                                    ,@ProcedureStep = 'test'         -- sysname
@@ -126,7 +131,6 @@ Date        Author     Description
 2018-07-09  LC         Change name of MFModule table to MFLicenseModule
 2019-01-19  LC         Add return values
 2017-04-06  DEV2       Create license check procedure
-
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
