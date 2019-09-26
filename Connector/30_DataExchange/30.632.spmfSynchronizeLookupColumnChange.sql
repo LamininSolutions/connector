@@ -376,4 +376,6 @@ begin
 
 			RETURN -1
 	END CATCH
-End
+END
+
+GO

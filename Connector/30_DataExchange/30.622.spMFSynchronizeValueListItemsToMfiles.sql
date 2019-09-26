@@ -122,6 +122,7 @@ Date        Author     Description
   ******************************************************************************/
       BEGIN
             SET NOCOUNT ON
+          
 
             DECLARE @ID INT
                   , @VaultSettings [NVARCHAR](4000)
@@ -256,7 +257,7 @@ Date        Author     Description
                               SET @XmlOut = @Result
 
 				IF @Debug > 10
-				SELECT @XMLOut AS 'inputXML';
+				SELECT @XMLOut AS 'outputXML';
 
 
                               CREATE TABLE [#ValueListItemTemp]

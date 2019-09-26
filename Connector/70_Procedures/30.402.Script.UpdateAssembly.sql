@@ -6,6 +6,7 @@ MODIFICATIONS
 2018-9-27 LC	Add control to check and update M-Files version. This is to allow for the CLR script to be able to be executed without running the app.
 2019-1-9	lc	add additional controls to validate MFversion, exist when not exist.
 2019-1-11	LC	IF version in mfsettings is different from installer then use installer 
+add parameter to set MFVersion
 */
 
 
@@ -56,10 +57,12 @@ Test validity of M-Files API folder
 */
 
 DECLARE @IsUpdateAssembly BIT
-       ,@MFilesVersion    VARCHAR(100);
 
-IF (SELECT OBJECT_ID('MFSettings')) > 0
-SELECT @Version = CAST(value AS varchar) FROM MFSettings WHERE name = 'MFVersion';
+
+IF ISNULL(@MFilesVersion,'') = ''
+SELECT @Version = CAST(value AS varchar) FROM MFSettings WHERE name = 'MFVersion'
+ELSE
+SET @Version = @MFilesVersion;
 
 SET @MFLocation = @MFInstallPath + '\' + ISNULL(@Version,'{varMFVersion}') + '\Common';
 SET @DatabaseName = 'dbo.' + @DBName;

@@ -6,40 +6,9 @@ GO
 
 EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFUpdateTableinBatches' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.12.52'             -- varchar(50)
+                                    ,@Object_Release = '4.4.13.52'             -- varchar(50)
                                     ,@UpdateFlag = 2;                          -- smallint
 GO
-
-/*------------------------------------------------------------------------------------------------
-	Author: LSUSA\LeRouxC
-	Create date: 15/12/2018
-	Database:
-	Description: Procedure to update class table in batches
-
-Updating a large number of records from a specific class in MF to SQL in batches 
-
-it is advisable to process updates of large datasets in batches.  
-Processing batches will ensure that a logical restart point can be determined in case of failure
-It will also keep the size of the dataset for transfer within the limits of 8000 bites.
-
-	PARAMETERS:
-															
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-
-	updated version 2018-12-15
-	2019-06-22	LC			substantially rebuilt to improve efficiencies
-	2019-08-05	LC			resolve issue with catching last object if new and only one object exist
-
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  
------------------------------------------------------------------------------------------------*/
 
 IF EXISTS
 (
@@ -73,11 +42,103 @@ ALTER PROC [dbo].[spMFUpdateTableinBatches]
    ,@WithTableAudit INT = 0
    ,@FromObjid BIGINT = 1
    ,@ToObjid BIGINT = 100000
-   ,@WithStats BIT = 1 -- set to 0 to suppress display messages
+   ,@WithStats BIT = 1 
    ,@ProcessBatch_ID INT = NULL
    ,@Debug INT = 0     --
 )
 AS
+
+/*rST**************************************************************************
+
+========================
+spMFUpdateTableinBatches
+========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @MFTableName
+    - Valid Class TableName as a string
+    - Pass the class table name, e.g.: 'MFCustomer'
+  @UpdateMethod INT
+    Default to 1 (From MF to SQL)
+    Set to 0 for updates from SQL to MF
+  @WithTableAudit Int
+    Default = 0 (table audit not included)
+    Set to 1 to trigger a table audit on the selected objids
+  @FromObjid BIGINT
+    Starting objid 
+  @ToObjid BIGINT
+    End objid inclusive
+    Default = 100 000
+  @WithStats BIT
+    Default = 1 (true)
+    When true a log will be produced in the SSMS message window to show the progress
+    Set to 0 to suppress the messages.
+  @ProcessBatch_ID (optional, output)
+    Referencing the ID of the ProcessBatch logging table
+  @Debug (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+
+Purpose
+=======
+
+Procedure to update class table in batches
+
+Additional Info
+===============
+
+When updating a large number of records from a specific class in MF to SQL it is advisable to process these updates of large datasets in batches.  
+Processing batches will ensure that a logical restart point can be determined in case of failure or to control the updating in large chunks.
+It will also keep the size of the dataset for transfer within the limits of the XML transfer file.
+
+Prerequisites
+=============
+
+It is good practice to provide the maximum object id in the Object Type + 500 as the @ToObjid instead of just working with the default of 100 000.  One way to obtain the maximum is to use a view in M-Files on the Segment ID.
+
+Warnings
+========
+
+Examples
+========
+
+.. code:: sql
+
+    update SQL to MF
+
+  EXEC [dbo].[spMFUpdateTableinBatches] @MFTableName = 'YourTable'
+                                     ,@UpdateMethod = 0
+                                     ,@WithStats = 1
+                                     ,@Debug = 0;
+
+
+    Update MF to SQL : class table initialisation (note the setting with @WithtableAudit)
+
+EXEC [dbo].[spMFUpdateTableinBatches] @MFTableName = 'YourTable'
+                                     ,@UpdateMethod = 1
+                                     ,@WithTableAudit = 1
+                                     ,@FromObjid = 1
+                                     ,@ToObjid = 1000
+                                     ,@WithStats = 1
+                                     ,@Debug = 0;
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-06-22  LC         substantially rebuilt to improve efficiencies
+2019-08-05  LC         resolve issue with catching last object if new and only one object exist
+2018-12-15  LC         Create procedure
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
+
 SET NOCOUNT ON;
 
 -------------------------------------------------------------
@@ -620,6 +681,23 @@ SELECT @maxid = MAX(id) FROM ' + +QUOTENAME(@MFTableName) + ' AS [mlv] WHERE [ml
                 IF @WithStats = 1
                     --	PRINT @Message;
                     RAISERROR(@Message, 10, 1) WITH NOWAIT;
+		    
+		        SET @StartTime = GETUTCDATE();
+
+    EXEC [dbo].[spMFProcessBatchDetail_Insert] @ProcessBatch_ID = @ProcessBatch_ID
+                                              ,@LogType = N'Debug'
+                                              ,@LogText = @Message
+                                              ,@LogStatus = @LogStatus
+                                              ,@StartTime = @StartTime
+                                              ,@MFTableName = @MFTableName
+                                              ,@Validation_ID = @Validation_ID
+                                              ,@ColumnName = NULL
+                                              ,@ColumnValue = NULL
+                                              ,@Update_ID = @Update_IDOut
+                                              ,@LogProcedureName = @ProcedureName
+                                              ,@LogProcedureStep = @ProcedureStep
+                                              ,@debug = 0;
+
 
                 SET @BatchCount = @BatchCount + 1;
             END; --end loop updatetable
@@ -656,7 +734,7 @@ SELECT @maxid = MAX(id) FROM ' + +QUOTENAME(@MFTableName) + ' AS [mlv] WHERE [ml
                                               ,@Validation_ID = @Validation_ID
                                               ,@ColumnName = NULL
                                               ,@ColumnValue = NULL
-                                              ,@Update_ID = @Update_ID
+                                              ,@Update_ID = @Update_IDOut
                                               ,@LogProcedureName = @ProcedureName
                                               ,@LogProcedureStep = @ProcedureStep
                                               ,@debug = 0;

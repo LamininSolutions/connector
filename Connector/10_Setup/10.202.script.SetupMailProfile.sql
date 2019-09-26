@@ -4,6 +4,7 @@ GO
 
 /*
 Create mail profile result
+select * from mfsettings
 
 {varAppDB}						DatabaseName (new or existing)
 {varEmailProfile}
@@ -18,7 +19,7 @@ declare @Result_Message nvarchar(200);
 
 declare @EDIT_MAILPROFILE_PROP nvarchar(128);
 
-set @EDIT_MAILPROFILE_PROP = '{varEmailProfile}';
+Select @EDIT_MAILPROFILE_PROP = CAST(ISNULL(value,'{varEmailProfile}') AS NVARCHAR(100)) FROM mfsettings WHERE name = 'SupportEMailProfile';
 
 if exists (select 1 from [msdb].[dbo].[sysmail_account] as [a])
 begin

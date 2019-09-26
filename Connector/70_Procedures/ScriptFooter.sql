@@ -37,3 +37,9 @@ BEGIN CATCH
 	RETURN -1
 
 END CATCH
+
+GO
+
+EXEC [dbo].[spMFUpdateAssemblies]
+
+GO

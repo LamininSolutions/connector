@@ -10,8 +10,8 @@ MODIFICAITONS TO SCRIPT
 
 version 3.1.2.38	LC	add spMFGetFilesInternal
 version 3.1.2.38 ADD spMFGetHistory
-
 test that all the clr procedures have been dropped
+
 
 */
 

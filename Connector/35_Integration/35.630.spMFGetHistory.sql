@@ -186,6 +186,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-09-25  LC         Include fnMFTextToDate to set datetime - dealing with localisation
 2019-09-19  LC         Resolve dropping of temp table
 2019-09-05  LC         Reset defaults
 2019-09-05  LC         Add searchstring option
@@ -686,7 +687,7 @@ BEGIN
            AND [t].[Property_ID] = [s].[Property_ID]
         WHEN MATCHED THEN
         UPDATE SET 
-		[t].[LastModifiedUtc] = s.[LastModifiedUTC]
+		[t].[LastModifiedUtc] = dbo.[fnMFTextToDate](s.[LastModifiedUTC],'/')
 		,[t].[Property_Value] = s.[Property_Value]
 		WHEN NOT MATCHED BY TARGET THEN
             INSERT
@@ -703,7 +704,7 @@ BEGIN
             )
             VALUES
             (   [s].[ObjectType_ID], [s].[Class_ID], [s].[ObjID], [s].[MFVersion]
-               ,[s].[LastModifiedUTC], [s].[MFLastModifiedBy_ID], [s].[Property_ID]
+               ,dbo.[fnMFTextToDate](s.[LastModifiedUTC],'/'), [s].[MFLastModifiedBy_ID], [s].[Property_ID]
                ,[s].[Property_Value], [s].[CreatedOn]);
 
         -------------------------------------------------------------

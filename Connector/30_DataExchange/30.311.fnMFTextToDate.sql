@@ -21,11 +21,11 @@ GO
 
 CREATE FUNCTION [dbo].fnMFTextToDate
 (    
-      @TextDate NVARCHAR(25),
+      @TextDate NVARCHAR(40),
       @Character CHAR 
 --      @Format VARCHAR(10) = 'M/D/YYYY'
 )
-      RETURNS  date
+      RETURNS  datetime
 AS
 /*rST**************************************************************************
 
@@ -45,7 +45,7 @@ Parameters
 Purpose
 =======
 
-Used to convert the license expiry date to correct format
+Convert date in text format with different date layouts to datetime
 
 Examples
 ========
@@ -53,21 +53,30 @@ Examples
 .. code:: sql
 
     SELECT dbo.fnMFTextToDate('1/13/2009','/')
-
+    Select dbo.fnMFTextToDate('1/13/2009 05:04:22.007','/')
+    Select dbo.fnMFTextToDate('1/13/2009 05:04:22.007 a.m.','/')
+    
 Changelog
 =========
 
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-09-25  LC         Expand function to include other formats for general use
 2019-09-10  LC         Create function for use in licensing
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
 
 BEGIN
+
        DECLARE @Day VARCHAR(2), @Month VARCHAR(2), @Year VARCHAR(4), @Date datetime
        DECLARE @parselist AS TABLE (id INT, listitem VARCHAR(4))
+
+IF LEN(@TextDate) < 11
+Begin
+
+--SELECT 'Short form date'
 
        INSERT INTO @parselist
        (
@@ -81,7 +90,32 @@ BEGIN
 
        SELECT @Date = CONVERT(DATE,@year+'-'+@month+'-'+@day)
  
-      RETURN @Date
-END
+      END --text is date on '01/01/2009'
+IF ISDATE(@TextDate) = 0 AND (CHARINDEX('a',@TextDate,11) = 0 and CHARINDEX('p',@TextDate,11) = 0)
+BEGIN 
 
-GO
+--SELECT 'Text is date'
+
+       SELECT @Date = CONVERT(DATETIME,@TextDate,105)
+
+END --include time 
+
+IF ISDATE(@TextDate) = 0 AND (CHARINDEX('a',@TextDate,11) > 0 OR CHARINDEX('p',@TextDate,11) > 0)
+BEGIN 
+
+--SELECT 'Text is not date'
+
+IF CHARINDEX('a',@TextDate,11) > 0
+Select @TextDate = REPLACE(@TextDate,'a.','AM');
+IF CHARINDEX('p',@TextDate,11) > 0
+Select @TextDate = REPLACE(@TextDate,'p.','PM');
+
+SELECT @TextDate = REPLACE(@TextDate,'m.','')
+       SELECT @Date = CONVERT(DATEtime2,@TextDate,105)
+
+END --include time 
+ --       SELECT @DateTime
+      RETURN @Date
+ END 
+ GO
+

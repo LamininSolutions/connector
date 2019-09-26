@@ -27,32 +27,9 @@ GO
 
 EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFSetup_Reporting' -- nvarchar(100)
-                                    ,@Object_Release = '4.3.9.48'
+                                    ,@Object_Release = '4.4.13.53'
                                     ,@UpdateFlag = 2;
 GO
-
-/*------------------------------------------------------------------------------------------------
-	Author: LSUSA\LeRouxC
-	Create date: 12/11/2018
-	Database: 
-	Description: Custom script to prepare database for reporting
-
-	PARAMETERS:
-															
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	2019-1-31		LC			Fix bug for spmfDropandUpdateTable parameter
-	2019-4-10		LC			Adjust to allow for context menu configuration in different languages
-	2019-5-17		LC			Set security for menu to MFSQLConnector group
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  
------------------------------------------------------------------------------------------------*/
 
 IF EXISTS
 (
@@ -83,6 +60,79 @@ ALTER PROC [dbo].[spMFSetup_Reporting]
     @Classes NVARCHAR(400)
    ,@Debug INT = 0
 AS
+
+
+/*rST**************************************************************************
+
+===================
+spMFSetup_Reporting
+===================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @Classes
+    - Valid Class Names as a comma delimited string
+    - e.g.: 'Customer, Purchase Invoice'
+  @Debug (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+
+Purpose
+=======
+
+Custom script to prepare database for reporting
+
+Additional Info
+===============
+
+
+The following will be automatically executed in sequence
+
+test Connection
+Update Metadata structure
+create class tables
+create all related lookups
+create menu items in Context menu
+
+On completion login to vault and action update reporting data to update class tables from M-Files to SQL
+
+Alternatively use spMFUpdateTable to pull records into class table
+
+Warnings
+========
+
+The procedure is useful to create a limited number of classes for reporting (max 10) at a time. 
+
+Examples
+========
+
+.. code:: sql
+
+    EXEC [spMFSetup_Reporting] @Classes = 'Customer, Drawing' 
+                                ,@Debug = 0   -- int
+
+.. code:: sql
+    Select * from MFContextMenu
+
+    select * from 
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2019-09-27  LC         Adjust to setup context menu group for access
+2019-05-17  LC         Set security for menu to MFSQLConnector group
+2019-04-10  LC         Adjust to allow for context menu configuration in different languages
+2019-01-31  LC         Fix bug for spmfDropandUpdateTable parameter
+2018-11-12  LC         Create procedure
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 SET NOCOUNT ON;
 
 BEGIN
@@ -333,15 +383,15 @@ BEGIN
 		-- setup MFContextmenu
 		-------------------------------------------------------------
 		SET @Procedurestep = 'Create MFContextmenu records'
-		DECLARE @UserGroup NVARCHAR(100)
-
+		DECLARE @UserGroup NVARCHAR(100), @Usergroup_ID int
+SET @UserGroup = 'ContextMenu'
 	
-								SELECT TOP 1 @userGroup = [ug].[UserGroupID] FROM [dbo].[MFVaultSettings] AS [mvs]
+								SELECT TOP 1 @userGroup_ID = [ug].[UserGroupID] FROM [dbo].[MFVaultSettings] AS [mvs]
 								INNER JOIN [dbo].[MFLoginAccount] AS [mla]
 								ON mvs.[Username] = mla.[UserName]
 								CROSS APPLY (
 								SELECT [mfug].[UserGroupID] FROM [dbo].[MFvwUserGroup] AS [mfug]
-								WHERE name = 'MFSQLConnector') ug
+								WHERE name = @UserGroup) ug
 
 
 
@@ -370,6 +420,13 @@ BEGIN
 
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @Procedurestep);
 
+            -------------------------------------------------------------
+            -- Validate usergroup
+            -------------------------------------------------------------
+            UPDATE mcm
+            SET [UserGroupID] = @Usergroup_ID
+            FROM [dbo].[MFContextMenu] AS [mcm]
+            WHERE ISNULL([mcm].[UserGroupID],1) = 1
 			-------------------------------------------------------------
 			-- Reset messaging to allow for messages to be be produced in app
 			-------------------------------------------------------------

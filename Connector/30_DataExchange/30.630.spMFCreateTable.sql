@@ -429,16 +429,16 @@ BEGIN
 -- test duplicates
 -------------------------------------------------------------
 
-SELECT @State =   CASE
-                        WHEN
-                        (
-                            SELECT COUNT(*) FROM [#Temp] AS [t] WHERE [t].[ColumnName] = @State
+--SELECT @State =   CASE
+--                        WHEN
+--                        (
+--                            SELECT COUNT(*) FROM [#Temp] AS [t] WHERE [t].[ColumnName] = @State
 
-                        ) > 0 THEN
-                            @WorkflowName +'_' + @State
-                        ELSE
-                            @State
-                    END
+--                        ) > 0 THEN
+--                            @WorkflowName +'_' + @State
+--                        ELSE
+--                            @State
+--                    END
 
                 ------Added By DevTeam2 For Task 937
 

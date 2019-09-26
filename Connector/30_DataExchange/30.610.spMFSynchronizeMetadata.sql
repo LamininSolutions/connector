@@ -1,3 +1,5 @@
+GO
+
 PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFSynchronizeMetadata]';
 GO
  

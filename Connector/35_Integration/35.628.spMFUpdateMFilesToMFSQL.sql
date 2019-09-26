@@ -4,7 +4,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFUpdateMFilesToMFSQL' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.12.53'            -- varchar(50)
+                                    ,@Object_Release = '4.4.13.53'            -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
 GO
@@ -148,6 +148,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-09-27  LC         Set withstats for audit batches = 0 
+2019-09-27  LC         Fix UpdateID in MFProcessBatchDetail
 2019-09-03  LC         Set audittableinbatches to withstats = 0
 2019-09-03  LC         Set default date for deleted record check to 2000-01-01
 2019-08-30  JC         Added documentation
@@ -380,7 +382,7 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + ')
 	  EXEC [dbo].[spMFTableAuditinBatches] @MFTableName = @MFTableName -- nvarchar(100)
                                                             ,@FromObjid = 1              -- int
                                                             ,@ToObjid = @Tobjid  -- int
-                                                            ,@WithStats = 1              -- bit
+                                                            ,@WithStats = 0              -- bit
                                                             ,@ProcessBatch_ID = @ProcessBatch_ID
                                                             ,@Debug = @debug;            -- int
 
