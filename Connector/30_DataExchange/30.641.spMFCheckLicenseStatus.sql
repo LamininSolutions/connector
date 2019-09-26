@@ -46,16 +46,6 @@ ALTER PROCEDURE [dbo].[spMFCheckLicenseStatus]
    ,@ProcessBatch_id INT = NULL OUTPUT
    ,@Debug INT = 0
 AS
---BELOW HEADER
-/*------------------------------------------------------------------------------------------------
-Author: LSUSA\LeRouxC
-Create date: 21/09/2019 15:58
-
-Test Script:
-
-------------------------------------------------------------------------------------------------*/
-
---BELOW ALTER PROC AS
 
 /*rST**************************************************************************
 
