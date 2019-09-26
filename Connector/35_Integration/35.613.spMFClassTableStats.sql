@@ -98,7 +98,7 @@ MFError         Total of records with process_id = 3 as MFError
 SQLError        Total of records with process_id =4 as SQL Error
 LastModifed     Most recent date that SQL updated a record in the table
 MFLastModified  Most recent that an update was made in M-Files on the record
-SessionID       ID  of the latest spMFTableAudit procedure execution. 
+SessionID       ID  of the latest spMFTableAudit procedure execution.
 ==============  ===============================================================
 
 Warnings

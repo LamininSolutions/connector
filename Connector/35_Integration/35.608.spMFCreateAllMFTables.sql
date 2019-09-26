@@ -55,7 +55,7 @@ Parameters
 Purpose
 =======
 
-Create all Class Tables for IncludedinApp = 1 by default, or as set in the @IncludedInApp parameter 
+Create all Class Tables for IncludedinApp = 1 by default, or as set in the @IncludedInApp parameter
 
 Examples
 ========

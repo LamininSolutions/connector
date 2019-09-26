@@ -62,20 +62,20 @@ Parameters
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
   @UpdateMethod INT
-    Default to 1 (From MF to SQL)
-    Set to 0 for updates from SQL to MF
+    - Default to 1 (From MF to SQL)
+    - Set to 0 for updates from SQL to MF
   @WithTableAudit Int
-    Default = 0 (table audit not included)
-    Set to 1 to trigger a table audit on the selected objids
+    - Default = 0 (table audit not included)
+    - Set to 1 to trigger a table audit on the selected objids
   @FromObjid BIGINT
-    Starting objid 
+    Starting objid
   @ToObjid BIGINT
-    End objid inclusive
-    Default = 100 000
+    - End objid inclusive
+    - Default = 100 000
   @WithStats BIT
-    Default = 1 (true)
-    When true a log will be produced in the SSMS message window to show the progress
-    Set to 0 to suppress the messages.
+    - Default = 1 (true)
+    - When true a log will be produced in the SSMS message window to show the progress
+    - Set to 0 to suppress the messages.
   @ProcessBatch_ID (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @Debug (optional)
@@ -99,31 +99,32 @@ Prerequisites
 
 It is good practice to provide the maximum object id in the Object Type + 500 as the @ToObjid instead of just working with the default of 100 000.  One way to obtain the maximum is to use a view in M-Files on the Segment ID.
 
-Warnings
-========
-
 Examples
 ========
 
+update SQL to MF
+
 .. code:: sql
 
-    update SQL to MF
-
-  EXEC [dbo].[spMFUpdateTableinBatches] @MFTableName = 'YourTable'
-                                     ,@UpdateMethod = 0
-                                     ,@WithStats = 1
-                                     ,@Debug = 0;
+    EXEC [dbo].[spMFUpdateTableinBatches] @MFTableName = 'YourTable'
+                                         ,@UpdateMethod = 0
+                                         ,@WithStats = 1
+                                         ,@Debug = 0;
 
 
-    Update MF to SQL : class table initialisation (note the setting with @WithtableAudit)
+-----
 
-EXEC [dbo].[spMFUpdateTableinBatches] @MFTableName = 'YourTable'
-                                     ,@UpdateMethod = 1
-                                     ,@WithTableAudit = 1
-                                     ,@FromObjid = 1
-                                     ,@ToObjid = 1000
-                                     ,@WithStats = 1
-                                     ,@Debug = 0;
+Update MF to SQL : class table initialisation (note the setting with @WithtableAudit)
+
+.. code:: sql
+
+    EXEC [dbo].[spMFUpdateTableinBatches] @MFTableName = 'YourTable'
+                                         ,@UpdateMethod = 1
+                                         ,@WithTableAudit = 1
+                                         ,@FromObjid = 1
+                                         ,@ToObjid = 1000
+                                         ,@WithStats = 1
+                                         ,@Debug = 0;
 
 Changelog
 =========
