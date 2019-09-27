@@ -32,5 +32,6 @@ rST cheatsheet
 --------------
 
 http://docutils.sourceforge.net/docs/user/rst/quickref.html
+https://docs.typo3.org/m/typo3/docs-how-to-document/master/en-us/WritingReST/MenuHierarchy.html
 
 Order of title underlines is ``=`` -> ``-`` -> ``~``
