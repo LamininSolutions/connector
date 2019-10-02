@@ -61,7 +61,7 @@ Return
 Parameters
   @TableName varchar(100)
     - Valid Class TableName as a string
-    - Pass the class table name, e.g.: â€˜MFCustomerâ€™
+    - Pass the class table name, e.g.: ‘MFCustomer’
   @Update\_ID int
     fixme description
   @ProcessBatch\_ID int (optional, output)

@@ -4,14 +4,12 @@ GO
 PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFUpdateTable]';
 GO
 
-
-
 SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFUpdateTable'
                                     -- nvarchar(100)
-                                    ,@Object_Release = '4.4.13.53'
+                                    ,@Object_Release = '4.4.13.54'
                                     -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
@@ -211,6 +209,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-10-01  LC         Allow for rounding where float has long decimals
 2019-09-02  LC         Fix conflict where class table has property with 'Name' as the name V53
 2019-08-24  LC         Fix label of audithistory table inserts
 2019-07-26  LC         Update removing of redundant items form AuditHistory
@@ -257,7 +256,6 @@ Date        Author     Description
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
-
 DECLARE @Update_ID    INT
        ,@return_value INT = 1;
 
@@ -762,8 +760,7 @@ BEGIN TRY
                 -- prepare column value pair query based on data types
                 -------------------------------------------------------------
                 SET @Query = '';
-
-		SET @ProcedureStep = 'Datatype table';
+                SET @ProcedureStep = 'Datatype table';
 
                 DECLARE @DatatypeTable AS TABLE
                 (
@@ -771,7 +768,6 @@ BEGIN TRY
                    ,[Datatypes] NVARCHAR(20)
                    ,[Type_Ids] NVARCHAR(100)
                 );
-
 
                 INSERT INTO @DatatypeTable
                 (
@@ -801,7 +797,7 @@ BEGIN TRY
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
-		SET @ProcedureStep = 'Pivot Columns';
+                SET @ProcedureStep = 'Pivot Columns';
 
                 WHILE @rownr IS NOT NULL
                 BEGIN
@@ -811,7 +807,6 @@ BEGIN TRY
 
                     SET @DebugText = 'DataTypes %s';
                     SET @DebugText = @DefaultDebugText + @DebugText;
-
 
                     IF @Debug > 0
                     BEGIN
@@ -826,14 +821,17 @@ BEGIN TRY
                                   INNER JOIN [dbo].[MFProperty] AS [mp]
                                       ON [mp].[ColumnName] = [C].[name]
                               WHERE [C].[object_id] = OBJECT_ID(@MFTableName)
---                                    AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 20, 21, 23, 25 )
---AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 23, 25 )
-							  AND ISNULL([mp].[MFID], -1) NOT IN ( - 1 ) 
-                              --Removed values to update created and updated values in m-files
+                                    --                                    AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 20, 21, 23, 25 )
+                                    --AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 23, 25 )
+                                    AND ISNULL([mp].[MFID], -1) NOT IN ( - 1 )
+                                    --Removed values to update created and updated values in m-files
                                     --AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 20, 21, 23, 25 )
                                     AND [mp].[ColumnName] <> 'Deleted'
                                     AND [mp].[MFDataType_ID] IN (
-                                    SELECT [ListItem] FROM [dbo].[fnMFParseDelimitedString](@Datatypes ,',')
+                                                                    SELECT [ListItem] FROM [dbo].[fnMFParseDelimitedString](
+                                                                                                                               @Datatypes
+                                                                                                                              ,','
+                                                                                                                           )
                                                                 )
                               FOR XML PATH('')
                           )
@@ -847,18 +845,37 @@ BEGIN TRY
 
                     IF @colsUnpivot IS NOT NULL
                     BEGIN
+
+                    IF @Rownr = 1
+                    BEGIN
+
                         SET @Query
                             = @Query
                               + 'Union All
- select ID,  Objid, MFversion, ExternalID, ColName as ColumnName, CAST(value AS VARCHAR(4000)) AS Value
-        from ' + QUOTENAME(@MFTableName) + ' t
+ select ID,  Objid, MFversion, ExternalID, ColName as ColumnName, 
+ CAST(CAST(value AS DECIMAL(18,4)) AS VARCHAR(4000)) AS Value from ' + QUOTENAME(@MFTableName) + ' t
         unpivot
         (
-          value for Colname in (' + @colsUnpivot + ')
+          value for Colname in ('    + @colsUnpivot + ')
         ) unpiv
 		where 
-		' + @vquery + ' ';
-						 END;
+		'                            + @vquery + ' ';
+        END --@rownr = 1
+        ELSE
+        BEGIN
+
+                        SET @Query
+                            = @Query
+                              + 'Union All
+ select ID,  Objid, MFversion, ExternalID, ColName as ColumnName, CAST(value AS VARCHAR(4000)) AS Value from ' + QUOTENAME(@MFTableName)  + ' t
+        unpivot
+        (
+          value for Colname in ('    + @colsUnpivot + ')
+        ) unpiv
+		where 
+		'                            + @vquery + ' ';
+        END  --@rownr <> 1
+                    END;
 
                     SELECT @rownr =
                     (
@@ -898,6 +915,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
                 -- Validate class and property requirements
                 -------------------------------------------------------------
                 SET @ProcedureStep = 'Validate class and property requirements';
+
                 IF @IsUpToDate = 0
                 BEGIN
                     EXEC [dbo].[spMFSynchronizeSpecificMetadata] @Metadata = 'Property';
@@ -954,6 +972,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
                 -- check for required data missing
                 -------------------------------------------------------------
                 SET @ProcedureStep = 'check for required data missing';
+
                 IF
                 (
                     SELECT COUNT(*)

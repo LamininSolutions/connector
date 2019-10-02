@@ -12,39 +12,7 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo',
                                      @UpdateFlag = 2;
 -- smallint
 GO
-/*
-********************************************************************************
-    ** Change History
-    ********************************************************************************
-    ** Date        Author     Description
-    ** ----------  ---------  -----------------------------------------------------
-    ** 17-04-2015	 Dev 2	DATETIME column value convertion is changed
-    ** 16-05-2015	 Dev 2	Record Update/Insert logic is modified 
-    **				     (new logic : one record insert/update at a time and 
-    **					 skip the records which fails to insert/update)
-     25-05-2015	 DEV 2	New input parameter added (@Update_ID)
-						Adding @Update_ID & ExtrenalID into MFLog table
-     30-06-2015	 DEV 2	Changed the return value to 4 if any record failed insert/Update
-     08-07-2015	 DEV 2    Template object issue resolved
-     08-07-2015	 DEV 2    BIT Column value resolved
-	 22-2-2016     LC   Update Error logging, remove Is_template
-	 10-8-2016     lc   update objid filter to fix bug
-	 17-8-2016     lc   update conversion of float columns to take account of comma as decimal character
-	 19-8-2016     lc   update to take account of class table name in foreign languages 
-	26-8-2016		lc		change usage of temptables to global variables and convert to multi user
-	10-11-2016    LC    fix bug for records with Null values in required fields
-	2017-7-6		LC		Add updating of Filecount
-	2017-08-22		LC		Add synch error auto correction
-	2017-11-29		lc		Fix Is Templatelist temp file to allow for multiple threads
-	2018-06-22		lc		Localisation of workflow_id, name_or_Title property name
-	2018-07-03		lc		locatlisation for finish datetime
-	2018-08-01		LC		Resolve deletions for filter objid
-	2018-08-23		LC		Resolve sync error bug
-	2018-10-2		LC		Fix localization bug on  missing quotename
-	2018-12-16		LC		prevent record from wrong class in class table
-	2018-12-17		LC		formatting of boolean property
-	2019-4-01		LC		Add process_id = 0 as condition
-*/
+
 
 IF EXISTS
 (
@@ -94,33 +62,29 @@ Return
   - -1 = Error
 Parameters
   @TableName nvarchar(128)
-    fixme description
+    passed through by internal operation
   @Xml nvarchar(max)
-    fixme description
+    passed through by internal operation
   @Update\_ID int
-    fixme description
+    passed through by internal operation
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
   @SyncErrorFlag bit
-    fixme description
+    - optional
+    - set by internal operations
 
 
 Purpose
 =======
 
+The purpose of this procedure is to update SQL class table with the result from M-Files
+
 Additional Info
 ===============
 
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
+This procedure is used internally only
 
 Changelog
 =========
@@ -129,13 +93,36 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
+2019-04-01  LC         Add process_id = 0 as condition
+2018-12-17  LC         formatting of boolean property
+2018-12-16  LC         prevent record from wrong class in class table
+2018-10-02  LC         Fix localization bug on  missing quotename
+2018-08-23  LC         Resolve sync error bug
+2018-08-01  LC         Resolve deletions for filter objid
+2018-07-03  LC         locatlisation for finish datetime
+2018-06-22  LC         Localisation of workflow_id, name_or_Title property name
+2017-11-29  LC         Fix Is Templatelist temp file to allow for multiple threads
+2017-08-22  LC         Add synch error auto correction
+2017-07-06  LC         Add updating of Filecount
+17-04-2015  DEV 2      DATETIME column value convertion is changed
+16-05-2015  DEV 2      Record Update/Insert logic is modified 
+16-05-2015  DEV 2      (new logic : one record insert/update at a time and 
+16-05-2015  DEV 2      skip the records which fails to insert/update)
+25-05-2015  DEV 2      New input parameter added (@Update_ID)
+25-05-2015  DEV 2      Adding @Update_ID & ExtrenalID into MFLog table
+30-06-2015  DEV 2      Changed the return value to 4 if any record failed insert/Update
+08-07-2015  DEV 2      Template object issue resolved
+08-07-2015  DEV 2      BIT Column value resolved
+22-2-2016   LC         Update Error logging, remove Is_template
+10-8-2016   LC         update objid filter to fix bug
+17-8-2016   LC         conversion of float columns for comma as decimal character
+19-8-2016   LC         update to take account of class table name in foreign languages 
+26-8-2016   LC         change usage of temptables to global variables and convert to multi user
+10-11-2016  LC         fix bug for records with Null values in required fields
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
- /*******************************************************************************
-    ** Desc:  The purpose of this procedure is to Change the class and update any property  of an object
-    **  
-    ******************************************************************************/
+
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
