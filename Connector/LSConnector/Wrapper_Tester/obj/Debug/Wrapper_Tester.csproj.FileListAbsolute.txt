@@ -1,0 +1,10 @@
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\Wrapper_Tester\bin\Debug\Wrapper_Tester.exe.config
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\Wrapper_Tester\bin\Debug\Wrapper_Tester.exe
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\Wrapper_Tester\bin\Debug\Wrapper_Tester.pdb
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\Wrapper_Tester\bin\Debug\LSConnectMFilesAPIWrapper.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\Wrapper_Tester\bin\Debug\Laminin.Security.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\Wrapper_Tester\bin\Debug\LSConnectMFilesAPIWrapper.pdb
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\Wrapper_Tester\bin\Debug\LSConnectMFilesAPIWrapper.XmlSerializers.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\Wrapper_Tester\obj\Debug\Wrapper_Tester.csprojResolveAssemblyReference.cache
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\Wrapper_Tester\obj\Debug\Wrapper_Tester.exe
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\Wrapper_Tester\obj\Debug\Wrapper_Tester.pdb

@@ -1,0 +1,19 @@
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\appdef.xml
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\CAP Badge - Premier(1).jpg
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\DashBoardContent.xml
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\logo-color(1).png
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\LS-Logo-2016-Full-Colour(1).png
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\ContextMenuVaultApp.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\ContextMenuVaultApp.pdb
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\Laminin.Security.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\MFiles.Crypto.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\MFiles.VAF.Configuration.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\MFiles.VAF.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\Newtonsoft.Json.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\Interop.MFilesAPI.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\obj\Cloud\ContextMenuVaultApp.csprojResolveAssemblyReference.cache
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\obj\Cloud\ContextMenuVaultApp.csproj.ResolveComReference.cache
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\obj\Cloud\ContextMenuVaultApp.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\obj\Cloud\ContextMenuVaultApp.pdb
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\ContextMenuVaultApp.dll.config
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\VAF\ContextMenuVaultApp\bin\Cloud\Newtonsoft.Json.xml

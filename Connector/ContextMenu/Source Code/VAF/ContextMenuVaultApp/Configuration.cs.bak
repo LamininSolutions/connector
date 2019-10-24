@@ -1,0 +1,74 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.Serialization;
+using System.Text;
+using System.Threading.Tasks;
+using MFiles.VAF.Configuration;
+namespace ContextMenuVaultApp
+{
+    [DataContract]
+    class Configuration
+    {
+
+
+        //[MFObjType(Required = false)]
+        //public MFIdentifier ConfigurationObjectType = "ObjectTypes.Configuration";
+
+        //[MFPropertyDef(Required = false)]
+
+
+        //public MFIdentifier ConnectionStringPropertyDef = "PropertyDefs.ConnectionString";
+
+        //[DataMember]
+
+        //[TextEditor(
+
+        //   HelpText = "SQL Server Name.",
+
+        //   Label = "Server Name")]
+
+        //public string Server { get; set; } = "AMRUTAVPC";
+
+        [DataMember]
+        [TextEditor(HelpText = "SQL server name to connect with database.", Label = "Server Name")]
+        public string ServerName  = "AMRUTAVPC";
+
+        [DataMember]
+        [MFiles.VAF.Configuration.TextEditor(HelpText = "Database name", Label = "Database Name")]
+        public string DatabaseName  = "MFSQLConnector";
+
+        [DataMember]
+        [MFiles.VAF.Configuration.TextEditor(HelpText = "User name to connect with database", Label = "UserName")]
+        public string UserName  = "MFSQLConnector";
+
+        [DataMember]
+        [MFiles.VAF.Configuration.TextEditor(HelpText = "Password to connect with database.", Label = "Password")]
+        public string Password  = "MFSQLConnector";
+
+        [DataMember]
+        [TextEditor(HelpText = "Assembly installation Folder", Label = "Assembly Path")]
+        public string AssemblyPath;
+
+        //[DataMember]
+        //[TextEditor(HelpText = "File Export Folder Path", Label = "Export Path")]
+        //public string ExportPath;
+
+
+        //[DataMember]
+        //[TextEditor(HelpText = "File Import Folder Path", Label = "Import Path")]
+        //public string ImportPath;
+        //[DataMember]
+        //[TextEditor(HelpText = "M-Files client installation version", Label = "Client Version")]
+        //public string ClientVersion;
+
+        public Configuration()
+        {
+
+
+        }
+
+
+    }
+
+}

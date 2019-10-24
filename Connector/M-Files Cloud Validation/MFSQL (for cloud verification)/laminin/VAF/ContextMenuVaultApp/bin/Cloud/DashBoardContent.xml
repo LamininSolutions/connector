@@ -1,0 +1,8 @@
+<XMLDashboard>
+ <DashboardItem>
+  <Title>MFSQL Database File Connector</Title>
+    <Description>The MFSQL Database File Connector is part of the MFSQL Connector suite. The Connector allows the user to browse and search in M-Files to files that is saved in SQL Blobs in a SQL Table.</Description>
+    <HelpLink>https://lamininsolutions.atlassian.net/wiki/spaces/MFSQL/pages/156401668/IML+SQLDBConnector</HelpLink>
+    <Helptext>For more information</Helptext>
+ </DashboardItem>
+</XMLDashboard>

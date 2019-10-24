@@ -1,0 +1,12 @@
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\LSConnectAPIWrapper\bin\Debug\LSConnectMFilesAPIWrapper.dll.config
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\LSConnectAPIWrapper\bin\Debug\LSConnectMFilesAPIWrapper.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\LSConnectAPIWrapper\bin\Debug\LSConnectMFilesAPIWrapper.XmlSerializers.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\LSConnectAPIWrapper\bin\Debug\LSConnectMFilesAPIWrapper.pdb
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\LSConnectAPIWrapper\bin\Debug\System.Numerics.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\LSConnectAPIWrapper\obj\Debug\LSConnectMFilesAPIWrapper.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\LSConnectAPIWrapper\obj\Debug\LSConnectMFilesAPIWrapper.pdb
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\LSConnectAPIWrapper\obj\Debug\LSConnectMFilesAPIWrapper.XmlSerializers.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\LSConnectAPIWrapper\bin\Debug\Microsoft.VisualStudio.Debugger.Interop.11.0.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\LSConnectAPIWrapper\bin\Debug\Microsoft.VisualStudio.Debugger.InteropA.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\LSConnectAPIWrapper\bin\Debug\stdole.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\LSConnector\LSConnectAPIWrapper\obj\Debug\LSConnectMFilesAPIWrapper.csprojResolveAssemblyReference.cache

@@ -1,0 +1,11 @@
+<XMLAPP>
+<ApplicationSettingItem >
+<Name>MFSQL Connector Context Menu UIX</Name>
+<Path>C:\CMV9\MFSQLContextMenuUIX.zip</Path> 
+</ApplicationSettingItem>
+<ApplicationSettingItem>
+<Name>MFSQL Connector VaultApp</Name>
+<Path>C:\CMV9\ContextMenuVaultApp.zip</Path> 
+</ApplicationSettingItem>
+
+</XMLAPP>

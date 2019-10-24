@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>ReadMe</title>
+</head>
+<body>
+<h1><a href="http://lamininsolutions.com/what-we-do/products/mfsql-connector/">MF SQL Connector</a> Readme</h1>
+<p> Congratulations! You have successfully installed MFSQL Connector into the database. This installation created tables, views and procedures in the target database. Other extensions builds onto the Connector.  Install the other packages into the designated servers to access the functionality of these extensions. The core extensions include:
+	<ol>
+		<li>Context Menu - This extension allows MFSQL Connector operations from within context on M-Files Desktop Client UI</li>
+	</ol>
+</p>
+<p>Consult the <a href="https://lamininsolutions.atlassian.net/wiki/display/MFSQL">Online Documentation</a> to use the Connector and get details about each procedure and steps.</p>
+
+<h2>First steps</h2>
+
+<p>Use SSMS or Visual to explore the Connector Database. The MFSQL Manager will also be very handy to explore the metadata in depth</p>
+<p>There are many different operations and procedures that can be performed with the Connector, however the most basic steps to get started include the following initialization of the Connector by using the following procedures</p>
+<ul>
+<li>Test vault connection: exec spMFVaultConnectionTest </li>
+<li>First metadata syncronization: exec spMFSynchronizeMetadata </li>
+<li>Create first class table: exec spMFCreateTable "Customer" </li>
+<li>Get records for the table from M-Files: exec spMFUpdateTable "MFCustomer",1 </li>
+</ul>
+<p>The Connector is designed as a developer tool to design and build integrations with M-Files and to do extensive metadata manipulation. There is much more to it.
+<br>
+<h2>Handy Links</h2>
+<ul>
+<li>
+<a href="https://lamininsolutions.atlassian.net/wiki/display/MFSQL/Functional+Overview">Functional Overview</a>
+</li>
+<li>
+<a href="https://lamininsolutions.atlassian.net/wiki/display/MFSQL/Using+the+Connector">Use Cases</a>
+</li>
+<li>
+<a href="https://lamininsolutions.atlassian.net/wiki/display/MFSQL/Use+Cases">Using the Connector</a>
+</li>
+<li>
+<a href="http://lamininsolutions.com/what-we-do/webinars">Webinars</a>
+</li>
+
+</ul>
+
+</body>
+</html>

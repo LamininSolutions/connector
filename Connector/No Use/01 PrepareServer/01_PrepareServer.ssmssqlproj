@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+<SqlWorkbenchSqlProject xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" Name="01_PrepareServer">
+  <Items>
+    <LogicalFolder Name="Connections" Type="2" Sorted="true">
+      <Items>
+        <ConnectionNode Name="SQL02\D12MFEE:LSUSA\ArnieC">
+          <Created>2016-09-28T17:14:17.4543254-04:00</Created>
+          <Type>SQL</Type>
+          <Server>SQL02\D12MFEE</Server>
+          <UserName />
+          <Authentication>Windows Authentication</Authentication>
+          <InitialDB>MFAccountingConnect</InitialDB>
+          <LoginTimeout>15</LoginTimeout>
+          <ExecutionTimeout>0</ExecutionTimeout>
+          <ConnectionProtocol>NotSpecified</ConnectionProtocol>
+          <ApplicationName>Microsoft SQL Server Management Studio - Query</ApplicationName>
+        </ConnectionNode>
+      </Items>
+    </LogicalFolder>
+    <LogicalFolder Name="Queries" Type="0" Sorted="true">
+      <Items>
+        <FileNode Name="01a_MasterDB.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:SQL02\D12MFEE:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>SQL02\D12MFEE</AssociatedConnSrvName>
+          <AssociatedConnUserName />
+          <FullPath>01a_MasterDB.sql</FullPath>
+        </FileNode>
+        <FileNode Name="01b_MSDB.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:SQL02\D12MFEE:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>SQL02\D12MFEE</AssociatedConnSrvName>
+          <AssociatedConnUserName />
+          <FullPath>01b_MSDB.sql</FullPath>
+        </FileNode>
+        <FileNode Name="01c_MFAccountingVaultDB.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:SQL02\D12MFEE:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>SQL02\D12MFEE</AssociatedConnSrvName>
+          <AssociatedConnUserName />
+          <FullPath>01c_MFAccountingVaultDB.sql</FullPath>
+        </FileNode>
+        <FileNode Name="01d_MFAccountingConnectDB.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:SQL02\D12MFEE:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>SQL02\D12MFEE</AssociatedConnSrvName>
+          <AssociatedConnUserName />
+          <FullPath>01d_MFAccountingConnectDB.sql</FullPath>
+        </FileNode>
+        <FileNode Name="01e_ScanCapture_PurchasesDB.sql">
+          <AssociatedConnectionMoniker>8c91a03d-f9b4-46c0-a305-b5dcc79ff907:SQL02\D12MFEE:True</AssociatedConnectionMoniker>
+          <AssociatedConnSrvName>SQL02\D12MFEE</AssociatedConnSrvName>
+          <AssociatedConnUserName />
+          <FullPath>01e_ScanCapture_PurchasesDB.sql</FullPath>
+        </FileNode>
+      </Items>
+    </LogicalFolder>
+    <LogicalFolder Name="Miscellaneous" Type="3" Sorted="true">
+      <Items>
+        <FileNode Name="01_PrepareServer.ini">
+          <AssociatedConnectionMoniker />
+          <AssociatedConnSrvName />
+          <AssociatedConnUserName />
+          <FullPath>01_PrepareServer.ini</FullPath>
+        </FileNode>
+        <FileNode Name="Publish.bat">
+          <AssociatedConnectionMoniker />
+          <AssociatedConnSrvName />
+          <AssociatedConnUserName />
+          <FullPath>Publish.bat</FullPath>
+        </FileNode>
+      </Items>
+    </LogicalFolder>
+  </Items>
+</SqlWorkbenchSqlProject>

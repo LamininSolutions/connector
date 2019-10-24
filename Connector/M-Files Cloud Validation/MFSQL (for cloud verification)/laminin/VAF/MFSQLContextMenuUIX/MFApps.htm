@@ -1,0 +1,90 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html;charset=UTF-8">
+
+    <!-- Styles used on the dashboard -->
+    <style>
+        body {
+            font-family: "tahoma";
+        }
+    </style>
+
+    <!-- Include the jQuery Core library -->
+    <script type="text/javascript" src="jQuery/jquery-1.8.1.min.js"></script>
+
+    <!-- Dashboard implementation -->
+
+    <script>
+
+        var currentDashboard = null;
+
+        function OnNewDashboard(dashboard) {
+            debugger;
+            /// <summary>Dashboard code entry point.</summary>
+            /// <param name="dashboard" type="MFiles.Dashboard">The new dashboard object.</param>
+
+            // Register a handler to listen the started event.
+
+            // dashboard.Window.Close();
+            //  window.open("http://www.w3schools.com", "_blank", "toolbar=yes,scrollbars=yes,resizable=yes,top=500,left=500,width=400,height=400");
+
+            //var o = MFiles.CreateObjectCLR("ContextMenu.dll", "ContextMenu.Menu");
+            //var str = o.GetConstr("Sample Vault");
+            //alert(str);
+            dashboard.Events.Register(Event_Started, getDashboardStartedHandler(dashboard));
+        }
+
+        function getDashboardStartedHandler(dashboard) {
+            /// <summary>Gets the event handler function for dashboard starting event.</summary>
+            /// <param name="dashboard" type="MFiles.Dashboard">The current dashboard object.</param>
+            /// <returns type="MFiles.Events.OnStarted">The event handler.</returns>
+
+            // Return the handler function.
+            return function () {
+
+                // Set the dashboard window features.
+                dashboard.Window.SetDefaultSize(100, 100, true);
+                dashboard.Window.Resizable = false;
+                dashboard.Window.Maximizable = false;
+                dashboard.Window.Minimizable = false;
+
+                // Set the window title.
+                dashboard.Window.Title = dashboard.CustomData.caption;
+                // alert(dashboard.CustomData.message);
+                // Set the dashboard content.
+
+                // Execute the VAF extension method and alter the response.
+
+                currentDashboard = dashboard;
+
+                //jQuery("#message_placeholder").append(dashboard.CustomData.message);
+
+                // Add an action for the button.
+                jQuery("#button_ok").click(function () {
+
+                    // Close the dashboard window on button click.
+                    dashboard.Window.Close();
+                });
+
+                jQuery("#button_getContextMenuJson").click(function() {
+                    alert(dashboard.Vault.ExtensionMethodOperations.ExecuteVaultExtensionMethod("GetContextMenuJson", ""));
+                });
+            };
+        }
+    </script>
+</head>
+
+<!-- The dashboard content -->
+<body>
+    <h3>MFSQL Connector Menu</h3>
+
+    <div id="subtitle-get-help" class="custom1-section-subtitle"></div>
+
+    <p id="message_placeholder">
+    </p>
+    <hr />
+    <center><button id="button_getContextMenuJson">GetContextMenuJson</button></center>
+    <center><button id="button_ok">Close</button></center>
+</body>
+</html>

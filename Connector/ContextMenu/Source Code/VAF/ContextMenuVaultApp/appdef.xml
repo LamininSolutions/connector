@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<application type="server-application" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.m-files.com/schemas/appdef-server-v1.xsd">
+  <guid>27a34769-d9f2-41c3-9d4e-47b3ed50a437</guid>
+  <name>MFSQL Connector VaultApp</name>
+  <description>ContextMenuVaultApp</description>
+  <publisher>Laminin Solutions</publisher>
+  <version>3.2.1.49</version>
+  <copyright>(c) Laminin Solutions 2016</copyright>
+  <extension-objects>
+    <extension-object>
+      <name>ContextMenuVaultApp</name>
+      <assembly>ContextMenuVaultApp.dll</assembly>
+      <class>ContextMenuVaultApp.VaultApplication</class>
+      <installation-method>Install</installation-method>
+      <uninstallation-method>Uninstall</uninstallation-method>
+      <initialization-method>Initialize</initialization-method>
+      <uninitialization-method>Uninitialize</uninitialization-method>
+      <start-operations-method>StartOperations</start-operations-method>
+    </extension-object>
+  </extension-objects>
+</application>

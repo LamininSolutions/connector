@@ -1,0 +1,5 @@
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\Laminin.Security\Laminin\bin\Debug\Laminin.Security.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\Laminin.Security\Laminin\bin\Debug\Laminin.Security.pdb
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\Laminin.Security\Laminin\obj\Debug\Laminin.csprojResolveAssemblyReference.cache
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\Laminin.Security\Laminin\obj\Debug\Laminin.Security.dll
+E:\Development\TFS\LSConnectWrappers\LSConnector-Release4\M-Files Cloud Validation\MFSQL (for cloud verification)\laminin\Laminin.Security\Laminin\obj\Debug\Laminin.Security.pdb
