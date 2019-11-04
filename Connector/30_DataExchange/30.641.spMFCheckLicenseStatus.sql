@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFCheckLicenseStatus' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.13.53'           -- varchar(50)
+                                    ,@Object_Release = '4.4.13.54'           -- varchar(50)
                                     ,@UpdateFlag = 2;                        -- smallint
 GO
 
@@ -113,6 +113,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-10-25  LC         Improve messaging, resolve license check bug
 2019-09-21  LC         Parameterise overide to check license on new license install
 2019-09-20  LC         Parameterise email notification, send only 1 email a day
 2019-09-15  LC         Check MFServer for license once day
@@ -303,18 +304,26 @@ BEGIN
         FROM [dbo].[fnMFParseDelimitedString](@license, '|');
     END;
 
+	--check if license expriry date exist in decrypted license
     SELECT @Checkstatus = CASE
                               WHEN NOT EXISTS
     (
         SELECT *
         FROM [dbo].[fnMFParseDelimitedString](@license, '|') AS [fmss]
-        WHERE [fmss].[ID] = 4
+        WHERE [fmss].[ID] =  4
     )   THEN
                                   4
                               ELSE
                                   9
                           END;
-END;
+END
+ELSE
+BEGIN
+  SET @DebugText = 'Precheck error CheckStatus %i';
+END
+
+
+
 
 IF @Checkstatus = 1
 BEGIN -- check MFmodule of exist
@@ -352,7 +361,7 @@ END;
 -------------------------------------------------------------
 -- initialise license
 -------------------------------------------------------------
-SET @ProcedureStep = 'initialise license';
+SET @ProcedureStep = 'Initialise license';
 
 IF @Checkstatus = 3
 BEGIN
@@ -622,16 +631,12 @@ BEGIN TRY
 
     SET @DebugText
         = ' Module %s ResultCode %s Expiry Date ' + CONVERT(NVARCHAR, @ExpiryDate, 105) + ' Last Validated '
-          + CONVERT(NVARCHAR, @LastValidate, 105);
+          + CONVERT(NVARCHAR, @LastValidate, 101);
     SET @DebugText = @DefaultDebugText + @DebugText;
-    SET @ProcedureStep = 'recheck licence check result';
+    SET @ProcedureStep = 'Recheck licence result: ';
 
     IF @Debug > 0
     BEGIN
-        SELECT @ModuleID
-              ,@ErrorCode
-              ,@ExpiryDate
-              ,@LastValidate;
 
         RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ModuleID, @ErrorCode);
     END;
@@ -639,12 +644,14 @@ BEGIN TRY
     -------------------------------------------------------------
     -- LICENSE EXPIRY
     -------------------------------------------------------------
-    SELECT @RemainingDays   = DATEDIFF(DAY, GETUTCDATE(), CONVERT(DATETIME, @ExpiryDate, 105))
+
+	    SET @ProcedureStep = 'Revalidating ';   
+    SELECT @RemainingDays   = DATEDIFF(DAY, GETUTCDATE(), CONVERT(DATETIME, @ExpiryDate, 101))
           ,@lastCheckedDays = DATEDIFF(DAY, @LastValidate, GETUTCDATE());
 
     SET @DebugText = ' Remaining Days %i LastCheckedDays %i ';
     SET @DebugText = @DefaultDebugText + @DebugText;
-    SET @ProcedureStep = 'Rechecked License expire';
+
 
     IF @Debug > 0
     BEGIN
@@ -654,6 +661,7 @@ BEGIN TRY
     -------------------------------------------------------------
     -- re-check license
     -------------------------------------------------------------
+      SET @ProcedureStep = 'Report error codes ';
     IF @RemainingDays <= @ExpiryNotification
     BEGIN
         SET @DebugText = ' License is expiring on ' + CONVERT(NVARCHAR(25), @ExpiryDate);
@@ -746,12 +754,13 @@ BEGIN TRY
         RETURN 5;
     END;
 
-    RETURN @ErrorCode;
+
+   RETURN @ErrorCode;
 END TRY -- update license check check status > 4
 BEGIN CATCH
     SET @DebugText = @@Error;
     SET @DebugText = @DefaultDebugText + @DebugText;
-    SET @ProcedureStep = 'License check failed';
+    SET @ProcedureStep = 'License check failed ';
 
     IF @Debug > 0
     BEGIN
@@ -796,34 +805,7 @@ BEGIN CATCH
 
     SET @ProcedureStep = 'Catch Error';
 END
-    /*
-    -------------------------------------------------------------
-    -- Log Error
-    -------------------------------------------------------------   
-    EXEC [dbo].[spMFProcessBatch_Upsert] @ProcessBatch_ID = @ProcessBatch_ID OUTPUT
-                                        ,@ProcessType = @ProcessType
-                                        ,@LogType = N'Error'
-                                        ,@LogText = @LogTextDetail
-                                        ,@LogStatus = @LogStatus
-                                        ,@debug = @Debug;
 
-    SET @StartTime = GETUTCDATE();
-
-    EXEC [dbo].[spMFProcessBatchDetail_Insert] @ProcessBatch_ID = @ProcessBatch_ID
-                                              ,@LogType = N'Error'
-                                              ,@LogText = @LogTextDetail
-                                              ,@LogStatus = @LogStatus
-                                              ,@StartTime = @StartTime
-                                              ,@MFTableName = @MFTableName
-                                              ,@Validation_ID = null
-                                              ,@ColumnName = NULL
-                                              ,@ColumnValue = NULL
-                                              ,@Update_ID = null
-                                              ,@LogProcedureName = @ProcedureName
-                                              ,@LogProcedureStep = @ProcedureStep
-                                              ,@debug = 0;
-
-*/
     RETURN @ErrorCode;
 END CATCH;
 

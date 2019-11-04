@@ -6,7 +6,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'fnMFTextToDate', -- nvarchar(100)
-    @Object_Release = '4.4.13.53', -- varchar(50)
+    @Object_Release = '4.4.13.54', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 go
 IF EXISTS ( SELECT  1
@@ -55,6 +55,7 @@ Examples
     SELECT dbo.fnMFTextToDate('1/13/2009','/')
     Select dbo.fnMFTextToDate('1/13/2009 05:04:22.007','/')
     Select dbo.fnMFTextToDate('1/13/2009 05:04:22.007 a.m.','/')
+	SELECT dbo.fnMFTextToDate('3/1/2017 10:47:44 AM','/')
     
 Changelog
 =========
@@ -62,6 +63,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-11-01  LC         Expand to include more date formats
 2019-09-25  LC         Expand function to include other formats for general use
 2019-09-10  LC         Create function for use in licensing
 ==========  =========  ========================================================
@@ -72,6 +74,20 @@ BEGIN
 
        DECLARE @Day VARCHAR(2), @Month VARCHAR(2), @Year VARCHAR(4), @Date datetime
        DECLARE @parselist AS TABLE (id INT, listitem VARCHAR(4))
+
+IF ISDATE(@TextDate) = 1 -- text is valid date
+BEGIN
+
+SELECT @Date = @TextDate
+END
+
+IF ISDATE(@TextDate) = 0 AND (CHARINDEX('AM',@TextDate) >= 19 OR  CHARINDEX('PM',@TextDate) >= 19)
+
+BEGIN  
+
+SELECT @date = CONVERT(DATETIME,@textDate)
+
+END
 
 IF LEN(@TextDate) < 11
 Begin
@@ -91,6 +107,7 @@ Begin
        SELECT @Date = CONVERT(DATE,@year+'-'+@month+'-'+@day)
  
       END --text is date on '01/01/2009'
+
 IF ISDATE(@TextDate) = 0 AND (CHARINDEX('a',@TextDate,11) = 0 and CHARINDEX('p',@TextDate,11) = 0)
 BEGIN 
 
@@ -114,6 +131,9 @@ SELECT @TextDate = REPLACE(@TextDate,'m.','')
        SELECT @Date = CONVERT(DATEtime2,@TextDate,105)
 
 END --include time 
+
+
+
  --       SELECT @DateTime
       RETURN @Date
  END 
