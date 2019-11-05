@@ -18,7 +18,7 @@ GO
 /*------------------------------------------------------------------------------------------------
 	Author: leRoux
 	
-	Description:  Update assemblies when version changes
+	Description:  
 ------------------------------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------------------------------
   MODIFICATION HISTORY
@@ -66,7 +66,7 @@ Return
   - 1 = Success
   - -1 = Error
 Parameters
-  @MFilesVersion
+  @MFilesVersion 
     - Default is null
     - if the @MFilesVersion is null, it will use the value in MFSettings, else it will reset MFSettings with the value
   @ProcessBatch_ID (optional, output)
@@ -93,19 +93,18 @@ It will use the MFversion in the MFsettings table to drop all CLR procedures, re
 Examples
 ========
 
-To update the assemblies based on the MFVersion in MFSettings
-
 .. code:: sql
-
+    To update the assemblies based on the MFVersion in MFSettings
     Exec spMFUpdateAssemblies
 
 ----
 
-To update the assemblies with a different MFVersion
-
+    To update the assemblies with a different MFVersion
 .. code:: sql
 
     Exec spMFUpdateAssemblies @MFilesVersion '19.8.8082.5'
+
+    
 
 Changelog
 =========
