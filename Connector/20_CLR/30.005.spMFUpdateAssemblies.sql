@@ -1,7 +1,5 @@
 ﻿
-
-
-
+Go
 
 PRINT space(10) + QUOTENAME(DB_NAME()) + '.[dbo].[spMFUpdateAssemblies]'
 SET ANSI_NULLS ON
@@ -15,23 +13,6 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFUpd
     @UpdateFlag = 2 -- smallint
 GO
 
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux
-	
-	Description:  
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  {An example of how the code would be used}
-  
------------------------------------------------------------------------------------------------*/
 IF EXISTS ( SELECT  1
             FROM   information_schema.Routines
             WHERE   ROUTINE_NAME = 'spMFUpdateAssemblies'--name of procedure
@@ -93,18 +74,15 @@ It will use the MFversion in the MFsettings table to drop all CLR procedures, re
 Examples
 ========
 
+To update the assemblies based on the MFVersion in MFSettings
+
 .. code:: sql
-    To update the assemblies based on the MFVersion in MFSettings
     Exec spMFUpdateAssemblies
 
-----
+To update the assemblies with a different MFVersion
 
-    To update the assemblies with a different MFVersion
 .. code:: sql
-
     Exec spMFUpdateAssemblies @MFilesVersion '19.8.8082.5'
-
-    
 
 Changelog
 =========
