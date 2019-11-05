@@ -77,12 +77,12 @@ Examples
 To update the assemblies based on the MFVersion in MFSettings
 
 .. code:: sql
-    Exec spMFUpdateAssemblies
+   Exec spMFUpdateAssemblies
 
 To update the assemblies with a different MFVersion
 
 .. code:: sql
-    Exec spMFUpdateAssemblies @MFilesVersion '19.8.8082.5'
+   Exec spMFUpdateAssemblies @MFilesVersion '19.8.8082.5'
 
 Changelog
 =========
