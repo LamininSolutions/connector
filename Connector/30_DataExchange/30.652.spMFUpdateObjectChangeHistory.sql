@@ -95,6 +95,7 @@ Examples
 ========
 
 .. code:: sql
+
 	INSERT INTO dbo.MFObjectChangeHistoryUpdateControl
 	(
 		MFTableName,
@@ -111,6 +112,7 @@ Examples
 ----
 
 .. code:: sql
+
     exec spMFUpdateObjectChangeHistory @WithClassTableUpdate = 1, @Debug = 1
     
 Changelog
