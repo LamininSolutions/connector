@@ -45,15 +45,17 @@ AS
 
 /*rST**************************************************************************
 
-=================================
+=============================
 spMFUpdateObjectChangeHistory
-=================================
+=============================
 
 Return
   - 1 = Success
   - -1 = Error
+
   @WithClassTableUpdate int
   - Default = 1 (yes)  
+
   @Debug (optional)
     - Default = 0
     - 1 = Standard Debug Mode
