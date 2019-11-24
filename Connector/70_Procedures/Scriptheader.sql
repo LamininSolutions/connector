@@ -94,17 +94,15 @@ Examples
 ========
 
 .. code:: sql
+
     To update the assemblies based on the MFVersion in MFSettings
     Exec spMFUpdateAssemblies
 
-----
-
     To update the assemblies with a different MFVersion
+
 .. code:: sql
 
     Exec spMFUpdateAssemblies @MFilesVersion '19.8.8082.5'
-
-    
 
 Changelog
 =========
