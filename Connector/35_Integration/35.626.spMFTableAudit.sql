@@ -777,11 +777,14 @@ WHERE ao.objid IS NULL) ;';
 						   WHERE id IN (SELECT mah.id from [dbo].[MFAuditHistory] mah
 						   left JOIN ' + QUOTENAME(@MFTableName)
                       + ' AS [mlv]
+
+						   ON mlv.objid = mah.[ObjID] AND mlv.'+REPLACE(@ClassTableColumn,'_ID','') +' = mah.[Class]
 						   ON mlv.objid = mah.[ObjID] AND mlv.'+@ClassTableColumn +' = mah.[Class]
 						   WHERE mlv.id IS NULL and mah.class = @ClassID );';
 
 IF @debug > 0
 PRINT @sql;
+
 
               EXEC sp_executeSQL @SQL, N'@ClassID int', @ClassID
             END;

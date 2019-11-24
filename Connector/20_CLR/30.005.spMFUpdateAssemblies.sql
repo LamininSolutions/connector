@@ -94,6 +94,7 @@ Examples
 ========
 
 .. code:: sql
+
     To update the assemblies based on the MFVersion in MFSettings
     Exec spMFUpdateAssemblies
 
