@@ -7,14 +7,15 @@ MODIFICATIONS
 2019-1-9	lc	add additional controls to validate MFversion, exist when not exist.
 2019-1-11	LC	IF version in mfsettings is different from installer then use installer 
 add parameter to set MFVersion
+ 
 */
 
 
 DECLARE @Msg NVARCHAR(400),
         @DBName VARCHAR(100) = '{varAppDB}',
-        @FileLocation NVARCHAR(250) = '{varCLRPath}',
+        @FileLocation NVARCHAR(250) ,
         @MFLocation NVARCHAR(250),
-        @MFInstallPath NVARCHAR(100) = '{varMFInstallPath}',
+        @MFInstallPath NVARCHAR(100) ,
         @Version NVARCHAR(100) ,
         @DatabaseName NVARCHAR(100),
         @AlterDBQuery NVARCHAR(500);
@@ -36,12 +37,11 @@ SELECT @MFInstallPath = CAST(VALUE AS NVARCHAR(100)) FROM MFSETTINGS WHERE Name 
 END
 
 
-
-SELECT @FileName = @FileLocation + '\Laminin.Security.dll';
+SELECT @FileName = ISNULL(@FileLocation,'{varCLRPath}') + '\Laminin.Security.dll';
 EXEC master.sys.xp_fileexist @FileName, @File_Exists OUT;
 IF @File_Exists = 1
 BEGIN
-    SET @Output = 'Assembly location Found: '+ @FileLocation;
+    SET @Output = 'Assembly location Found: '+ ISNULL(@FileLocation,'{varCLRPath}');
 	RAISERROR(@Output, 10,1)
     SET @CLRInstallationFlag = 1;
 
@@ -64,7 +64,7 @@ SELECT @Version = CAST(value AS varchar) FROM MFSettings WHERE name = 'MFVersion
 ELSE
 SET @Version = @MFilesVersion;
 
-SET @MFLocation = @MFInstallPath + '\' + ISNULL(@Version,'{varMFVersion}') + '\Common';
+SET @MFLocation = ISNULL(@MFInstallPath,'{varMFInstallPath}') + '\' + ISNULL(@Version,'{varMFVersion}') + '\Common';
 SET @DatabaseName = 'dbo.' + @DBName;
 
 SELECT @FileName = @MFLocation + '\Interop.MFilesAPI.dll';

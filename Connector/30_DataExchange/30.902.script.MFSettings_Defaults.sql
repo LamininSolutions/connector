@@ -7,6 +7,7 @@ MODIFIED
 2017-7-16	LC	Add script to update profile security
 2018-9-27	LC	Update logic for mail profile and fix bug with incorrect variable
 2019-1-26	LC	Prevent default profile to be created if profile already exists
+2019-11-18  LC  remove setting the profile as default.  Companies may set another email as default
 */
 
 SET NOCOUNT ON 
@@ -64,7 +65,7 @@ BEGIN
 
 END;
 
-
+/*
 
 SELECT @IsDefault = sp.is_default
 FROM msdb.dbo.sysmail_principalprofile AS sp
@@ -79,7 +80,7 @@ BEGIN
                                                      @profile_name = @profile,
                                                      @is_default = 1;
 END;
-
+*/
 /*
 
 Set Default Email CSS 

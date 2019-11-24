@@ -8,7 +8,7 @@ GO
 SET NOCOUNT ON;
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo',
                                      @ObjectName = N'spMFUpdateTableInternal', -- nvarchar(100)
-                                     @Object_Release = '4.3.9.47',             -- varchar(50)
+                                     @Object_Release = '4.4.14.55',             -- varchar(50)
                                      @UpdateFlag = 2;
 -- smallint
 GO
@@ -92,6 +92,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-11-18  LC         Update time format to address localisation
 2019-08-30  JC         Added documentation
 2019-04-01  LC         Add process_id = 0 as condition
 2018-12-17  LC         formatting of boolean property
@@ -246,7 +247,7 @@ BEGIN
         UPDATE [p]
         SET [p].[propertyValue] = REPLACE([p].[propertyValue], '.', ':')
         FROM [#Properties] AS [p]
-        WHERE [p].[dataType] IN ( 'MFDataTypeTimestamp', 'MFDataTypeDate' );
+        WHERE [p].[dataType] IN ( 'MFDataTypeTimestamp', 'MFDataTypeDate','MFDatatypeTime' );
 
         ----------------------------------------------------------------
         --Update property name with column name from MFProperty Tbale
@@ -584,7 +585,10 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
                     WHEN [DATA_TYPE] = 'DATE' THEN
                         ' CONVERT(DATETIME, NULLIF(' + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''''),105) AS '
                         + QUOTENAME([COLUMN_NAME]) + ','
-                    WHEN [DATA_TYPE] = 'DATETIME' THEN
+                    WHEN DATA_TYPE = 'TIME' THEN 
+					    ' CONVERT(TIME(0), NULLIF(' + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''''),0) AS '
+                        + QUOTENAME([COLUMN_NAME]) + ','
+					WHEN [DATA_TYPE] = 'DATETIME' THEN
                         ' DATEADD(MINUTE,DATEDIFF(MINUTE,getUTCDATE(),Getdate()),CONVERT(DATETIME, NULLIF('
                         + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''''),105 )) AS ' + QUOTENAME([COLUMN_NAME])
                         + ','
@@ -640,6 +644,9 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
                     WHEN [DATA_TYPE] = 'DATE' THEN
                         '' + QUOTENAME(@TableName) + '.' + QUOTENAME([COLUMN_NAME]) + ' = CONVERT(DATETIME, NULLIF(t.'
                         + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''''),105 ) ,'
+                   WHEN DATA_TYPE = 'TIME' THEN 
+					    '' + QUOTENAME(@TableName) + '.' + QUOTENAME([COLUMN_NAME]) + ' = CONVERT(TIME(0), NULLIF(t.'
+						 + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''H:mm:ss''),0)  ,'
                     WHEN [DATA_TYPE] = 'DATETIME' THEN
                         '' + QUOTENAME(@TableName) + '.' + QUOTENAME([COLUMN_NAME])
                         + ' = DATEADD(MINUTE,DATEDIFF(MINUTE,getUTCDATE(),Getdate()), CONVERT(DATETIME,NULLIF(t.'
@@ -799,7 +806,9 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
             ----------------------------------------
             --Executing Dynamic Query
             ----------------------------------------
-            IF @Debug > 10
+        SELECT @ProcedureStep = 'Execute dynamic query';
+
+	        IF @Debug > 10
             BEGIN
 
                 SELECT @UpdateQuery AS '@UpdateQuery';
@@ -986,6 +995,7 @@ SELECT @count = count(*)
         --If IsWorkflowEnforced = 1 and object workflow_ID is null  then 
         --set workflow to Workflow in MFClass_Workflow_ID
         ----------------------------------------------------------------
+		         SELECT @ProcedureStep = 'validate workflow required';
 
         DECLARE @WorkflowPropColumnName NVARCHAR(100);
         SELECT @WorkflowPropColumnName = [ColumnName]

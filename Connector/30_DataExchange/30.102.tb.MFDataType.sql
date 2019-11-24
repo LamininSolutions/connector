@@ -4,23 +4,28 @@
 MFDataType
 ==========
 
+Description
+===========
+
+Datatypes match M-Files datatypes with SQL datatypes.  This table must not be changed and is created on installation.
+
 Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL ID
 MFTypeID int (not null)
-  fixme description
+  Data type ID used by M-Files
 SQLDataType varchar(50)
-  fixme description
+  Equivalent SQL datatype for the M-Files datatype
 Name varchar(100)
-  fixme description
+  M-Files name of datatype
 ModifiedOn datetime (not null)
-  fixme description
+  date SQL last modified
 CreatedOn datetime (not null)
-  fixme description
+  date created in SQL
 Deleted bit (not null)
-  fixme description
+  default = 0
 
 Indexes
 =======
@@ -55,6 +60,7 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-09-07  JC         Added documentation
+2015-03-01  LC         Table designed
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -64,8 +70,7 @@ go
 	Author: leRoux Cilliers, Laminin Solutions
 	Create date: 2016-02
 	Database: 
-	Description: Datatypes match M-Files datatypes with SQL datatypes.  This table must not be changed
-------------------------------------------------------------------------------------------------*/
+	------------------------------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------------------------------
   MODIFICATION HISTORY
   ====================

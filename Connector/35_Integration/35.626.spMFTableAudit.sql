@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFTableAudit' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.13.54'   -- varchar(50)
+                                    ,@Object_Release = '4.4.14.55'   -- varchar(50)
                                     ,@UpdateFlag = 2;                -- smallint
 GO
 
@@ -723,25 +723,45 @@ WHERE ao.objid IS NULL) ;';
 			-------------------------------------------------------------
 			-- Remove from MFauditHistory where objids is not returned from MF
 			-------------------------------------------------------------
-	  SET @ProcedureStep = 'Delete from audit history';
+	  SET @ProcedureStep = 'Delete from audit history not in MF';
 	  		
-			IF @MFIDs IS NOT NULL
+
+			IF @ObjIDs IS NOT NULL
             BEGIN
-            
+            ;
 			WITH cte AS
             (
-			SELECT [ListItem] AS [Objid] from [dbo].[fnMFParseDelimitedString](@MFIDs,',') fps
+			SELECT [ListItem] AS [Objid] from [dbo].[fnMFParseDelimitedString](@ObjIDs,',') fps
 			LEFT JOIN [#AllObjects] AS [ao]
 			ON fps.[ListItem] = ao.[ObjID]
 			WHERE ao.objid IS null
 			)
-			DELETE FROM [dbo].[MFAuditHistory] 
-			WHERE [Class] = @ClassId AND [Objid] IN (SELECT cte.[Objid] FROM cte)
+			SELECT * FROM cte
+			--DELETE FROM [dbo].[MFAuditHistory] 
+			--WHERE [Class] = @ClassId AND [Objid] IN (SELECT cte.[Objid] FROM cte)
+			
 			END
 
+			Set @DebugText = ''
+			Set @DefaultDebugText = @DefaultDebugText + @DebugText
+			
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DefaultDebugText,10,1,@ProcedureName,@ProcedureStep );
+				END
+			
             -----------------------------------------------------------
-     --        Delete from audit history where item no longer in class table and flag = 4
+     --        Delete from audit history where item no longer in class table and flag is empty
             -----------------------------------------------------------
+     Set @DebugText = ''
+     Set @DefaultDebugText = @DefaultDebugText + @DebugText
+     Set @Procedurestep = 'Delete flag null from audit history'
+     
+     IF @debug > 0
+     	Begin
+     		RAISERROR(@DefaultDebugText,10,1,@ProcedureName,@ProcedureStep );
+     	END
           
 
             IF
@@ -758,9 +778,12 @@ WHERE ao.objid IS NULL) ;';
 						   left JOIN ' + QUOTENAME(@MFTableName)
                       + ' AS [mlv]
 						   ON mlv.objid = mah.[ObjID] AND mlv.'+@ClassTableColumn +' = mah.[Class]
-						   WHERE mlv.id IS NULL) and isnull(StatusFlag,-1) = -1  ;';
+						   WHERE mlv.id IS NULL and mah.class = @ClassID );';
 
-                EXEC (@sql);
+IF @debug > 0
+PRINT @sql;
+
+              EXEC sp_executeSQL @SQL, N'@ClassID int', @ClassID
             END;
 
 

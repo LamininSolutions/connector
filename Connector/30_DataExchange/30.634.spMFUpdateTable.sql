@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFUpdateTable'
                                     -- nvarchar(100)
-                                    ,@Object_Release = '4.4.13.54'
+                                    ,@Object_Release = '4.4.14.55'
                                     -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
@@ -754,8 +754,8 @@ BEGIN TRY
                        ,@colsPivot   AS NVARCHAR(MAX)
                        ,@DeleteQuery AS NVARCHAR(MAX)
                        ,@rownr       INT
-                       ,@Datatypes   NVARCHAR(100);
-
+                       ,@Datatypes   NVARCHAR(100)
+					   ,@TypeGroup nvarchar(100);
                 -------------------------------------------------------------
                 -- prepare column value pair query based on data types
                 -------------------------------------------------------------
@@ -767,25 +767,25 @@ BEGIN TRY
                     [id] INT IDENTITY
                    ,[Datatypes] NVARCHAR(20)
                    ,[Type_Ids] NVARCHAR(100)
+				   ,[TypeGroup] NVARCHAR(100)
                 );
 
                 INSERT INTO @DatatypeTable
                 (
                     [Datatypes]
                    ,[Type_Ids]
+				   ,TypeGroup
                 )
                 VALUES
-                (   N'Float' -- Datatypes - nvarchar(20)
-                   ,N'3'     -- Type_Ids - nvarchar(100)
-                    )
-               ,('Integer', '2,8,10')
-               ,('Text', '1')
-               ,('MultiText', '12')
-               ,('MultiLookup', '9')
-               ,('Time', '5')
-               ,('DateTime', '6')
-               ,('Date', '4')
-               ,('Bit', '7');
+                (   N'Float' ,N'3','Real')
+               ,('Integer', '2,8,10','Int')
+               ,('Text', '1','String')
+               ,('MultiText', '12','String')
+               ,('MultiLookup', '9','String')
+               ,('Time', '5','time')
+               ,('DateTime', '6','Datetime')
+               ,('Date', '4','Date')
+               ,('Bit', '7','Int');
 
                 SET @rownr = 1;
                 SET @DebugText = '';
@@ -802,7 +802,9 @@ BEGIN TRY
                 WHILE @rownr IS NOT NULL
                 BEGIN
                     SELECT @Datatypes = [dt].[Type_Ids]
-                    FROM @DatatypeTable AS [dt]
+                    ,@TypeGroup = dt.TypeGroup
+					FROM @DatatypeTable AS [dt]
+
                     WHERE [dt].[id] = @rownr;
 
                     SET @DebugText = 'DataTypes %s';
@@ -816,7 +818,7 @@ BEGIN TRY
                     SELECT @colsUnpivot
                         = STUFF(
                           (
-                              SELECT ',' + QUOTENAME([C].[name])
+                              SELECT ',' + QUOTENAME([C].[name] )
                               FROM [sys].[columns]              AS [C]
                                   INNER JOIN [dbo].[MFProperty] AS [mp]
                                       ON [mp].[ColumnName] = [C].[name]
@@ -846,7 +848,7 @@ BEGIN TRY
                     IF @colsUnpivot IS NOT NULL
                     BEGIN
 
-                    IF @Rownr = 1
+                    IF @TypeGroup = 'Real'
                     BEGIN
 
                         SET @Query
@@ -860,7 +862,23 @@ BEGIN TRY
         ) unpiv
 		where 
 		'                            + @vquery + ' ';
-        END --@rownr = 1
+        END --@Typegroup = 'Real'
+		ELSE IF @TypeGroup = 'DateTime'
+                    BEGIN
+
+                        SET @Query
+                            = @Query
+                              + 'Union All
+ select ID,  Objid, MFversion, ExternalID, ColName as ColumnName, 
+ format(value,''dd-MM-yyyy HH:mm'') AS Value from ' + QUOTENAME(@MFTableName) + ' t
+        unpivot
+        (
+          value for Colname in ('    + @colsUnpivot + ')
+        ) unpiv
+		where 
+		'                            + @vquery + ' ';
+        END --@Typegroup = 'DateTime'
+		
         ELSE
         BEGIN
 
@@ -898,6 +916,7 @@ BEGIN TRY
                 -------------------------------------------------------------
                 -- insert into column value pair
                 -------------------------------------------------------------
+ Select @procedurestep = 'Insert into column value pair'
                 SELECT @Query
                     = 'INSERT INTO  #ColumnValuePair
 
