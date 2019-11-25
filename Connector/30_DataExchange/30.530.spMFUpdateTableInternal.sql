@@ -646,7 +646,7 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
                         + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''''),105 ) ,'
                    WHEN DATA_TYPE = 'TIME' THEN 
 					    '' + QUOTENAME(@TableName) + '.' + QUOTENAME([COLUMN_NAME]) + ' = CONVERT(TIME(0), NULLIF(t.'
-						 + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''H:mm:ss''),0)  ,'
+						 + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''''),0)  ,'
                     WHEN [DATA_TYPE] = 'DATETIME' THEN
                         '' + QUOTENAME(@TableName) + '.' + QUOTENAME([COLUMN_NAME])
                         + ' = DATEADD(MINUTE,DATEDIFF(MINUTE,getUTCDATE(),Getdate()), CONVERT(DATETIME,NULLIF(t.'
