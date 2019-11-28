@@ -9,7 +9,7 @@ GO
 
 SET NOCOUNT on
   EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',   @ObjectName = N'spMFSettingsForDBUpdate', -- nvarchar(100)
-      @Object_Release = '4.1.5.41', -- varchar(50)
+      @Object_Release = '4.4.14.55', -- varchar(50)
       @UpdateFlag = 2 -- smallint
 ;
 /*
@@ -54,6 +54,7 @@ ALTER PROCEDURE dbo.spMFSettingsForDBUpdate
       @SupportEmailAccount NVARCHAR(128) = null ,
       @EmailProfile NVARCHAR(128) = null ,
 	  @DetailLogging nvarchar(128) = null,
+	  @UserMessageEnabled NVARCHAR(128) = null,
       @DBName nvarchar(128) = null,
 	  @RootFolder nvarchar(128) = null,
 	  @FileTransferLocation nvarchar(128) = null,
@@ -96,6 +97,9 @@ Parameters
   @DetailLogging nvarchar(128)
     - 1 = include detail logging
     - Default of 1 assigned by installer
+  @UserMessageEnabled nvarchar(128)
+    - 1 = messages enabled
+	- Default is set to 0 - not enabled
   @DBName nvarchar(128)
     - Connector database name
     - Assigned by installer
@@ -176,6 +180,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-11-27  LC         Add parameter for setting User message enabled
 2019-08-30  JC         Added documentation
 2018-04-28  LC         Add user message setting; vault structure setting
 2018-02-16  LC         Add file import and export change setting
@@ -245,7 +250,13 @@ Date        Author     Description
 			SET value = @FileTransferLocation
 	FROM mfsettings WHERE name = 'FileTransferLocation' AND [source_key] = 'Files_Default'
 
+	
+	IF @UserMessageEnabled IS NOT null
+			UPDATE [dbo].[MFSettings]
+			SET value = @UserMessageEnabled
+	FROM mfsettings WHERE name = 'MFUserMessagesEnabled' AND [source_key] = 'APP_Default'
 
+	
 END;
  
     RETURN 1;

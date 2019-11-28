@@ -57,7 +57,7 @@ ALTER PROCEDURE dbo.spMFsettingsForVaultUpdate
     @Domain NVARCHAR(128) = NULL,
     @VaultGUID NVARCHAR(128) = NULL,
     @ServerURL NVARCHAR(128) = NULL,
-    @Debug SMALLINT = 0
+	@Debug SMALLINT = 0
 )
 AS
 /*rST**************************************************************************
