@@ -254,7 +254,7 @@ Date        Author     Description
 	IF @UserMessageEnabled IS NOT null
 			UPDATE [dbo].[MFSettings]
 			SET value = @UserMessageEnabled
-	FROM mfsettings WHERE name = 'MFUserMessagesEnabled' AND [source_key] = 'APP_Default'
+	FROM mfsettings WHERE name = 'MFUserMessagesEnabled' AND [source_key] = 'MF_Default'
 
 	
 END;

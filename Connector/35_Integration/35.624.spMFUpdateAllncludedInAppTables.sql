@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFUpdateAllncludedInAppTables', -- nvarchar(100)
-                                 @Object_Release = '4.4.13.54',                    -- varchar(50)
+                                 @Object_Release = '4.4.13.54',                    -- varchar(250)
                                  @UpdateFlag = 2;                                  -- smallint
 GO
 
@@ -106,7 +106,7 @@ SET NOCOUNT ON;
 -- CONSTANTS: MFSQL Class Table Specific
 -------------------------------------------------------------
 DECLARE @MFTableName AS NVARCHAR(128);
-DECLARE @ProcessType AS NVARCHAR(50);
+DECLARE @ProcessType AS NVARCHAR(250);
 
 SET @ProcessType = N'Update All Tables';
 
@@ -151,12 +151,12 @@ DECLARE @MsgSeverityGeneralError AS TINYINT = 16;
 -------------------------------------------------------------
 -- VARIABLES: LOGGING
 -------------------------------------------------------------
-DECLARE @LogType AS NVARCHAR(50) = N'Status';
+DECLARE @LogType AS NVARCHAR(250) = N'Status';
 DECLARE @LogText AS NVARCHAR(4000) = N'';
-DECLARE @LogStatus AS NVARCHAR(50) = N'Started';
-DECLARE @LogTypeDetail AS NVARCHAR(50) = N'System';
+DECLARE @LogStatus AS NVARCHAR(250) = N'Started';
+DECLARE @LogTypeDetail AS NVARCHAR(250) = N'System';
 DECLARE @LogTextDetail AS NVARCHAR(4000) = N'';
-DECLARE @LogStatusDetail AS NVARCHAR(50) = N'In Progress';
+DECLARE @LogStatusDetail AS NVARCHAR(250) = N'In Progress';
 DECLARE @ProcessBatchDetail_IDOUT AS INT = NULL;
 DECLARE @LogColumnName AS NVARCHAR(128) = NULL;
 DECLARE @LogColumnValue AS NVARCHAR(256) = NULL;

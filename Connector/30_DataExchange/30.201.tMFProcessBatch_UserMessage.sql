@@ -67,7 +67,7 @@ Begin
           ,@ProcessBatch_ID = [Inserted].[ProcessBatch_ID]
     FROM [Inserted];
 
-    IF @LogType = 'Message'
+    IF @LogType = 'Message' OR @logtype = 'END'
     BEGIN
         SELECT @UserMessageEnabled = CAST(ISNULL([ms].[Value],0) AS INT)
         FROM [dbo].[MFSettings] AS [ms]
@@ -84,66 +84,4 @@ Begin
     END; --logtype message
 	END --logtype updated
 
-	/*
-END TRY
-		BEGIN CATCH
-			SET @StartTime = GETUTCDATE()
-			SET @LogStatus = 'Failed w/SQL Error'
-			SET @LogTextDetail = ERROR_MESSAGE()
-
-			--------------------------------------------------
-			-- INSERTING ERROR DETAILS INTO LOG TABLE
-			--------------------------------------------------
-			INSERT INTO [dbo].[MFLog] ( [SPName]
-									  , [ErrorNumber]
-									  , [ErrorMessage]
-									  , [ErrorProcedure]
-									  , [ErrorState]
-									  , [ErrorSeverity]
-									  , [ErrorLine]
-									  , [ProcedureStep]
-									  )
-			VALUES (
-					   @ProcedureName
-					 , ERROR_NUMBER()
-					 , ERROR_MESSAGE()
-					 , ERROR_PROCEDURE()
-					 , ERROR_STATE()
-					 , ERROR_SEVERITY()
-					 , ERROR_LINE()
-					 , @ProcedureStep
-				   );
-
-			SET @ProcedureStep = 'Catch Error'
-			-------------------------------------------------------------
-			-- Log Error
-			-------------------------------------------------------------   
-			EXEC [dbo].[spMFProcessBatch_Upsert]
-				@ProcessBatch_ID = @ProcessBatch_ID OUTPUT
-			  , @ProcessType = 'MFProcessBatch Trigger'
-			  , @LogType = N'Error'
-			  , @LogText = @LogTextDetail
-			  , @LogStatus = @LogStatus
-			  , @debug = 0
-
-			SET @StartTime = GETUTCDATE()
-
-			EXEC [dbo].[spMFProcessBatchDetail_Insert]
-				@ProcessBatch_ID = @ProcessBatch_ID
-			  , @LogType = N'Error'
-			  , @LogText = @LogTextDetail
-			  , @LogStatus = @LogStatus
-			  , @StartTime = @StartTime
-			  , @MFTableName = 'MFProcessBatch'
-			  , @Validation_ID = null
-			  , @ColumnName = NULL
-			  , @ColumnValue = NULL
-			  , @Update_ID = null
-			  , @LogProcedureName = @ProcedureName
-			  , @LogProcedureStep = @ProcedureStep
-			  , @debug = 0
-
-		
-		END CATCH
-		*/	
 GO

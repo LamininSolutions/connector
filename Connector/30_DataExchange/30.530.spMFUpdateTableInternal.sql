@@ -6,10 +6,10 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].
 GO
 
 SET NOCOUNT ON;
-EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo',
-                                     @ObjectName = N'spMFUpdateTableInternal', -- nvarchar(100)
-                                     @Object_Release = '4.4.14.55',             -- varchar(50)
-                                     @UpdateFlag = 2;
+EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
+                                 @ObjectName = N'spMFUpdateTableInternal', -- nvarchar(100)
+                                 @Object_Release = '4.4.14.55',            -- varchar(250)
+                                 @UpdateFlag = 2;
 -- smallint
 GO
 
@@ -17,10 +17,10 @@ GO
 IF EXISTS
 (
     SELECT 1
-    FROM [INFORMATION_SCHEMA].[ROUTINES]
-    WHERE [ROUTINE_NAME] = 'spMFUpdateTableInternal' --name of procedure
-          AND [ROUTINE_TYPE] = 'PROCEDURE' --for a function --'FUNCTION'
-          AND [ROUTINE_SCHEMA] = 'dbo'
+    FROM INFORMATION_SCHEMA.ROUTINES
+    WHERE ROUTINE_NAME = 'spMFUpdateTableInternal' --name of procedure
+          AND ROUTINE_TYPE = 'PROCEDURE' --for a function --'FUNCTION'
+          AND ROUTINE_SCHEMA = 'dbo'
 )
 BEGIN
     PRINT SPACE(10) + '...Stored Procedure: update';
@@ -31,7 +31,7 @@ ELSE
 GO
 
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE [dbo].[spMFUpdateTableInternal]
+CREATE PROCEDURE dbo.spMFUpdateTableInternal
 AS
 SELECT 'created, but not implemented yet.';
 --just anything will do
@@ -42,7 +42,7 @@ SET NOEXEC OFF;
 GO
 
 
-ALTER PROCEDURE [dbo].[spMFUpdateTableInternal]
+ALTER PROCEDURE dbo.spMFUpdateTableInternal
 (
     @TableName NVARCHAR(128),
     @Xml NVARCHAR(MAX),
@@ -156,37 +156,37 @@ BEGIN
                 @Name_or_Title NVARCHAR(100);
 
         SET @ProcedureStep = 'Drop temptables if exist';
-        SELECT @TempObjectList = [dbo].[fnMFVariableTableName]('##ObjectList', DEFAULT);
-        SELECT @TempExistingObjects = [dbo].[fnMFVariableTableName]('##ExistingObjects', DEFAULT);
-        SELECT @TempNewObjects = [dbo].[fnMFVariableTableName]('##TempNewObjects', DEFAULT);
-        SELECT @TempIsTemplatelist = [dbo].[fnMFVariableTableName]('##IsTemplateList', DEFAULT);
+        SELECT @TempObjectList = dbo.fnMFVariableTableName('##ObjectList', DEFAULT);
+        SELECT @TempExistingObjects = dbo.fnMFVariableTableName('##ExistingObjects', DEFAULT);
+        SELECT @TempNewObjects = dbo.fnMFVariableTableName('##TempNewObjects', DEFAULT);
+        SELECT @TempIsTemplatelist = dbo.fnMFVariableTableName('##IsTemplateList', DEFAULT);
 
-        SELECT @Name_or_Title = [ColumnName]
-        FROM [dbo].[MFProperty]
-        WHERE [MFID] = 0;
+        SELECT @Name_or_Title = ColumnName
+        FROM dbo.MFProperty
+        WHERE MFID = 0;
 
-        IF EXISTS (SELECT * FROM [sys].[sysobjects] WHERE [name] = '#Properties')
+        IF EXISTS (SELECT * FROM sys.sysobjects WHERE name = '#Properties')
         BEGIN
-            DROP TABLE [#Properties];
+            DROP TABLE #Properties;
         END;
 
         --Parse the Input XML
-        EXEC [sys].[sp_xml_preparedocument] @Idoc OUTPUT, @Xml;
+        EXEC sys.sp_xml_preparedocument @Idoc OUTPUT, @Xml;
 
         --------------------------------------------------------------------------------
         --Create Temp Table to Store the Data From XML
         --------------------------------------------------------------------------------
-        CREATE TABLE [#Properties]
+        CREATE TABLE #Properties
         (
-            [objId] [INT],
-            [MFVersion] [INT],
-            [GUID] [NVARCHAR](100),
-            [ExternalID] [NVARCHAR](100),
-            [FileCount] [INT], --Added for task 106
-            [propertyId] [INT] NULL,
-            [propertyValue] [NVARCHAR](4000) NULL,
-            [propertyName] [NVARCHAR](100) NULL,
-            [dataType] [NVARCHAR](100) NULL
+            objId INT,
+            MFVersion INT,
+            GUID NVARCHAR(100),
+            ExternalID NVARCHAR(100),
+            FileCount INT, --Added for task 106
+            propertyId INT NULL,
+            propertyValue NVARCHAR(4000) NULL,
+            propertyName NVARCHAR(100) NULL,
+            dataType NVARCHAR(100) NULL
         );
 
         SELECT @ProcedureStep = 'Inserting Values into #Properties from XML';
@@ -198,86 +198,90 @@ BEGIN
         ----------------------------------------
         --Insert XML data into Temp Table
         ----------------------------------------
-        INSERT INTO [#Properties]
+        INSERT INTO #Properties
         (
-            [objId],
-            [MFVersion],
-            [GUID],
-            [ExternalID],
-            [FileCount], --Added for task 106
-            [propertyId],
-            [propertyValue],
-            [dataType]
+            objId,
+            MFVersion,
+            GUID,
+            ExternalID,
+            FileCount, --Added for task 106
+            propertyId,
+            propertyValue,
+            dataType
         )
-        SELECT [objId],
-               [MFVersion],
-               [GUID],
-               [ExternalID],
-               [FileCount], --Added for task 106
-               [propertyId],
-               [propertyValue],
-               [dataType]
+        SELECT objId,
+               MFVersion,
+               GUID,
+               ExternalID,
+               FileCount, --Added for task 106
+               propertyId,
+               propertyValue,
+               dataType
         FROM
             OPENXML(@Idoc, '/form/Object/properties', 1)
             WITH
             (
-                [objId] INT '../@objectId',
-                [MFVersion] INT '../@objVersion',
-                [GUID] NVARCHAR(100) '../@objectGUID',
-                [ExternalID] NVARCHAR(100) '../@DisplayID',
-                [FileCount] INT '../@FileCount', --Added for task 106
-                [propertyId] INT '@propertyId',
-                [propertyValue] NVARCHAR(4000) '@propertyValue',
-                [dataType] NVARCHAR(1000) '@dataType'
+                objId INT '../@objectId',
+                MFVersion INT '../@objVersion',
+                GUID NVARCHAR(100) '../@objectGUID',
+                ExternalID NVARCHAR(100) '../@DisplayID',
+                FileCount INT '../@FileCount', --Added for task 106
+                propertyId INT '@propertyId',
+                propertyValue NVARCHAR(4000) '@propertyValue',
+                dataType NVARCHAR(1000) '@dataType'
             );
 
         SELECT @ProcedureStep = 'Updating Table column Name';
 
         IF @Debug > 9
         BEGIN
-            SELECT 'List of properties from MF' AS [Properties],
+            SELECT 'List of properties from MF' AS Properties,
                    *
-            FROM [#Properties];
+            FROM #Properties;
             RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
         -------------------------------------------------------------
         -- localisation of date time for finish time
         -------------------------------------------------------------
-        UPDATE [p]
-        SET [p].[propertyValue] = REPLACE([p].[propertyValue], '.', ':')
-        FROM [#Properties] AS [p]
-        WHERE [p].[dataType] IN ( 'MFDataTypeTimestamp', 'MFDataTypeDate','MFDatatypeTime' );
+        UPDATE p
+        SET p.propertyValue = REPLACE(p.propertyValue, '.', ':')
+        FROM #Properties AS p
+        WHERE p.dataType IN ( 'MFDataTypeTimestamp', 'MFDataTypeDate', 'MFDatatypeTime' );
 
         ----------------------------------------------------------------
         --Update property name with column name from MFProperty Tbale
         ----------------------------------------------------------------
-        UPDATE [#Properties]
-        SET [propertyName] =
+        UPDATE #Properties
+        SET propertyName =
             (
-                SELECT [ColumnName]
-                FROM [dbo].[MFProperty]
-                WHERE [MFID] = [#Properties].[propertyId]
+                SELECT ColumnName FROM dbo.MFProperty WHERE MFID = #Properties.propertyId
             );
 
         -------------------------------------------------------------------------------------------------
         --Update column name if the property datatype is MFDatatypeLookup or MFDatatypeMultiSelectLookup
         -------------------------------------------------------------------------------------------------
-        UPDATE [#Properties]
-        SET [propertyName] = REPLACE([propertyName], '_ID', '')
-        WHERE [dataType] = 'MFDatatypeLookup'
-              OR [dataType] = 'MFDatatypeMultiSelectLookup';
+        UPDATE #Properties
+        SET propertyName = CASE
+                               WHEN SUBSTRING(propertyName, LEN(propertyName) - 2, 3) = '_ID' THEN
+                                   SUBSTRING(propertyName, 1, LEN(propertyName) - 3)
+                               ELSE
+                                   SUBSTRING(propertyName, 1, LEN(propertyName) - 5)
+                                   + REPLACE((SUBSTRING(propertyName, (LEN(propertyName) - 4), 5)), '_ID', '')
+                           END
+        WHERE dataType = 'MFDatatypeLookup'
+              OR dataType = 'MFDatatypeMultiSelectLookup';
 
         SELECT @ProcedureStep = 'Adding workflow column if not exists';
 
         IF @Debug > 9
         BEGIN
             SELECT *
-            FROM [#Properties];
+            FROM #Properties;
             RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
-         SELECT @ProcedureStep = 'Adding columns from MFTable which are not exists in #Properties';
+        SELECT @ProcedureStep = 'Adding columns from MFTable which are not exists in #Properties';
 
         IF @Debug > 9
         BEGIN
@@ -287,32 +291,32 @@ BEGIN
         -------------------------------------------------
         --Select the existing columns from MFTable
         -------------------------------------------------
-        INSERT INTO [#Properties]
+        INSERT INTO #Properties
         (
-            [propertyName]
+            propertyName
         )
         SELECT *
         FROM
         (
-            SELECT [COLUMN_NAME]
-            FROM [INFORMATION_SCHEMA].[COLUMNS]
-            WHERE [TABLE_NAME] = @TableName
-                  AND [COLUMN_NAME] NOT LIKE 'ID'
-                  AND [COLUMN_NAME] NOT LIKE 'LastModified'
-                  AND [COLUMN_NAME] NOT LIKE 'Process_ID'
-                  AND [COLUMN_NAME] NOT LIKE 'Deleted'
-                  AND [COLUMN_NAME] NOT LIKE 'ObjID'
-                  AND [COLUMN_NAME] NOT LIKE 'MFVersion'
-                  AND [COLUMN_NAME] NOT LIKE 'MX_'
-                  AND [COLUMN_NAME] NOT LIKE 'GUID'
-                  AND [COLUMN_NAME] NOT LIKE 'ExternalID'
-                  AND [COLUMN_NAME] NOT LIKE 'FileCount' --Added For Task 106
-                  AND [COLUMN_NAME] NOT LIKE 'Update_ID'
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_NAME = @TableName
+                  AND COLUMN_NAME NOT LIKE 'ID'
+                  AND COLUMN_NAME NOT LIKE 'LastModified'
+                  AND COLUMN_NAME NOT LIKE 'Process_ID'
+                  AND COLUMN_NAME NOT LIKE 'Deleted'
+                  AND COLUMN_NAME NOT LIKE 'ObjID'
+                  AND COLUMN_NAME NOT LIKE 'MFVersion'
+                  AND COLUMN_NAME NOT LIKE 'MX_'
+                  AND COLUMN_NAME NOT LIKE 'GUID'
+                  AND COLUMN_NAME NOT LIKE 'ExternalID'
+                  AND COLUMN_NAME NOT LIKE 'FileCount' --Added For Task 106
+                  AND COLUMN_NAME NOT LIKE 'Update_ID'
             EXCEPT
             SELECT DISTINCT
-                   ([propertyName])
-            FROM [#Properties]
-        ) [m];
+                   (propertyName)
+            FROM #Properties
+        ) m;
 
         SELECT @ProcedureStep = 'PIVOT';
 
@@ -326,18 +330,18 @@ BEGIN
         --------------------------------------------------------------------------------
         SELECT @Columns = STUFF(
         (
-            SELECT ',' + QUOTENAME([ppt].[propertyName])
-            FROM [#Properties] [ppt]
-            GROUP BY [ppt].[propertyName]
-            ORDER BY [ppt].[propertyName]
+            SELECT ',' + QUOTENAME(ppt.propertyName)
+            FROM #Properties ppt
+            GROUP BY ppt.propertyName
+            ORDER BY ppt.propertyName
             FOR XML PATH(''), TYPE
-        ).[value]('.', 'NVARCHAR(MAX)'),
+        ).value('.', 'NVARCHAR(MAX)'),
         1   ,
         1   ,
         ''
                                );
 
-        SELECT @ColumnNames = '';
+        SELECT @ColumnNames = N'';
 
         SELECT @ProcedureStep = 'Select All column names from MFTable';
 
@@ -350,15 +354,15 @@ BEGIN
         --------------------------------------------------------------------------------
         --Select Column Name Except 'ID','LastModified','Process_ID'
         --------------------------------------------------------------------------------
-        SELECT @ColumnNames = @ColumnNames + QUOTENAME([COLUMN_NAME]) + ','
-        FROM [INFORMATION_SCHEMA].[COLUMNS]
-        WHERE [TABLE_NAME] = @TableName
-              AND [COLUMN_NAME] NOT LIKE 'ID'
-              AND [COLUMN_NAME] NOT LIKE 'LastModified'
-              AND [COLUMN_NAME] NOT LIKE 'Process_ID'
-              AND [COLUMN_NAME] NOT LIKE 'Deleted'
-              AND [COLUMN_NAME] NOT LIKE 'MX_%'
-              AND [COLUMN_NAME] NOT LIKE 'Update_ID';
+        SELECT @ColumnNames = @ColumnNames + QUOTENAME(COLUMN_NAME) + N','
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = @TableName
+              AND COLUMN_NAME NOT LIKE 'ID'
+              AND COLUMN_NAME NOT LIKE 'LastModified'
+              AND COLUMN_NAME NOT LIKE 'Process_ID'
+              AND COLUMN_NAME NOT LIKE 'Deleted'
+              AND COLUMN_NAME NOT LIKE 'MX_%'
+              AND COLUMN_NAME NOT LIKE 'Update_ID';
 
         SELECT @ColumnNames = SUBSTRING(@ColumnNames, 0, LEN(@ColumnNames));
 
@@ -370,9 +374,9 @@ BEGIN
         --Dynamic Query to Converting row into columns and inserting into [dbo].[tempobjectlist] USING PIVOT
         ------------------------------------------------------------------------------------------------------------------------
         SELECT @Query
-            = 'SELECT *
+            = N'SELECT *
 						INTO ' + @TempObjectList
-              + '
+              + N'
 						FROM (
 							SELECT objId
 								,MFVersion
@@ -380,7 +384,7 @@ BEGIN
 								,ExternalID
 								,FileCount     --Added for task 106
 								,' + @Columns
-              + '
+              + N'
 							FROM (
 								SELECT objId
 									,MFVersion
@@ -392,11 +396,11 @@ BEGIN
 								FROM #Properties
 								UNPIVOT(value FOR col IN (propertyValue)) un
 								) src
-							PIVOT(MAX(value) FOR new_col IN (' + @Columns + ')) p
+							PIVOT(MAX(value) FOR new_col IN (' + @Columns + N')) p
 							) PVT';
 
 
-        EXECUTE [sys].[sp_executesql] @Query;
+        EXECUTE sys.sp_executesql @Query;
 
         IF @Debug > 9
         BEGIN
@@ -411,9 +415,9 @@ BEGIN
 
         IF
         (
-            SELECT COUNT([o].[name])
-            FROM [tempdb].[sys].[objects] AS [o]
-            WHERE [o].[name] = @TempIsTemplatelist
+            SELECT COUNT(o.name)
+            FROM tempdb.sys.objects AS o
+            WHERE o.name = @TempIsTemplatelist
         ) > 0
             EXEC (' DROP TABLE ' + @TempIsTemplatelist);
 
@@ -424,51 +428,51 @@ BEGIN
 
 
         DECLARE @CLassID INT;
-        SELECT @CLassID = [MFID]
-        FROM [dbo].[MFClass]
-        WHERE [TableName] = @TableName;
+        SELECT @CLassID = MFID
+        FROM dbo.MFClass
+        WHERE TableName = @TableName;
         EXEC ('CREATE TABLE ' + @TempIsTemplatelist + ' ( Objid INT ) ');
 
         SET @Params = N'@Count int output';
         SET @Query
             = N'SELECT @Count = count(*)
 		FROM  tempdb.sys.columns where object_ID = object_id(''tempdb..' + @TempObjectList
-              + ''')
+              + N''')
 		and Name = ''Is_Template''
 
 If @Count > 0
 begin
-Insert into ' + @TempIsTemplatelist + '
+Insert into ' + @TempIsTemplatelist + N'
 Select Objid
-from ' + @TempObjectList + '
+from ' + @TempObjectList + N'
 End		
 		';
 
         --   PRINT @Query;
 
-        EXEC [sys].[sp_executesql] @stmt = @Query,
-                                   @param = @Params,
-                                   @Count = @ReturnVariable OUTPUT;
+        EXEC sys.sp_executesql @stmt = @Query,
+                               @param = @Params,
+                               @Count = @ReturnVariable OUTPUT;
 
         IF @ReturnVariable > 0
         BEGIN
             SET @Params = N'@ClassID int';
             SET @Query
-                = '
+                = N'
                     UPDATE  mah
                     SET     [mah].[StatusFlag] = 6 ,
                             mah.[StatusName] = ''Template''
                     FROM    [dbo].[MFAuditHistory] AS [mah]
                             INNER JOIN ' + @TempIsTemplatelist
-                  + ' temp ON [mah].[Class] =  @CLassID 
+                  + N' temp ON [mah].[Class] =  @CLassID 
                                                               AND mah.[ObjID] = temp.[Objid];';
 
-            EXEC [sys].[sp_executesql] @stmt = @Query,
-                                       @param = @Params,
-                                       @ClassID = @CLassID;
+            EXEC sys.sp_executesql @stmt = @Query,
+                                   @param = @Params,
+                                   @ClassID = @CLassID;
 
-            SET @Query = ' DELETE FROM ' + @TempObjectList + ' WHERE isnull(Is_Template,0) = 1';
-            EXEC [sys].[sp_executesql] @stmt = @Query;
+            SET @Query = N' DELETE FROM ' + @TempObjectList + N' WHERE isnull(Is_Template,0) = 1';
+            EXEC sys.sp_executesql @stmt = @Query;
         END;
 
         IF @Debug > 9
@@ -481,10 +485,10 @@ End
         -------------------------------------------------
         SELECT @ProcedureStep = 'Add Additional columns to class table ';
 
-        CREATE TABLE [#Columns]
+        CREATE TABLE #Columns
         (
-            [propertyName] [NVARCHAR](100) NULL,
-            [dataType] [NVARCHAR](100) NULL
+            propertyName NVARCHAR(100) NULL,
+            dataType NVARCHAR(100) NULL
         );
 
         SET @Query
@@ -492,13 +496,13 @@ End
 INSERT INTO #Columns (PropertyName) SELECT * FROM (
 SELECT Name AS PropertyName FROM tempdb.sys.columns 
 			WHERE object_id = Object_id(''tempdb..' + @TempObjectList
-              + ''')
+              + N''')
 		EXCEPT
 			SELECT COLUMN_NAME AS name
 			FROM INFORMATION_SCHEMA.COLUMNS
-			WHERE TABLE_NAME = ''' + @TableName + ''') v';
+			WHERE TABLE_NAME = ''' + @TableName + N''') v';
 
-        EXEC [sys].[sp_executesql] @Query;
+        EXEC sys.sp_executesql @Query;
 
         IF @Debug > 9
         BEGIN
@@ -510,32 +514,33 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
         -------------------------------------------------
         --Updating property datatype
         -------------------------------------------------
-        UPDATE [#Columns]
-        SET [dataType] =
+        UPDATE #Columns
+        SET dataType =
             (
-                SELECT [SQLDataType]
-                FROM [dbo].[MFDataType]
-                WHERE [ID] IN (
-                                  SELECT [MFDataType_ID]
-                                  FROM [dbo].[MFProperty]
-                                  WHERE [ColumnName] = [#Columns].[propertyName]
-                              )
+                SELECT SQLDataType
+                FROM dbo.MFDataType
+                WHERE ID IN
+                      (
+                          SELECT MFDataType_ID
+                          FROM dbo.MFProperty
+                          WHERE ColumnName = #Columns.propertyName
+                      )
             );
 
         -------------------------------------------------------------------------
         ----Set dataype = NVARCHAR(100) for lookup and multiselect lookup values
         -------------------------------------------------------------------------
-        UPDATE [#Columns]
-        SET [dataType] = ISNULL([dataType], 'NVARCHAR(100)');
+        UPDATE #Columns
+        SET dataType = ISNULL(dataType, 'NVARCHAR(100)');
 
-        SELECT @AlterQuery = '';
+        SELECT @AlterQuery = N'';
 
         ---------------------------------------------
         --Add new columns into MFTable
         ---------------------------------------------
         SELECT @AlterQuery
-            = @AlterQuery + 'ALTER TABLE [' + @TableName + '] Add [' + [propertyName] + '] ' + [dataType] + '  '
-        FROM [#Columns];
+            = @AlterQuery + N'ALTER TABLE [' + @TableName + N'] Add [' + propertyName + N'] ' + dataType + N'  '
+        FROM #Columns;
 
         IF @Debug > 9
         BEGIN
@@ -543,7 +548,7 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
 
         END;
 
-        EXEC [sys].[sp_executesql] @AlterQuery;
+        EXEC sys.sp_executesql @AlterQuery;
 
 
         --------------------------------------------------------------------------------
@@ -552,16 +557,16 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
         SELECT @ProcedureStep = 'Prepare Column names for insert from class table';
 
 
-        SELECT @ColumnNames = '';
-        SELECT @ColumnNames = @ColumnNames + QUOTENAME([COLUMN_NAME]) + ','
-        FROM [INFORMATION_SCHEMA].[COLUMNS]
-        WHERE [TABLE_NAME] = @TableName
-              AND [COLUMN_NAME] NOT LIKE 'ID'
-              AND [COLUMN_NAME] NOT LIKE 'LastModified'
-              AND [COLUMN_NAME] NOT LIKE 'Process_ID'
-              AND [COLUMN_NAME] NOT LIKE 'Deleted'
-              AND [COLUMN_NAME] NOT LIKE 'MX_%'
-              AND [COLUMN_NAME] NOT LIKE 'Update_ID';
+        SELECT @ColumnNames = N'';
+        SELECT @ColumnNames = @ColumnNames + QUOTENAME(COLUMN_NAME) + N','
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = @TableName
+              AND COLUMN_NAME NOT LIKE 'ID'
+              AND COLUMN_NAME NOT LIKE 'LastModified'
+              AND COLUMN_NAME NOT LIKE 'Process_ID'
+              AND COLUMN_NAME NOT LIKE 'Deleted'
+              AND COLUMN_NAME NOT LIKE 'MX_%'
+              AND COLUMN_NAME NOT LIKE 'Update_ID';
 
         SELECT @ColumnNames = SUBSTRING(@ColumnNames, 0, LEN(@ColumnNames));
 
@@ -575,52 +580,52 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
         --------------------------------------------------------------------------------
         --Get datatype of column for Insertion
         --------------------------------------------------------------------------------
-        SELECT @ColumnForInsert = '';
+        SELECT @ColumnForInsert = N'';
 
         SELECT @ProcedureStep = 'Get datatype of column';
 
         SELECT @ColumnForInsert
             = @ColumnForInsert
               + CASE
-                    WHEN [DATA_TYPE] = 'DATE' THEN
-                        ' CONVERT(DATETIME, NULLIF(' + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''''),105) AS '
-                        + QUOTENAME([COLUMN_NAME]) + ','
-                    WHEN DATA_TYPE = 'TIME' THEN 
-					    ' CONVERT(TIME(0), NULLIF(' + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''''),0) AS '
-                        + QUOTENAME([COLUMN_NAME]) + ','
-					WHEN [DATA_TYPE] = 'DATETIME' THEN
+                    WHEN DATA_TYPE = 'DATE' THEN
+                        ' CONVERT(DATETIME, NULLIF(' + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),105) AS '
+                        + QUOTENAME(COLUMN_NAME) + ','
+                    WHEN DATA_TYPE = 'TIME' THEN
+                        ' CONVERT(TIME(0), NULLIF(' + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),0) AS '
+                        + QUOTENAME(COLUMN_NAME) + ','
+                    WHEN DATA_TYPE = 'DATETIME' THEN
                         ' DATEADD(MINUTE,DATEDIFF(MINUTE,getUTCDATE(),Getdate()),CONVERT(DATETIME, NULLIF('
-                        + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''''),105 )) AS ' + QUOTENAME([COLUMN_NAME])
+                        + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),105 )) AS ' + QUOTENAME(COLUMN_NAME)
                         + ','
-                    WHEN [DATA_TYPE] = 'BIT' THEN
-                        'CASE WHEN ' + QUOTENAME([COLUMN_NAME]) + ' = ''1'' THEN  CAST(''1'' AS BIT) WHEN '
-                        + QUOTENAME([COLUMN_NAME]) + ' = ''0'' THEN CAST(''0'' AS BIT)  ELSE 
-						null END AS ' + QUOTENAME([COLUMN_NAME]) + ','
-                --      + QUOTENAME([COLUMN_NAME]) + ' END AS ' + QUOTENAME([COLUMN_NAME]) + ','
-                    WHEN [DATA_TYPE] = 'NVARCHAR' THEN
-                        ' CAST(NULLIF(' + QUOTENAME([COLUMN_NAME]) + ','''') AS ' + [DATA_TYPE] + '('
+                    WHEN DATA_TYPE = 'BIT' THEN
+                        'CASE WHEN ' + QUOTENAME(COLUMN_NAME) + ' = ''1'' THEN  CAST(''1'' AS BIT) WHEN '
+                        + QUOTENAME(COLUMN_NAME) + ' = ''0'' THEN CAST(''0'' AS BIT)  ELSE 
+						null END AS '                        + QUOTENAME(COLUMN_NAME) + ','
+                    --      + QUOTENAME([COLUMN_NAME]) + ' END AS ' + QUOTENAME([COLUMN_NAME]) + ','
+                    WHEN DATA_TYPE = 'NVARCHAR' THEN
+                        ' CAST(NULLIF(' + QUOTENAME(COLUMN_NAME) + ','''') AS ' + DATA_TYPE + '('
                         + CASE
-                              WHEN [CHARACTER_MAXIMUM_LENGTH] = -1 THEN
-                                  'MAX)) AS ' + QUOTENAME([COLUMN_NAME]) + ','
+                              WHEN CHARACTER_MAXIMUM_LENGTH = -1 THEN
+                                  'MAX)) AS ' + QUOTENAME(COLUMN_NAME) + ','
                               ELSE
-                                  CAST(NULLIF([CHARACTER_MAXIMUM_LENGTH], '') AS NVARCHAR) + ')) AS '
-                                  + QUOTENAME([COLUMN_NAME]) + ','
+                                  CAST(NULLIF(CHARACTER_MAXIMUM_LENGTH, '') AS NVARCHAR) + ')) AS '
+                                  + QUOTENAME(COLUMN_NAME) + ','
                           END
-                    WHEN [DATA_TYPE] = 'FLOAT' THEN
-                        ' CAST(NULLIF(REPLACE(' + QUOTENAME([COLUMN_NAME]) + ','','',''.''),'''') AS float) AS '
-                        + QUOTENAME([COLUMN_NAME]) + ','
+                    WHEN DATA_TYPE = 'FLOAT' THEN
+                        ' CAST(NULLIF(REPLACE(' + QUOTENAME(COLUMN_NAME) + ','','',''.''),'''') AS float) AS '
+                        + QUOTENAME(COLUMN_NAME) + ','
                     ELSE
-                        ' CAST(NULLIF(' + QUOTENAME([COLUMN_NAME]) + ','''') AS ' + [DATA_TYPE] + ') AS '
-                        + QUOTENAME([COLUMN_NAME]) + ','
+                        ' CAST(NULLIF(' + QUOTENAME(COLUMN_NAME) + ','''') AS ' + DATA_TYPE + ') AS '
+                        + QUOTENAME(COLUMN_NAME) + ','
                 END
-        FROM [INFORMATION_SCHEMA].[COLUMNS]
-        WHERE [TABLE_NAME] = @TableName
-              AND [COLUMN_NAME] NOT LIKE 'ID'
-              AND [COLUMN_NAME] NOT LIKE 'LastModified'
-              AND [COLUMN_NAME] NOT LIKE 'Process_ID'
-              AND [COLUMN_NAME] NOT LIKE 'Deleted'
-              AND [COLUMN_NAME] NOT LIKE 'MX_%'
-              AND [COLUMN_NAME] NOT LIKE 'Update_ID';
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = @TableName
+              AND COLUMN_NAME NOT LIKE 'ID'
+              AND COLUMN_NAME NOT LIKE 'LastModified'
+              AND COLUMN_NAME NOT LIKE 'Process_ID'
+              AND COLUMN_NAME NOT LIKE 'Deleted'
+              AND COLUMN_NAME NOT LIKE 'MX_%'
+              AND COLUMN_NAME NOT LIKE 'Update_ID';
 
         ----------------------------------------
         --Remove the Last ','
@@ -629,11 +634,11 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
 
         IF @Debug > 9
         BEGIN
-            --          SELECT  @ColumnForInsert AS '@ColumnForInsert';
+            SELECT @ColumnForInsert AS '@ColumnForInsert';
             RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
-        SELECT @UpdateColumns = '';
+        SELECT @UpdateColumns = N'';
 
         ----------------------------------------
         --Add column values to data type
@@ -641,47 +646,47 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
         SELECT @UpdateColumns
             = @UpdateColumns
               + CASE
-                    WHEN [DATA_TYPE] = 'DATE' THEN
-                        '' + QUOTENAME(@TableName) + '.' + QUOTENAME([COLUMN_NAME]) + ' = CONVERT(DATETIME, NULLIF(t.'
-                        + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''''),105 ) ,'
-                   WHEN DATA_TYPE = 'TIME' THEN 
-					    '' + QUOTENAME(@TableName) + '.' + QUOTENAME([COLUMN_NAME]) + ' = CONVERT(TIME(0), NULLIF(t.'
-						 + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''''),0)  ,'
-                    WHEN [DATA_TYPE] = 'DATETIME' THEN
-                        '' + QUOTENAME(@TableName) + '.' + QUOTENAME([COLUMN_NAME])
+                    WHEN DATA_TYPE = 'DATE' THEN
+                        '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME) + ' = CONVERT(DATETIME, NULLIF(t.'
+                        + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),105 ) ,'
+                    WHEN DATA_TYPE = 'TIME' THEN
+                        '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME) + ' = CONVERT(TIME(0), NULLIF(t.'
+                        + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),0)  ,'
+                    WHEN DATA_TYPE = 'DATETIME' THEN
+                        '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME)
                         + ' = DATEADD(MINUTE,DATEDIFF(MINUTE,getUTCDATE(),Getdate()), CONVERT(DATETIME,NULLIF(t.'
-                        + REPLACE(QUOTENAME([COLUMN_NAME]), '.', ':') + ',''''),105 )),'
-                    WHEN [DATA_TYPE] = 'BIT' THEN
-                        '' + QUOTENAME(@TableName) + '.' + QUOTENAME([COLUMN_NAME]) + ' =(CASE WHEN ' + 't.'
-                        + QUOTENAME([COLUMN_NAME]) + ' = ''1'' THEN  CAST(''1'' AS BIT)  WHEN t.'
-                        + QUOTENAME([COLUMN_NAME]) + ' = ''0'' THEN CAST(''0'' AS BIT)  
+                        + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),105 )),'
+                    WHEN DATA_TYPE = 'BIT' THEN
+                        '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME) + ' =(CASE WHEN ' + 't.'
+                        + QUOTENAME(COLUMN_NAME) + ' = ''1'' THEN  CAST(''1'' AS BIT)  WHEN t.'
+                        + QUOTENAME(COLUMN_NAME) + ' = ''0'' THEN CAST(''0'' AS BIT)  
 						ELSE NULL END ),'
-						--WHEN t.'
-      --                  + QUOTENAME([COLUMN_NAME]) + ' = ''""'' THEN CAST(''NULL'' AS BIT)  END )  ,'
-                    WHEN [DATA_TYPE] = 'NVARCHAR' THEN
-                        '' + QUOTENAME(@TableName) + '.' + QUOTENAME([COLUMN_NAME]) + '=  CAST(NULLIF(t.'
-                        + QUOTENAME([COLUMN_NAME]) + ','''') AS ' + [DATA_TYPE] + '('
+                    --WHEN t.'
+                    --                  + QUOTENAME([COLUMN_NAME]) + ' = ''""'' THEN CAST(''NULL'' AS BIT)  END )  ,'
+                    WHEN DATA_TYPE = 'NVARCHAR' THEN
+                        '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME) + '=  CAST(NULLIF(t.'
+                        + QUOTENAME(COLUMN_NAME) + ','''') AS ' + DATA_TYPE + '('
                         + CASE
-                              WHEN [CHARACTER_MAXIMUM_LENGTH] = -1 THEN
+                              WHEN CHARACTER_MAXIMUM_LENGTH = -1 THEN
                                   CAST('MAX' AS NVARCHAR)
                               ELSE
-                                  CAST([CHARACTER_MAXIMUM_LENGTH] AS NVARCHAR)
+                                  CAST(CHARACTER_MAXIMUM_LENGTH AS NVARCHAR)
                           END + ')) ,'
-                    WHEN [DATA_TYPE] = 'Float' THEN
-                        '' + QUOTENAME(@TableName) + '.' + QUOTENAME([COLUMN_NAME]) + '=  CAST(NULLIF(REPLACE(t.'
-                        + QUOTENAME([COLUMN_NAME]) + ','','',''.'')' + ','''') AS ' + [DATA_TYPE] + ') ,'
+                    WHEN DATA_TYPE = 'Float' THEN
+                        '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME) + '=  CAST(NULLIF(REPLACE(t.'
+                        + QUOTENAME(COLUMN_NAME) + ','','',''.'')' + ','''') AS ' + DATA_TYPE + ') ,'
                     ELSE
-                        '' + QUOTENAME(@TableName) + '.' + QUOTENAME([COLUMN_NAME]) + '=  CAST(NULLIF(t.'
-                        + QUOTENAME([COLUMN_NAME]) + ','''') AS ' + [DATA_TYPE] + ') ,'
+                        '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME) + '=  CAST(NULLIF(t.'
+                        + QUOTENAME(COLUMN_NAME) + ','''') AS ' + DATA_TYPE + ') ,'
                 END
-        FROM [INFORMATION_SCHEMA].[COLUMNS]
-        WHERE [TABLE_NAME] = @TableName
-              AND [COLUMN_NAME] NOT LIKE 'ID'
-              AND [COLUMN_NAME] NOT LIKE 'LastModified'
-              AND [COLUMN_NAME] NOT LIKE 'Process_ID'
-              AND [COLUMN_NAME] NOT LIKE 'Deleted'
-              AND [COLUMN_NAME] NOT LIKE 'MX_%'
-              AND [COLUMN_NAME] NOT LIKE 'Update_ID';
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME = @TableName
+              AND COLUMN_NAME NOT LIKE 'ID'
+              AND COLUMN_NAME NOT LIKE 'LastModified'
+              AND COLUMN_NAME NOT LIKE 'Process_ID'
+              AND COLUMN_NAME NOT LIKE 'Deleted'
+              AND COLUMN_NAME NOT LIKE 'MX_%'
+              AND COLUMN_NAME NOT LIKE 'Update_ID';
 
         ----------------------------------------
         --Remove the last ','
@@ -701,7 +706,7 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
             BEGIN
                 SELECT @UpdateColumns AS '@UpdateColumns';
                 SET @Query = N'	
-					SELECT ''tempobjectlist'' as [TempObjectList],* FROM ' + @TempObjectList + '';
+					SELECT ''tempobjectlist'' as [TempObjectList],* FROM ' + @TempObjectList + N'';
                 EXEC (@Query);
             END;
         END;
@@ -713,16 +718,16 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
 
 
         SELECT @TempUpdateQuery
-            = 'SELECT *
-							   INTO ' + @TempExistingObjects + '
-							   FROM ' + @TempObjectList + '
+            = N'SELECT *
+							   INTO ' + @TempExistingObjects + N'
+							   FROM ' + @TempObjectList + N'
 							   WHERE ' + @TempObjectList
-              + '.[ObjID]  IN (
+              + N'.[ObjID]  IN (
 									   SELECT [ObjiD]
-									   FROM [' + @TableName + ']
+									   FROM [' + @TableName + N']
 									   )';
 
-        EXECUTE [sys].[sp_executesql] @TempUpdateQuery;
+        EXECUTE sys.sp_executesql @TempUpdateQuery;
 
 
         SELECT @ProcedureStep = 'Update existing objects';
@@ -734,7 +739,7 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
             IF @Debug > 9
             BEGIN
                 SET @Query = N'	
-					SELECT ''tempExistingobjects'' as [tempExistingobjects],* FROM ' + @TempExistingObjects + '';
+					SELECT ''tempExistingobjects'' as [tempExistingobjects],* FROM ' + @TempExistingObjects + N'';
                 EXEC (@Query);
             END;
         END;
@@ -746,11 +751,11 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
 
         SET @Params = N'@Count int output';
         SET @Query = N'SELECT @count = count(*)
-		FROM  ' + @TempExistingObjects + '';
+		FROM  ' + @TempExistingObjects + N'';
 
-        EXEC [sys].[sp_executesql] @stmt = @Query,
-                                   @param = @Params,
-                                   @Count = @ReturnVariable OUTPUT;
+        EXEC sys.sp_executesql @stmt = @Query,
+                               @param = @Params,
+                               @Count = @ReturnVariable OUTPUT;
 
         IF @Debug > 9
         BEGIN
@@ -764,9 +769,9 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
             BEGIN
                 SET @Query
                     = N'	
-				SELECT  * FROM ' + QUOTENAME(@TableName) + ' ClassT INNER JOIN ' + @TempExistingObjects
-                      + ' T  on ClassT.objid = T.Objid';
-                EXECUTE [sys].[sp_executesql] @Query;
+				SELECT  * FROM ' + QUOTENAME(@TableName) + N' ClassT INNER JOIN ' + @TempExistingObjects
+                      + N' T  on ClassT.objid = T.Objid';
+                EXECUTE sys.sp_executesql @Query;
             END;
 
 
@@ -778,14 +783,15 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
             BEGIN
 
                 SELECT @UpdateQuery
-                    = '
-								UPDATE [' + @TableName + ']
-									SET ' + @UpdateColumns + ',LastModified = GETDATE(),Update_ID = '
-                      + CAST(@Update_ID AS NVARCHAR(100)) + ', Deleted = 0  ,Process_ID=0           
-									FROM [' + @TableName + '] INNER JOIN ' + @TempExistingObjects
-                      + ' as t
-									ON [' + @TableName + '].ObjID = 
-                                t.[ObjID]  AND [' + @TableName + '].Process_ID = 2';
+                    = N'
+								UPDATE [' + @TableName + N']
+									SET ' + @UpdateColumns + N',LastModified = GETDATE(),Update_ID = '
+                      + CAST(@Update_ID AS NVARCHAR(100)) + N', Deleted = 0  ,Process_ID=0           
+									FROM [' + @TableName + N'] INNER JOIN ' + @TempExistingObjects
+                      + N' as t
+									ON [' + @TableName
+                      + N'].ObjID = 
+                                t.[ObjID]  AND [' + @TableName + N'].Process_ID = 2';
 
 
 
@@ -793,29 +799,30 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
             ELSE
             BEGIN
                 SELECT @UpdateQuery
-                    = '
-								UPDATE [' + @TableName + ']
-									SET ' + @UpdateColumns + ',LastModified = GETDATE(),Update_ID = '
-                      + CAST(@Update_ID AS NVARCHAR(100)) + ', Deleted = 0
-									FROM [' + @TableName + '] INNER JOIN ' + @TempExistingObjects
-                      + ' as t
-									ON [' + @TableName + '].ObjID = 
-                                t.[ObjID]  AND [' + @TableName + '].Process_ID = 0';
+                    = N'
+								UPDATE [' + @TableName + N']
+									SET ' + @UpdateColumns + N',LastModified = GETDATE(),Update_ID = '
+                      + CAST(@Update_ID AS NVARCHAR(100)) + N', Deleted = 0
+									FROM [' + @TableName + N'] INNER JOIN ' + @TempExistingObjects
+                      + N' as t
+									ON [' + @TableName
+                      + N'].ObjID = 
+                                t.[ObjID]  AND [' + @TableName + N'].Process_ID = 0';
             END;
 
             ----------------------------------------
             --Executing Dynamic Query
             ----------------------------------------
-        SELECT @ProcedureStep = 'Execute dynamic query';
+            SELECT @ProcedureStep = 'Execute dynamic query';
 
-	        IF @Debug > 10
+            IF @Debug > 10
             BEGIN
 
                 SELECT @UpdateQuery AS '@UpdateQuery';
             END;
 
 
-            EXEC [sys].[sp_executesql] @stmt = @UpdateQuery;
+            EXEC sys.sp_executesql @stmt = @UpdateQuery;
 
 
 
@@ -823,14 +830,19 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
 
         END;
 
--------------------------------------------------------------
--- Get class of table
--------------------------------------------------------------       
+        -------------------------------------------------------------
+        -- Get class of table
+        -------------------------------------------------------------       
 
-DECLARE @Class_ID INT, @ClassColumnName NVARCHAR(100)
-SELECT @Class_ID = mfid FROM mfclass WHERE tablename = @TableName
-SELECT  @ClassColumnName = @TempObjectList +'.'+ ColumnName FROM MFProperty WHERE mfid = 100
- --------------------------------------------------------------------------------
+        DECLARE @Class_ID INT,
+                @ClassColumnName NVARCHAR(100);
+        SELECT @Class_ID = MFID
+        FROM dbo.MFClass
+        WHERE TableName = @TableName;
+        SELECT @ClassColumnName = @TempObjectList + N'.' + ColumnName
+        FROM dbo.MFProperty
+        WHERE MFID = 100;
+        --------------------------------------------------------------------------------
         --Dynamic Query to INSERT new Records into MFTable
         --------------------------------------------------------------------------------
 
@@ -838,18 +850,19 @@ SELECT  @ClassColumnName = @TempObjectList +'.'+ ColumnName FROM MFProperty WHER
         SELECT @ProcedureStep = 'Setup insert new objects Query';
 
         SELECT @TempInsertQuery
-            = N'Select ' + @TempObjectList + '.* INTO ' + @TempNewObjects + '
-			from ' + @TempObjectList + ' left Join ' + QUOTENAME(@TableName) + '
-			ON '  + QUOTENAME(@TableName) + '.[ObjID] = ' + @TempObjectList + '.[objid] WHERE '
-              + QUOTENAME(@TableName) + '.objid IS null and '+@ClassColumnName+' = ' + CAST(@Class_ID AS NVARCHAR(100));
+            = N'Select ' + @TempObjectList + N'.* INTO ' + @TempNewObjects + N'
+			from '                + @TempObjectList + N' left Join ' + QUOTENAME(@TableName) + N'
+			ON '                  + QUOTENAME(@TableName) + N'.[ObjID] = ' + @TempObjectList + N'.[objid] WHERE '
+              + QUOTENAME(@TableName) + N'.objid IS null and ' + @ClassColumnName + N' = '
+              + CAST(@Class_ID AS NVARCHAR(100));
 
         IF @Debug > 9
         BEGIN
-                  SELECT  @TempInsertQuery AS '@TempInsertQuery';
+            SELECT @TempInsertQuery AS '@TempInsertQuery';
             RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
-		 EXECUTE [sys].[sp_executesql] @TempInsertQuery;
+        EXECUTE sys.sp_executesql @TempInsertQuery;
 
 
         SELECT @ProcedureStep = 'Determine count of records to insert';
@@ -858,13 +871,13 @@ SELECT  @ClassColumnName = @TempObjectList +'.'+ ColumnName FROM MFProperty WHER
         SET @Query = N'
 
 SELECT @count = count(*)
-		FROM  ' + @TempNewObjects + '';
+		FROM  ' + @TempNewObjects + N'';
 
         --           PRINT @Query;
 
-        EXEC [sys].[sp_executesql] @stmt = @Query,
-                                   @param = @Params,
-                                   @Count = @ReturnVariable OUTPUT;
+        EXEC sys.sp_executesql @stmt = @Query,
+                               @param = @Params,
+                               @Count = @ReturnVariable OUTPUT;
 
 
 
@@ -889,14 +902,14 @@ SELECT @count = count(*)
             END;
 
             SELECT @ReturnVariable = COUNT(*)
-            FROM [INFORMATION_SCHEMA].[COLUMNS] AS [c]
-                LEFT JOIN [#Properties] AS [p]
-                    ON [p].[propertyName] = REPLACE([c].[COLUMN_NAME], '_ID', '')
-            WHERE [c].[TABLE_NAME] = @TableName
-                  AND [c].[IS_NULLABLE] = 'No'
-                  AND [c].[COLUMN_NAME] NOT IN ( 'ID' )
-                  AND ISNULL([p].[propertyValue], '') = ''
-                  AND [c].[COLUMN_NAME] <> @Name_or_Title;
+            FROM INFORMATION_SCHEMA.COLUMNS AS c
+                LEFT JOIN #Properties AS p
+                    ON p.propertyName = REPLACE(c.COLUMN_NAME, '_ID', '')
+            WHERE c.TABLE_NAME = @TableName
+                  AND c.IS_NULLABLE = 'No'
+                  AND c.COLUMN_NAME NOT IN ( 'ID' )
+                  AND ISNULL(p.propertyValue, '') = ''
+                  AND c.COLUMN_NAME <> @Name_or_Title;
 
             IF @Debug > 9
             BEGIN
@@ -918,15 +931,15 @@ SELECT @count = count(*)
 
 
                 SELECT TOP 1
-                       @propertyError = [p].[propertyName]
-                FROM [INFORMATION_SCHEMA].[COLUMNS] AS [c]
-                    INNER JOIN [#Properties] AS [p]
-                        ON [p].[propertyName] = REPLACE([c].[COLUMN_NAME], '_ID', '')
-                WHERE [c].[TABLE_NAME] = @TableName
-                      AND [c].[IS_NULLABLE] = 'No'
-                      AND [c].[COLUMN_NAME] NOT IN ( 'ID' )
-                      AND ISNULL([p].[propertyValue], '') = ''
-                      AND [c].[COLUMN_NAME] <> @Name_or_Title;
+                       @propertyError = p.propertyName
+                FROM INFORMATION_SCHEMA.COLUMNS AS c
+                    INNER JOIN #Properties AS p
+                        ON p.propertyName = REPLACE(c.COLUMN_NAME, '_ID', '')
+                WHERE c.TABLE_NAME = @TableName
+                      AND c.IS_NULLABLE = 'No'
+                      AND c.COLUMN_NAME NOT IN ( 'ID' )
+                      AND ISNULL(p.propertyValue, '') = ''
+                      AND c.COLUMN_NAME <> @Name_or_Title;
 
                 IF ISNULL(@propertyError, '') <> ''
                     RAISERROR(
@@ -945,8 +958,8 @@ SELECT @count = count(*)
             --           BEGIN TRY
 
             SELECT @InsertQuery
-                = 'INSERT INTO [' + @TableName + '] (' + @ColumnNames
-                  + '
+                = N'INSERT INTO [' + @TableName + N'] (' + @ColumnNames
+                  + N'
 										   ,Process_ID
 										   ,LastModified
 										   ,DELETED
@@ -955,13 +968,13 @@ SELECT @count = count(*)
 										   SELECT *
 										   FROM (
 											   SELECT ' + @ColumnForInsert
-                  + '
+                  + N'
 												   ,0 AS Process_ID	
 												   ,GETDATE() AS LastModified
 												   ,0 AS DELETED
 												   ,' + CAST(@Update_ID AS NVARCHAR(100))
-                  + ' AS Update_ID	
-											   FROM ' + @TempNewObjects + ') t';
+                  + N' AS Update_ID	
+											   FROM ' + @TempNewObjects + N') t';
 
 
 
@@ -973,16 +986,16 @@ SELECT @count = count(*)
             SELECT @ProcedureStep = 'Inserted Records';
 
 
-            EXECUTE [sys].[sp_executesql] @InsertQuery;
+            EXECUTE sys.sp_executesql @InsertQuery;
 
             IF @Debug > 9
             BEGIN
                 SET @Query
                     = N'	
-				SELECT ''Inserted'' as inserted ,* FROM ' + QUOTENAME(@TableName) + ' ClassT INNER JOIN '
-                      + @TempNewObjects + ' UpdT  on ClassT.objid = UpdT.Objid';
+				SELECT ''Inserted'' as inserted ,* FROM ' + QUOTENAME(@TableName) + N' ClassT INNER JOIN '
+                      + @TempNewObjects + N' UpdT  on ClassT.objid = UpdT.Objid';
 
-                EXEC [sys].[sp_executesql] @Query;
+                EXEC sys.sp_executesql @Query;
 
                 RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
             END;
@@ -995,19 +1008,19 @@ SELECT @count = count(*)
         --If IsWorkflowEnforced = 1 and object workflow_ID is null  then 
         --set workflow to Workflow in MFClass_Workflow_ID
         ----------------------------------------------------------------
-		         SELECT @ProcedureStep = 'validate workflow required';
+        SELECT @ProcedureStep = 'validate workflow required';
 
         DECLARE @WorkflowPropColumnName NVARCHAR(100);
-        SELECT @WorkflowPropColumnName = [ColumnName]
-        FROM [dbo].[MFProperty]
-        WHERE [MFID] = 38;
+        SELECT @WorkflowPropColumnName = ColumnName
+        FROM dbo.MFProperty
+        WHERE MFID = 38;
         IF EXISTS
         (
             SELECT TOP 1
                    *
-            FROM [dbo].[MFClass]
-            WHERE [IsWorkflowEnforced] = 1
-                  AND [TableName] = @TableName
+            FROM dbo.MFClass
+            WHERE IsWorkflowEnforced = 1
+                  AND TableName = @TableName
         )
         BEGIN
 
@@ -1015,37 +1028,38 @@ SELECT @count = count(*)
             DECLARE @ParmDefinition NVARCHAR(500);
 
             SET @Query
-                = N'SELECT TOP 1  @IntVariable=ID FROM ' + QUOTENAME(@TableName) + ' WHERE ' +@WorkflowPropColumnName+ ' IS NULL';
+                = N'SELECT TOP 1  @IntVariable=ID FROM ' + QUOTENAME(@TableName) + N' WHERE ' + @WorkflowPropColumnName
+                  + N' IS NULL';
 
             SET @ParmDefinition = N'@IntVariable INT OUTPUT';
 
-            EXEC [sys].[sp_executesql] @Query,
-                                       @ParmDefinition,
-                                       @IntVariable = @IntVariable OUTPUT;
+            EXEC sys.sp_executesql @Query,
+                                   @ParmDefinition,
+                                   @IntVariable = @IntVariable OUTPUT;
 
             IF (@IntVariable IS NOT NULL)
             BEGIN
 
                 SET @Query
-                    = N'UPDATE ' + @TableName + ' SET ' + @WorkflowPropColumnName
-                      + ' = cast( (SELECT w.MFID 
+                    = N'UPDATE ' + @TableName + N' SET ' + @WorkflowPropColumnName
+                      + N' = cast( (SELECT w.MFID 
 															FROM MFClass c
 															INNER JOIN MFWorkflow w ON c.MFWorkflow_ID=W.ID
 															WHERE IsWorkflowEnforced=1 AND TableName=''' + @TableName
-                      + ''')
+                      + N''')
 									 as VARCHAR(10)),
 									 
 									 Workflow=cast( (SELECT w.Name 
 															FROM MFClass c
 															INNER JOIN MFWorkflow w ON c.MFWorkflow_ID=W.ID
 															WHERE IsWorkflowEnforced=1 AND TableName=''' + @TableName
-                      + ''')
+                      + N''')
 									 as VARCHAR(10))
-									  WHERE ' + @WorkflowPropColumnName + ' IS NULL';
+									  WHERE ' + @WorkflowPropColumnName + N' IS NULL';
 
 
 
-                EXEC [sys].[sp_executesql] @Query;
+                EXEC sys.sp_executesql @Query;
             END;
 
         END;
@@ -1059,30 +1073,30 @@ SELECT @count = count(*)
 
         SET @Query
             = N' SELECT TOP 1 @IntVariable=ID 
-						FROM ' + QUOTENAME(@TableName) + '
+						FROM ' + QUOTENAME(@TableName) + N'
 						where ' + @WorkflowPropColumnName
-              + ' != (SELECT w.MFID 
+              + N' != (SELECT w.MFID 
 													FROM MFClass c
 													INNER JOIN MFWorkflow w ON c.MFWorkflow_ID=W.ID
-													WHERE IsWorkflowEnforced=1 AND TableName=''' + @TableName + ''')';
+													WHERE IsWorkflowEnforced=1 AND TableName=''' + @TableName + N''')';
 
         SET @ParmDefinition = N'@IntVariable INT OUTPUT';
 
-        EXEC [sys].[sp_executesql] @Query,
-                                   @ParmDefinition,
-                                   @IntVariable = @IntVariable OUTPUT;
+        EXEC sys.sp_executesql @Query,
+                               @ParmDefinition,
+                               @IntVariable = @IntVariable OUTPUT;
 
         IF (@IntVariable IS NOT NULL)
         BEGIN
 
             SET @Query
-                = N'UPDATE ' + QUOTENAME(@TableName) + ' SET Process_ID=4 where ' + @WorkflowPropColumnName
-                  + ' =(SELECT w.MFID 
+                = N'UPDATE ' + QUOTENAME(@TableName) + N' SET Process_ID=4 where ' + @WorkflowPropColumnName
+                  + N' =(SELECT w.MFID 
 													FROM MFClass c
 													INNER JOIN MFWorkflow w ON c.MFWorkflow_ID=W.ID
-													WHERE IsWorkflowEnforced=1 AND TableName=''' + @TableName + ''')';
+													WHERE IsWorkflowEnforced=1 AND TableName=''' + @TableName + N''')';
 
-            EXEC [sys].[sp_executesql] @Query;
+            EXEC sys.sp_executesql @Query;
 
 
             RAISERROR(
@@ -1101,25 +1115,25 @@ SELECT @count = count(*)
         ----------------------------------------
         SET @Params = N'@TableID int';
         SET @Query = N'
-                        DELETE  ' + @TempObjectList + '
+                        DELETE  ' + @TempObjectList + N'
                         WHERE   [ObjID] =  @TableID;';
 
-        EXEC [sys].[sp_executesql] @Query, @Params, @TableID;
+        EXEC sys.sp_executesql @Query, @Params, @TableID;
 
         SET @Params = N'@TableID int';
         SET @Query = N'
-                        DELETE  ' + @TempNewObjects + '
+                        DELETE  ' + @TempNewObjects + N'
                         WHERE   [ObjID] =  @TableID;';
 
-        EXEC [sys].[sp_executesql] @Query, @Params, @TableID;
+        EXEC sys.sp_executesql @Query, @Params, @TableID;
 
         SET @Query
             = N' IF EXISTS ( SELECT  *
                         FROM    sysobjects
                         WHERE   name = ''' + @TempExistingObjects
-              + ''' )
+              + N''' )
                 BEGIN
-                    DROP TABLE ' + @TempExistingObjects + ';
+                    DROP TABLE ' + @TempExistingObjects + N';
                 END ';
 
         EXEC (@Query);
@@ -1128,9 +1142,9 @@ SELECT @count = count(*)
             = N' IF EXISTS ( SELECT  *
                         FROM    sysobjects
                         WHERE   name = ''' + @TempNewObjects
-              + ''' )
+              + N''' )
                 BEGIN
-                    DROP TABLE ' + @TempNewObjects + ';
+                    DROP TABLE ' + @TempNewObjects + N';
                 END ';
 
         EXEC (@Query);
@@ -1140,27 +1154,22 @@ SELECT @count = count(*)
             = N' IF EXISTS ( SELECT  *
                         FROM    sysobjects
                         WHERE   name = ''' + @TempObjectList
-              + ''' )
+              + N''' )
                 BEGIN
-                    DROP TABLE ' + @TempObjectList + ';
+                    DROP TABLE ' + @TempObjectList + N';
                 END ';
 
         EXEC (@Query);
 
 
-        IF EXISTS
-        (
-            SELECT *
-            FROM [sys].[sysobjects]
-            WHERE [name] = '##IsTemplateList'
-        )
+        IF EXISTS (SELECT * FROM sys.sysobjects WHERE name = '##IsTemplateList')
         BEGIN
-            DROP TABLE [##IsTemplateList];
+            DROP TABLE ##IsTemplateList;
         END;
 
-        IF EXISTS (SELECT * FROM [sys].[sysobjects] WHERE [name] = '#Properties')
+        IF EXISTS (SELECT * FROM sys.sysobjects WHERE name = '#Properties')
         BEGIN
-            DROP TABLE [#Properties];
+            DROP TABLE #Properties;
         END;
 
 
@@ -1172,9 +1181,9 @@ SELECT @count = count(*)
             = N' IF EXISTS ( SELECT  *
                         FROM    sysobjects
                         WHERE   name = ''' + @TempExistingObjects
-              + ''' )
+              + N''' )
                 BEGIN
-                    DROP TABLE ' + @TempExistingObjects + ';
+                    DROP TABLE ' + @TempExistingObjects + N';
                 END ';
 
         EXEC (@Query);
@@ -1183,9 +1192,9 @@ SELECT @count = count(*)
             = N' IF EXISTS ( SELECT  *
                         FROM    sysobjects
                         WHERE   name = ''' + @TempNewObjects
-              + ''' )
+              + N''' )
                 BEGIN
-                    DROP TABLE ' + @TempNewObjects + ';
+                    DROP TABLE ' + @TempNewObjects + N';
                 END ';
 
         EXEC (@Query);
@@ -1195,27 +1204,22 @@ SELECT @count = count(*)
             = N' IF EXISTS ( SELECT  *
                         FROM    sysobjects
                         WHERE   name = ''' + @TempObjectList
-              + ''' )
+              + N''' )
                 BEGIN
-                    DROP TABLE ' + @TempObjectList + ';
+                    DROP TABLE ' + @TempObjectList + N';
                 END ';
 
         EXEC (@Query);
 
 
-        IF EXISTS
-        (
-            SELECT *
-            FROM [sys].[sysobjects]
-            WHERE [name] = '##IsTemplateList'
-        )
+        IF EXISTS (SELECT * FROM sys.sysobjects WHERE name = '##IsTemplateList')
         BEGIN
-            DROP TABLE [##IsTemplateList];
+            DROP TABLE ##IsTemplateList;
         END;
 
-        IF EXISTS (SELECT * FROM [sys].[sysobjects] WHERE [name] = '#Properties')
+        IF EXISTS (SELECT * FROM sys.sysobjects WHERE name = '#Properties')
         BEGIN
-            DROP TABLE [#Properties];
+            DROP TABLE #Properties;
         END;
 
         IF @@TRANCOUNT <> 0
@@ -1248,17 +1252,17 @@ SELECT @count = count(*)
         --------------------------------------------------------------
         --INSERT ERROR DETAILS
         --------------------------------------------------------------
-        INSERT INTO [dbo].[MFLog]
+        INSERT INTO dbo.MFLog
         (
-            [SPName],
-            [ErrorNumber],
-            [ErrorMessage],
-            [ErrorProcedure],
-            [ProcedureStep],
-            [ErrorState],
-            [ErrorSeverity],
-            [ErrorLine],
-            [Update_ID]
+            SPName,
+            ErrorNumber,
+            ErrorMessage,
+            ErrorProcedure,
+            ProcedureStep,
+            ErrorState,
+            ErrorSeverity,
+            ErrorLine,
+            Update_ID
         )
         VALUES
         ('spMFUpdateTableInternal', ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), @ProcedureStep, ERROR_STATE(),
