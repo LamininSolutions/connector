@@ -30,8 +30,8 @@ BEGIN
 	SELECT TOP 1 @id=id FROM inserted WHERE Status <> 1
 	IF @ID > 0
 	BEGIN
-
-    EXEC dbo.spMFUpdateContextMenuQueue @id
+	SELECT @id
+  --  EXEC dbo.spMFUpdateContextMenuQueue @id
   END
 END
 GO

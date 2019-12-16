@@ -7,7 +7,7 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@Object_Release = '4.4.13.53'            -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
-GO
+
 
 
 IF EXISTS
@@ -44,6 +44,7 @@ ALTER PROCEDURE [dbo].[spMFUpdateMFilesToMFSQL]
     @MFTableName NVARCHAR(128)
    ,@MFLastUpdateDate SMALLDATETIME = NULL OUTPUT
    ,@UpdateTypeID TINYINT = 1
+   ,@MaxObjects INT = 200000
    ,@Update_IDOut INT = NULL OUTPUT
    ,@ProcessBatch_ID INT = NULL OUTPUT
    ,@debug TINYINT = 0
@@ -148,6 +149,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-12-10  LC         Add a parameter to set the maximum number of objects in class
 2019-09-27  LC         Set withstats for audit batches = 0 
 2019-09-27  LC         Fix UpdateID in MFProcessBatchDetail
 2019-09-03  LC         Set audittableinbatches to withstats = 0

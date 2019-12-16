@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFGetObjectvers' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.12.53'      -- varchar(50)
+                                    ,@Object_Release = '4.4.14.56'      -- varchar(50)
                                     ,@UpdateFlag = 2;                   -- smallint
 GO
 
@@ -95,6 +95,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-12-12  LC         Improve text in MFProcessBatchDetail
 2019-09-04  LC         Add connection test
 2019-08-30  JC         Added documentation
 2019-08-05  LC         Improve logging
@@ -297,7 +298,11 @@ BEGIN
 				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep, @return_value );
 			END
 		
+		DECLARE @From INT, @To INT
 
+		SELECT @From = MIN(item), @To = MAX(item) FROM dbo.fnMFSplitString(@MFIDs,',') AS fmss
+
+		
         SELECT @rowcount = COUNT([xmlfile].[objId])
         FROM
             OPENXML(@Idoc, '/form/objVers', 1)
@@ -311,8 +316,8 @@ BEGIN
         SET @LogTypeDetail = 'Status';
         SET @LogStatusDetail = 'In Progress';
         SET @LogTextDetail
-            = 'Objver with filters: Date: ' + CAST(ISNULL(@dtModifiedDate, '2000-01-01') AS NVARCHAR(30)) + ' Objids: '
-              + ISNULL(@MFIDs, '');
+            = 'Objver with filters: Date: ' + CAST(ISNULL(@dtModifiedDate, '2000-01-01') AS NVARCHAR(30)) + ' Objids: From  '
+              + CAST(@From AS NVARCHAR(10)) + ' to ' + CAST(@To AS NVARCHAR(10))
         SET @LogColumnName = 'Get Objectvers';
         SET @LogColumnValue = CAST(@rowcount AS NVARCHAR(10));
 

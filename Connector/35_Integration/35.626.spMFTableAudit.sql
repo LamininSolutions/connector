@@ -136,6 +136,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-12-10  LC         Fix bug for the removal of records from class table
 2019-10-31  LC         Fix bug - change Class_id to Class in delete object section 
 2019-09-12  LC         Fix bug - remove deleted objects from table
 2019-08-30  JC         Added documentation
@@ -523,9 +524,9 @@ BEGIN TRY
 0 = identical : [ao].[MFVersion] = [t].[MFVersion] AND ISNULL([t].[deleted], 0) = 0
 1 = MF IS Later : [ao].[MFVersion] > [t].[MFVersion] AND [t].[deleted] = 0 
 2 = SQL is later : ao.[MFVersion] < ISNULL(t.[MFVersion],-1) 
-3 = Deleted in MF : t.deleted = 1 and isnull(ao.MFversion,0) = 0
-4 =  SQL to be Deleted : WHEN ao.[MFVersion]  IS NULL and isnull(t.deleted,0) = 0 and isnull(t.objid,0) > 0                                              
-5 =  Not in SQL : N t.[MFVersion] is null and ao.[MFVersion] is not null                                                            
+3 = no longer used
+4 =  in SQL to be Deleted : WHEN ao.[MFVersion]  IS NULL and isnull(t.deleted,0) = 0 and isnull(t.objid,0) > 0                                              
+5 =  Not in audit table : N t.[MFVersion] is null and ao.[MFVersion] is not null                                                            
 6 = Not yet process in SQL : t.id IS NOT NULL AND t.objid IS NULL
 
 
@@ -538,9 +539,8 @@ SET ao.[ID] = t.id
 ,StatusFlag = CASE WHEN [ao].[MFVersion] = ISNULL([t].[MFVersion],-1) AND ISNULL([t].[deleted], 0) = 0 THEN 0
 WHEN [ao].[MFVersion] > ISNULL([t].[MFVersion],-1) AND [t].[deleted] = 0  THEN 1
 WHEN ao.[MFVersion] < ISNULL(t.[MFVersion],-1) AND ISNULL(t.[objid],-1)	> 0 THEN 2
-WHEN ISNULL(ao.MFVersion,0) = 0 THEN 4
-WHEN ISNULL(t.id,0) = 0 AND ISNULL(t.[objid],0) = 0 THEN 5
-WHEN ISNULL(t.id,0) > 0 AND ISNULL(t.[objid],0) = 0 THEN 5
+WHEN ISNULL(ao.MFVersion,0) = 0 and isnull(t.deleted,0) = 0 and isnull(t.objid,0) > 0 THEN 4
+WHEN ISNULL(ao.id,0) = 0 AND ISNULL(ao.[objid],0) > 0 THEN 6
 END 
 FROM [#AllObjects] AS [ao]
 left JOIN ' +   QUOTENAME(@MFTableName) + ' t
@@ -548,6 +548,28 @@ ON ao.[objid] = t.[objid] ;';
 
       --           Print @Query;
             EXEC [sys].[sp_executesql] @Stmt = @Query;
+
+			-------------------------------------------------------------
+			-- Insert records within the range of the audit that is in SQL but not in table audit
+			-------------------------------------------------------------
+SET @Params = N'@ClassID int, @ObjectID int,  @ObjidsForUpdate nvarchar(max)'
+
+ SET @SQL = N'MERGE INTO [#AllObjects] t
+           USING(
+SELECT @ClassID AS Class,@ObjectId AS objectType,ct.MFVersion,ct.Objid FROM '+QUOTENAME(@MFTableName) + ' AS ct
+INNER JOIN dbo.fnMFSplitString(@ObjIDsForUpdate,'','') AS fmss
+ON fmss.Item = ct.objid) s
+ON s.Class = t.Class AND s.ObjID = t.ObjID
+WHEN NOT MATCHED THEN INSERT
+(
+Class,ID, ObjectType,MFVersion,StatusFlag
+)
+VALUES
+(
+s.Class,s.ObjID,s.objectType,s.MFVersion,5
+);'
+
+EXEC sp_executeSQL @Stmt = @SQL, @Param = @Params, @ClassId = @ClassId, @ObjectId = @ObjectId, @ObjIDsForUpdate = @ObjIDsForUpdate
 
 
 
@@ -557,6 +579,10 @@ ON ao.[objid] = t.[objid] ;';
             IF @Debug > 0
             BEGIN
                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+
+
+
+
 
              SELECT 'Postflag',* FROM [#AllObjects] AS [ao]
             END;
@@ -609,7 +635,7 @@ SELECT t.id
 FROM [#AllObjects] AS [ao]
 right JOIN '                    + QUOTENAME(@MFTableName) + ' t
 ON ao.objid = t.objid 
-WHERE ao.objid IS NULL) ;';
+WHERE Flagstatus = 5) ;';
 
             --            SELECT @Query;
                 EXEC [sys].[sp_executesql] @Query;
@@ -667,14 +693,14 @@ WHERE ao.objid IS NULL) ;';
                            WHEN [ao].[StatusFlag] = 3 THEN
                                'Deleted in MF'
                            WHEN [ao].[StatusFlag] = 4 THEN
-                               'SQL to be marked as deleted'
+                               'SQL to be earmarked for deletion'
                            WHEN [ao].[StatusFlag] = 5 THEN
-                               'Not in SQL'
+                               'Not in Class Table'
                            WHEN [ao].[StatusFlag] = 6 THEN
                                'Not yet processed in SQL'
                        END               AS [StatusName]
                       ,CASE
-                           WHEN [ao].[StatusFlag] <> 0 THEN
+                           WHEN ISNULL([ao].[StatusFlag],0) <> 0 THEN
                                1
                            ELSE
                                0
@@ -716,6 +742,9 @@ WHERE ao.objid IS NULL) ;';
 	        IF @Debug > 0
             BEGIN
                 RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
+				SELECT * FROM dbo.MFAuditHistory AS mah
+				INNER JOIN dbo.fnMFSplitString(@ObjIDsForUpdate,',') AS fms
+				ON fms.item = mah.ObjID AND class = @ClassId
             END;
 
 			END --update items into MFaudithisitory
@@ -734,11 +763,11 @@ WHERE ao.objid IS NULL) ;';
 			SELECT [ListItem] AS [Objid] from [dbo].[fnMFParseDelimitedString](@ObjIDs,',') fps
 			LEFT JOIN [#AllObjects] AS [ao]
 			ON fps.[ListItem] = ao.[ObjID]
-			WHERE ao.objid IS null
+			WHERE ao.StatusFlag = 5
 			)
-			SELECT * FROM cte
-			--DELETE FROM [dbo].[MFAuditHistory] 
-			--WHERE [Class] = @ClassId AND [Objid] IN (SELECT cte.[Objid] FROM cte)
+		--	SELECT * FROM cte
+			DELETE FROM [dbo].[MFAuditHistory] 
+			WHERE [Class] = @ClassId AND [Objid] IN (SELECT cte.[Objid] FROM cte)
 			
 			END
 
@@ -762,34 +791,6 @@ WHERE ao.objid IS NULL) ;';
      	Begin
      		RAISERROR(@DefaultDebugText,10,1,@ProcedureName,@ProcedureStep );
      	END
-          
-
-            IF
-            (
-                SELECT ISNULL([IncludeInApp], 0)
-                FROM [dbo].[MFClass]
-                WHERE [TableName] = @MFTableName
-            ) != 0
-            BEGIN
-                SET @sql
-                    = N'
-   Delete FROM [dbo].[MFAuditHistory]
-						   WHERE id IN (SELECT mah.id from [dbo].[MFAuditHistory] mah
-						   left JOIN ' + QUOTENAME(@MFTableName)
-                      + ' AS [mlv]
-					   ON mlv.objid = mah.[ObjID] AND mlv.'+@ClassTableColumn +' = mah.[Class]
-					   WHERE mlv.id IS NULL and mah.class = @ClassID );';
-
-IF @debug > 0
-PRINT @sql;
-
-
-              EXEC sp_executeSQL @SQL, N'@ClassID int', @ClassID
-            END;
-
-
-
-
         -------------------------------------------------------------
         -- Set UpdateRequired
         -------------------------------------------------------------

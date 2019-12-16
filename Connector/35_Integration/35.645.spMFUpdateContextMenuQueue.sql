@@ -66,7 +66,7 @@ This procedure is called by the trigger tMFContextMenuQueue_UpdateQueue on the t
 Additional Info
 ===============
 
-When triggered this procedure will update all the rows in the queue that has not been updated successfully.
+When triggered this procedure will update the row in the queue that has not been updated successfully.
 
 Warnings
 ========
@@ -101,60 +101,79 @@ BEGIN
     DECLARE @ObjectID INT;
     DECLARE @ObjectVer INT;
     DECLARE @ObjectType INT;
-    DECLARE @Output INT;
+    DECLARE @Output NVARCHAR(MAX);
     DECLARE @MFTableName NVARCHAR(200);
     DECLARE @Objids NVARCHAR(100);
     DECLARE @Update_IDOut INT;
     DECLARE @ProcessBatch_ID INT;
 
+
     SET @Params = N'@Output nvarchar(1000) output';
 
     SELECT @Count = COUNT(*)
     FROM dbo.MFContextMenuQueue cmq
-    WHERE cmq.Status <> 1;
+    WHERE cmq.Status <> 1 AND id = @ID ;
 
-
+BEGIN TRY
     IF @Count > 0
     BEGIN
 
-        SELECT @id = MIN(cmq.id)
-        FROM dbo.MFContextMenuQueue cmq
-        WHERE cmq.Status <> 1;
+        ----SELECT @id = MIN(cmq.id)
+        ----FROM dbo.MFContextMenuQueue cmq WITH (NOLOCK)
+        ----WHERE cmq.Status <> 1;
 
-        WHILE @id IS NOT NULL
-        BEGIN
+ --       WHILE @id IS NOT NULL
+--        BEGIN
+
 
             SELECT @ContextMenu_ID = cmq.ContextMenu_ID,
                    @ObjectID = cmq.ObjectID,
                    @Objids = CAST(cmq.ObjectID AS NVARCHAR(100)),
-                   @ObjectVer = cmq.ObjectVer,
+                   @ObjectVer = ISNULL(cmq.ObjectVer,0),
                    @ObjectType = cmq.ObjectType,
                    @ClassID = cmq.ClassID,
                    @Procedure = mcm.Action
-            FROM dbo.MFContextMenuQueue AS cmq
+            FROM dbo.MFContextMenuQueue AS cmq WITH (NOLOCK)
                 INNER JOIN dbo.MFContextMenu AS mcm
                     ON cmq.ContextMenu_ID = mcm.ID
             WHERE cmq.id = @id;
 
-            SELECT @id;
+--            SELECT @id;
 
             SELECT @MFTableName = TableName
             FROM dbo.MFClass
             WHERE MFID = @ClassID;
-
+			/*
             EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName,                -- nvarchar(200)
                                      @UpdateMethod = 1,                          -- int
                                      @ObjIDs = @Objids,                          -- nvarchar(max)
                                      @Update_IDOut = @Update_IDOut OUTPUT,       -- int
                                      @ProcessBatch_ID = @ProcessBatch_ID OUTPUT, -- int
                                      @Debug = 0;                                 -- smallint
+*/
+SET @params = '@output Nvarchar(max) output'
+SET @SQL = '
+EXEC '+ @Procedure +' @ObjectID = '+ CAST(@ObjectID AS VARCHAR(10))+ ',
+@ObjectType = '+ CAST(@ObjectType AS VARCHAR(10))+ ',
+@ObjectVer = '+ CAST(ISNULL(@ObjectVer,0) AS VARCHAR(10))+ ',          
+@ID = '+ CAST(@ContextMenu_ID AS VARCHAR(10))+ ',        
+@OutPut = @OutPut OUTPUT, 
+@ClassID = '+ CAST(@ClassID  AS VARCHAR(10))+ ';'
+ 
+ PRINT @SQL
 
+ EXEC sp_executeSQL @Stmt = @SQL, @Param = @Params, @Output = @Output OUTPUT
+ 
+ SELECT @Output
+
+ /*
             DECLARE @VersionUpdated INT;
 
             SELECT @VersionUpdated = muh.NewOrUpdatedObjectDetails.value('(/form/Object/@objVersion)[1]', 'int')
             FROM dbo.MFUpdateHistory AS muh
             WHERE muh.Id = @Update_IDOut;
 
+			BEGIN TRAN
             UPDATE mcl
             SET mcl.UpdateID = @Update_IDOut,
                 mcl.ProcessBatch_ID = @ProcessBatch_ID,
@@ -166,21 +185,22 @@ BEGIN
                              END
             FROM dbo.MFContextMenuQueue mcl
             WHERE mcl.id = @id;
-
-            DELETE FROM dbo.MFContextMenuQueue
-            WHERE ObjectID = @ObjectID
-                  AND ObjectType = @ObjectType
-                  AND ObjectVer < @VersionUpdated;
-
+			COMMIT
 
             SELECT @id =
             (
-                SELECT MIN(id) FROM dbo.MFContextMenuQueue WHERE id > @id AND Status <> 1
+                SELECT MIN(id) FROM dbo.MFContextMenuQueue WITH (NOLOCK) WHERE id > @id AND Status <> 1
             );
 
         END; --end loop
+	*/		
+
 
     END; -- en if count > 0
+END TRY
+BEGIN CATCH
+RAISERROR('failed',16,1)
+END CATCH
 
 END;
 
