@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFVaultConnectionTest' -- nvarchar(100)
-                                    ,@Object_Release = '4.3.9.48'             -- varchar(50)
+                                    ,@Object_Release = '4.5.14.56'             -- varchar(50)
                                     ,@UpdateFlag = 2;                         -- smallint
 GO
 
@@ -51,6 +51,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
+
     /*
 Procedure to perform a test on the vault connection
 
@@ -60,6 +61,10 @@ Date: 2016-8
 Usage
 
 Exec  spMFVaultConnectionTest 
+
+Change log
+2020-02-08  LC     Fix bug for check license validation
+
 
 */
     SET NOCOUNT ON;
@@ -158,14 +163,32 @@ Exec  spMFVaultConnectionTest
         END;
     END CATCH;
 
-    IF @Return_Value = 1
+   -- DECLARE @messageOut NVARCHAR(50)
+
+    SET @MessageOut = 'License is not validated'
+
+
+--    IF @Return_Value = 1
     BEGIN
         BEGIN TRY
-            EXEC @Return_Value = [dbo].[spMFCheckLicenseStatus] @InternalProcedureName = 'spMFGetClass'    -- nvarchar(500)
-                                                               ,@ProcedureName = 'spMFVaultConnectionTest' -- nvarchar(500)
-                                                               ,@ProcedureStep = 'Validate License: ';     -- sysname
 
-            SET @MessageOut = 'Validated License';
+        EXEC @return_value= dbo.spMFCheckLicenseStatus @InternalProcedureName = N'spmfGetclass',               -- nvarchar(500)
+                                @ProcedureName = N'spMFVaultConnectionTest',                       -- nvarchar(500)
+                                @ProcedureStep = 'Validate License:',                      -- sysname
+                                @ExpiryNotification = 0,                    -- int
+                                @IsLicenseUpdate = 1,                    -- bit
+                                @Debug = 0                                 -- int
+
+          IF @Return_Value = 1
+          Begin
+          SET @MessageOut = 'Validated License'
+          END
+          ELSE
+          BEGIN
+         
+          SET @MessageOut = 'License is invalid'
+           END         
+
 
             --   SELECT @Return_Value;
             IF @IsSilent = 0

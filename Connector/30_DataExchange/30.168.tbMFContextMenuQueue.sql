@@ -91,8 +91,8 @@ IF NOT EXISTS (	  SELECT	[name]
 	ProcessBatch_ID INT,
 	UpdateID INT,
 	UpdateCycle INT,
-    CreatedOn DATETIME DEFAULT (GETUTCDATE()),
-	LastUpdated datetime DEFAULT (GETUTCDATE())
+    CreatedOn DATETIME DEFAULT (GETDATE()),
+	LastUpdated datetime DEFAULT (GETDATE())
 );
 
 END

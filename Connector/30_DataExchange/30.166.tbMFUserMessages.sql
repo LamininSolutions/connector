@@ -74,7 +74,7 @@ CREATE TABLE [dbo].[MFUserMessages](
 	[MF_Last_Modified_by_ID] [INT] NULL,
 	[Mfsql_Class_Table] [NVARCHAR](100) NULL,
 	[Mfsql_Count] INT NULL,
-	[Mfsql_Message] [NVARCHAR](4000) NULL,
+	[Mfsql_Message] [NVARCHAR](max) NULL,
 	[Mfsql_Process_Batch] [INT] NULL,
 	[Mfsql_User] [NVARCHAR](100) NULL,
 	[Mfsql_User_ID] [INT] NULL,

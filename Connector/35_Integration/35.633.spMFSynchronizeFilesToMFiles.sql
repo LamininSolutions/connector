@@ -101,6 +101,8 @@ Parameters
 Purpose
 =======
 
+
+
 Additional Info
 ===============
 
@@ -405,7 +407,7 @@ GROUP BY ' +    QUOTENAME(@TargetFileUniqueKeycolumnName) + ' HAVING COUNT(*) > 
 
                 SET @DebugText = 'Tempfile %s';
                 SET @DebugText = @DefaultDebugText + @DebugText;
-                SET @ProcedureStep = '';
+
 
                 IF @Debug > 0
                 BEGIN

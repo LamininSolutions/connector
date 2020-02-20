@@ -2138,6 +2138,62 @@ AS
 EXTERNAL NAME [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetDeletedObjects]
 ');
 
+-- -------------------------------------------------------- 
+-- sp.spMFGetMFilesVersionInternal.sql 
+-- -------------------------------------------------------- 
+PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
+    + '.[dbo].[spmfGetLocalMFilesVersionInternal]';
+
+
+
+SET NOCOUNT ON 
+EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',     @ObjectName = N'spmfGetLocalMFilesVersionInternal', -- nvarchar(100)
+    @Object_Release = '4.5.15.56', -- varchar(50)
+    @UpdateFlag = 2 -- smallint
+
+
+/*------------------------------------------------------------------------------------------------
+	Author: LC, Laminin Solutions
+	Create date: 2020-02
+	Database: 
+	Description: CLR procedure to get M-Files version on SQL server
+------------------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------------------
+  MODIFICATION HISTORY
+  ====================
+ 	DATE			NAME		DESCRIPTION
+	YYYY-MM-DD		{Author}	{Comment}
+	2
+------------------------------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------------------------
+  USAGE:
+  =====
+
+
+-----------------------------------------------------------------------------------------------*/
+IF EXISTS ( SELECT  1
+            FROM    INFORMATION_SCHEMA.ROUTINES
+            WHERE   ROUTINE_NAME = 'spmfGetLocalMFilesVersionInternal'--name of procedure
+                    AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
+                    AND ROUTINE_SCHEMA = 'dbo' )
+    BEGIN
+        PRINT SPACE(10) + '...Drop CLR Procedure';
+        DROP PROCEDURE [dbo].[spmfGetMFilesVersionInternal];
+		
+    END;
+	
+    
+PRINT SPACE(10) + '...Stored Procedure: create spmfGetLocalMFilesVersionInternal';
+	 
+     
+EXEC (N'
+CREATE PROCEDURE [dbo].[spmfGetLocalMFilesVersionInternal]
+    @Result NVARCHAR(MAX) OUTPUT
+AS EXTERNAL NAME
+    [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetLocalMFilesVersion];
+');
+  
+  
 
 
 

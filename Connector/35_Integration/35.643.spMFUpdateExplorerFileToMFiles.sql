@@ -856,12 +856,18 @@ BEGIN
                 --EXEC (@Sql);
                 DECLARE @Return_LastModified DATETIME;
 
-                EXEC [dbo].[spMFUpdateTableWithLastModifiedDate] @UpdateMethod = 1                                  -- int
-                                                                ,@Return_LastModified = @Return_LastModified OUTPUT -- datetime
-                                                                ,@TableName = @MFTableName                          -- sysname
-                                                                ,@Update_IDOut = @Update_IDOut OUTPUT               -- int
-                                                                ,@ProcessBatch_ID = @ProcessBatch_id                -- int
-                                                                ,@debug = 0;                                        -- smallint
+            DECLARE @MFLastUpdateDate SMALLDATETIME
+                 
+            EXEC dbo.spMFUpdateMFilesToMFSQL @MFTableName = @MFTableName,                           -- nvarchar(128)
+                                             @MFLastUpdateDate = @MFLastUpdateDate OUTPUT, -- smalldatetime
+                                             @UpdateTypeID = 1,                            -- tinyint
+                                             @MaxObjects = 0,                              -- int
+                                             @Update_IDOut = @Update_IDOut OUTPUT,         -- int
+                                             @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,   -- int
+                                             @debug = 0                                    -- tinyint
+            
+
+
             END;
         END;
         ELSE
@@ -889,7 +895,7 @@ BEGIN
 
                     SELECT @length = @End - @Start;
 
-                    SELECT @ErrorMsg = SUBSTRING(@ErrorMsg, @Start, @length);
+                    SELECT @ErrorMsg = SUBSTRING(@ErrorMsg, ISNULL(@Start,1), ISNULL(@length,1));
                 END;
 
         -------------------------------------------------------------

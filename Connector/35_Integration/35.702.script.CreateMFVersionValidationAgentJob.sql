@@ -1,6 +1,12 @@
 
 /*
 Create agent to check MFiles version on a daily basis and update if changed
+
+change log
+
+2020-02-08 LC  Set agent by default to unable
+2020-02-08 LC  Prevent agent to be updated on upgrading or reinstallation if exist 
+
 */
 
 SET NOCOUNT ON;
@@ -36,7 +42,7 @@ BEGIN
 	  --SELECT [job_id],*
    -- FROM [msdb].[dbo].[sysjobs]
    -- WHERE ([name] = @JobName);
-
+   /*
     IF (@JobID IS NOT NULL)
     BEGIN
         IF (EXISTS
@@ -48,11 +54,11 @@ BEGIN
         )
            )
             -- Delete the [local] job   
-            EXECUTE [msdb].[dbo].[sp_delete_job] @job_name = @JobName;
+  --          EXECUTE [msdb].[dbo].[sp_delete_job] @job_name = @JobName;
 
         SELECT @JobID = NULL;
     END;
-
+    */
     /****** Object:  Job [Delete History]    Script Date: 12/12/2016 16:35:56 ******/
     BEGIN TRANSACTION;
 
@@ -77,8 +83,11 @@ BEGIN
             GOTO QuitWithRollback;
     END;
 
+    IF @JobID IS NULL
+    BEGIN
+    
     EXEC @ReturnCode = [msdb].[dbo].[sp_add_job] @job_name = @JobName
-                                                ,@enabled = 1
+                                                ,@enabled = 0
                                                 ,@notify_level_eventlog = 0
                                                 ,@notify_level_email = 0
                                                 ,@notify_level_netsend = 0
@@ -126,7 +135,7 @@ BEGIN
 
     EXEC @ReturnCode = [msdb].[dbo].[sp_add_jobschedule] @job_id = @JobID
                                                         ,@name = N'MFSQL MFVersion Daily schedule'
-                                                        ,@enabled = 1
+                                                        ,@enabled = 0
                                                         ,@freq_type = 4
                                                         ,@freq_interval = 1
                                                         ,@freq_subday_type = 1
@@ -147,18 +156,25 @@ BEGIN
 
     RAISERROR('Set Server: ReturnCode %i', 10, 1, @ReturnCode);
 
+        END
+
     IF (@@Error <> 0 OR @ReturnCode <> 0)
         GOTO QuitWithRollback;
 
     COMMIT TRANSACTION;
 
+
     GOTO EndSave;
+
+
 
     QuitWithRollback:
     RAISERROR('Unable to create Validate MFVersion agent', 10, 1);
 
     IF (@@TranCount > 0)
         ROLLBACK TRANSACTION;
+
+        
 
     EndSave:
 END;

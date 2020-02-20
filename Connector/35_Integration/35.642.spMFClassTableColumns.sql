@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFClassTableColumns'
                                     -- nvarchar(100)
-                                    ,@Object_Release = '4.4.13.54'
+                                    ,@Object_Release = '4.5.14.56'
                                     -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
@@ -121,6 +121,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-01-24  LC         Fix multitext column showing false error
 2019-11-18  LC         Fix bug on column width for multi lookup properties
 2019-08-30  JC         Added documentation
 2019-08-29  LC         Add predefined or automatic column
@@ -380,21 +381,19 @@ WHERE [c].[property_mfid] IS NULL;
           AND [pc].[length] <> 200
           AND [pc].[IncludedInApp] = 1;
 
-		      UPDATE [##spMFClassTableColumns]
-    SET [ColumnDataTypeError] = 1
-    FROM [##spMFClassTableColumns] AS [pc]
-    WHERE [pc].[MFdataType_ID] in (10,13)
-          AND [pc].[length] <> 8000;
-   --       AND [pc].[IncludedInApp] = 1;
-
-
     UPDATE [##spMFClassTableColumns]
     SET [ColumnDataTypeError] = 1
     FROM [##spMFClassTableColumns] AS [pc]
-    WHERE [pc].[MFdataType_ID] in (10,13)
+    WHERE [pc].[MFdataType_ID] in (10)
           AND [pc].[length] <> 8000
           AND [pc].[IncludedInApp] IS NOT NULL;
 
+             UPDATE [##spMFClassTableColumns]
+    SET [ColumnDataTypeError] = 1
+    FROM [##spMFClassTableColumns] AS [pc]
+    WHERE [pc].[MFdataType_ID] in (13)
+          AND [pc].[length] <> -1
+          AND [pc].[IncludedInApp] IS NOT NULL;
 
 --SELECT *
 --FROM [##spMFClassTableColumns] AS [pc]

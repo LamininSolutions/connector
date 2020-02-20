@@ -46,7 +46,6 @@ ALTER PROC dbo.spMFUpdateContextMenuQueue
 AS
 
 /*rST**************************************************************************
-
 ==========================
 spMFUpdateContextMenuQueue
 ==========================
@@ -61,15 +60,14 @@ Parameters
 Purpose
 =======
 
-This procedure is called by the trigger tMFContextMenuQueue_UpdateQueue on the table MFContextMenuQueue.  The entry into MFContextMenu is inserted by adding a row in the MFContextMenuQueue as part of the custom procedure to process action type 5 context menu actions in M-Files
+MFContextMenuQueue is part of the queue processing procedures to process action type 5 context menu actions in M-Files. This particular procedure is designed to reprocess events that has not processed on the first attempt.
 
 Additional Info
 ===============
 
-When triggered this procedure will update the row in the queue that has not been updated successfully.
+It is indented for a SQL agent to trigger this procedure frequently to check for and process unprocessed queue items.
 
-Warnings
-========
+When triggered this procedure will update the oldest row in the queue that has not been updated successfully. Each time it performed an attempted update the update cycle is incremented. The agent can then be tuned to stop after a number of cycles. It is set to 5 cycles by default
 
 Examples
 ========
@@ -84,6 +82,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-01-07  LC         Add routine to clean up the queue
 2019-12-06  LC         Create procedure
 ==========  =========  ========================================================
 
@@ -108,8 +107,57 @@ BEGIN
     DECLARE @ProcessBatch_ID INT;
 
 
-    SET @Params = N'@Output nvarchar(1000) output';
+	-------------------------------------------------------------
+	-- Consolidate queue items by objid
+	-------------------------------------------------------------
+;
+WITH cte
+AS (SELECT mcmq.ObjectID
+    FROM dbo.MFContextMenuQueue AS mcmq
+    GROUP BY mcmq.ObjectID,
+             mcmq.ClassID,
+			 mcmq.ContextMenu_ID
+    HAVING COUNT(*) > 1),
+     cte2
+AS (SELECT mcmq.ObjectID,
+           mcmq.ClassID,
+		   mcmq.ContextMenu_ID,
+           MAX(mcmq.ObjectVer) AS ObjectVer
+    FROM dbo.MFContextMenuQueue AS mcmq
+    WHERE mcmq.ObjectID IN
+          (
+              SELECT cte.ObjectID FROM cte
+          )
+    GROUP BY mcmq.ObjectID,
+             mcmq.ClassID,
+			 mcmq.ContextMenu_ID
+			 ),
+     cte3
+AS (SELECT mcmq.id,
+mcmq.ContextMenu_ID,
+           cte2.ObjectVer
+    FROM dbo.MFContextMenuQueue mcmq
+        INNER JOIN cte2
+            ON cte2.ClassID = mcmq.ClassID
+               AND cte2.ObjectID = mcmq.ObjectID
+			  AND cte2.contextMenu_ID = mcmq.ContextMenu_ID ),
+     cte4
+AS (SELECT mcmq.id
+    FROM cte3
+        INNER JOIN dbo.MFContextMenuQueue AS mcmq
+            ON mcmq.id = cte3.id AND mcmq.ContextMenu_ID = cte3.ContextMenu_ID
+    WHERE mcmq.ObjectVer < cte3.ObjectVer)
+DELETE FROM dbo.MFContextMenuQueue
+WHERE id IN
+      (
+          SELECT cte4.id FROM cte4
+      );
 
+	-------------------------------------------------------------
+	-- reprocess the item called with @id
+	-------------------------------------------------------------
+    SET @Params = N'@Output nvarchar(1000) output';
+	   
     SELECT @Count = COUNT(*)
     FROM dbo.MFContextMenuQueue cmq
     WHERE cmq.Status <> 1 AND id = @ID ;
@@ -117,14 +165,6 @@ BEGIN
 BEGIN TRY
     IF @Count > 0
     BEGIN
-
-        ----SELECT @id = MIN(cmq.id)
-        ----FROM dbo.MFContextMenuQueue cmq WITH (NOLOCK)
-        ----WHERE cmq.Status <> 1;
-
- --       WHILE @id IS NOT NULL
---        BEGIN
-
 
             SELECT @ContextMenu_ID = cmq.ContextMenu_ID,
                    @ObjectID = cmq.ObjectID,
@@ -138,19 +178,10 @@ BEGIN TRY
                     ON cmq.ContextMenu_ID = mcm.ID
             WHERE cmq.id = @id;
 
---            SELECT @id;
-
             SELECT @MFTableName = TableName
             FROM dbo.MFClass
             WHERE MFID = @ClassID;
-			/*
-            EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName,                -- nvarchar(200)
-                                     @UpdateMethod = 1,                          -- int
-                                     @ObjIDs = @Objids,                          -- nvarchar(max)
-                                     @Update_IDOut = @Update_IDOut OUTPUT,       -- int
-                                     @ProcessBatch_ID = @ProcessBatch_ID OUTPUT, -- int
-                                     @Debug = 0;                                 -- smallint
-*/
+	
 SET @params = '@output Nvarchar(max) output'
 SET @SQL = '
 EXEC '+ @Procedure +' @ObjectID = '+ CAST(@ObjectID AS VARCHAR(10))+ ',
@@ -165,36 +196,6 @@ EXEC '+ @Procedure +' @ObjectID = '+ CAST(@ObjectID AS VARCHAR(10))+ ',
  EXEC sp_executeSQL @Stmt = @SQL, @Param = @Params, @Output = @Output OUTPUT
  
  SELECT @Output
-
- /*
-            DECLARE @VersionUpdated INT;
-
-            SELECT @VersionUpdated = muh.NewOrUpdatedObjectDetails.value('(/form/Object/@objVersion)[1]', 'int')
-            FROM dbo.MFUpdateHistory AS muh
-            WHERE muh.Id = @Update_IDOut;
-
-			BEGIN TRAN
-            UPDATE mcl
-            SET mcl.UpdateID = @Update_IDOut,
-                mcl.ProcessBatch_ID = @ProcessBatch_ID,
-                mcl.Status = CASE
-                                 WHEN @ObjectVer = @VersionUpdated THEN
-                                     1
-                                 ELSE
-                                     -1
-                             END
-            FROM dbo.MFContextMenuQueue mcl
-            WHERE mcl.id = @id;
-			COMMIT
-
-            SELECT @id =
-            (
-                SELECT MIN(id) FROM dbo.MFContextMenuQueue WITH (NOLOCK) WHERE id > @id AND Status <> 1
-            );
-
-        END; --end loop
-	*/		
-
 
     END; -- en if count > 0
 END TRY

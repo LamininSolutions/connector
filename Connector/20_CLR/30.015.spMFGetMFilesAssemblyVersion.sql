@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFGetMFilesAssemblyVersion'
 -- nvarchar(100)
-                                    ,@Object_Release = '4.4.13.53'
+                                    ,@Object_Release = '4.5.15.56'
 -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
@@ -78,7 +78,7 @@ Used by other procedures.
 Warnings
 ========
 
-This procedure returns to M-Files Version on the M-Files Server and not the SQL Server
+This procedure returns to M-Files Version on the SQL Server
 When the procedure to update the assemblies fail, the CLR will have been deleted with reinstatement. When this happens the MFiles version must be updated manually in MFSettings table.
 
 Examples
@@ -103,6 +103,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-02-10  LC         New CLR procedure to get MFVersion from local machine
 2019-09-17  LC         Update documentation
 2019-09-17  LC         Improve error trapping, add MFlog msg
 2019-09-17  LC         Add condition to deal with scenario where CLR has been deleted
@@ -133,7 +134,6 @@ BEGIN
            ,@LsMFilesVersion VARCHAR(250)
            ,@DbMFileVersion VARCHAR(250);
 
-    SELECT @VaultSettings = [dbo].[FnMFVaultSettings]();
 
     SELECT @DbMFileVersion = CAST([Value] AS VARCHAR(250))
     FROM [dbo].[MFSettings]
@@ -149,8 +149,8 @@ BEGIN
         SELECT OBJECT_ID('dbo.spmfGetMFilesVersionInternal')
     ) IS NOT NULL
     BEGIN
-        EXECUTE [spmfGetMFilesVersionInternal] @VaultSettings
-                                              ,@LsMFilesVersion OUTPUT;
+        EXECUTE spmfGetLocalMFilesVersionInternal
+                                              @LsMFilesVersion OUTPUT;
 
         SELECT @LsMFilesVersion;
 
@@ -167,7 +167,7 @@ BEGIN
             SELECT @MFilesVersion = CAST([ms].[Value] AS VARCHAR(100) )
             FROM [dbo].[MFSettings] AS [ms]
             WHERE [ms].[Name] = 'MFVersion';
-            Set @Msg =  'Current version in MFSettings is ' + @MFilesVersion + '. Unable to find CLR spmfGetMFilesVersionInternal, manually update MFSettings with correct version, then run exec spMFUpdateAssemblies '
+            Set @Msg =  'Current version in MFSettings is ' + @MFilesVersion + '. Unable to find CLR spmfGetLocalMFilesVersionInternal, manually update MFSettings with correct version, then run exec spMFUpdateAssemblies '
 
             SET @ProcedureStep = 'Catch CLR error ';
 

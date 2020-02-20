@@ -54,7 +54,7 @@ Parameters
   @ClassID int
     ID of the class
   @PropertyIds nvarchar(2000)
-    Property ID’s separated by comma
+    Property IDs separated by comma
   @PropertyValues nvarchar(2000)
     Property values separated by comma
   @Count int

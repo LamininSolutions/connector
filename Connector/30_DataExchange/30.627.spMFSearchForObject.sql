@@ -78,7 +78,7 @@ To search for objects with class id and name or title property.
 Additional Info
 ===============
 
-This procedure will call “spMFSearchForObjectInternal” and get the objects details that satisfies the search conditions and shows the objects details in tabular format.
+This procedure will call spMFSearchForObjectInternal and get the objects details that satisfies the search conditions and shows the objects details in tabular format.
 
 The result is either:
 

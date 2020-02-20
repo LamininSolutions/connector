@@ -4,7 +4,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFUpdateMFilesToMFSQL' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.13.53'            -- varchar(50)
+                                    ,@Object_Release = '4.5.15.56'            -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
 
@@ -149,6 +149,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-02-14  LC         Resolve skipped audit items where class missing items
 2019-12-10  LC         Add a parameter to set the maximum number of objects in class
 2019-09-27  LC         Set withstats for audit batches = 0 
 2019-09-27  LC         Fix UpdateID in MFProcessBatchDetail
@@ -316,6 +317,7 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + ')
             -- Determine the overall size of the object type index
             -------------------------------------------------------------
             DECLARE @NewObjectXml NVARCHAR(MAX);
+             DECLARE @StatusFlag_0_Identical TINYINT= 0
             DECLARE @StatusFlag_1_MFilesIsNewer TINYINT = 1;
             DECLARE @StatusFlag_5_NotInMFSQL TINYINT = 5;
 			DECLARE @StatusFlag_6_NotInMFSQL TINYINT = 6;
@@ -597,6 +599,21 @@ END
 				-------------------------------------------------------------
 				-- object versions updated
 				-------------------------------------------------------------
+
+-------------------------------------------------------------
+-- Catch audit history entries not in class table that is set to identical
+-------------------------------------------------------------
+
+       SET @ProcedureStep = 'Reset identical flag';
+       SET @sqlParam = N'@Class_ID int, @StatusFlag_0_Identical tinyint'
+            SET @sql = N'UPDATE ah
+SET ah.StatusFlag = 5
+FROM MFAuditHistory ah 
+left outer join  ' + QUOTENAME(@MFTableName) + ' t
+on ah.objid = t.objid
+where ah.Class = @Class_ID and t.id is NULL AND ah.StatusFlag = @StatusFlag_0_Identical'
+
+EXEC sp_executeSQL @Stmt = @SQL, @param = @sqlParam, @Class_ID = @class_id, @StatusFlag_0_Identical = @StatusFlag_0_Identical
 
 				-------------------------------------------------------------
 				-- Get list of objects to update
