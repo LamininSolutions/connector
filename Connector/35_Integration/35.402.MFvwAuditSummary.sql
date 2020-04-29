@@ -41,14 +41,54 @@ Modifications
 ALTER VIEW [dbo].[MFvwAuditSummary]
 AS
 
+/*rST**************************************************************************
 
-SELECT TOP 500 mc.name AS Class,  [mc].[TableName], mah.[StatusName], mah.[StatusFlag], COUNT(*) AS [Count]
+================
+MFvwAuditSummary
+================
+
+Purpose
+=======
+
+To view a summary of AuditHistory by Flag and Class
+
+Examples
+========
+
+.. code:: sql
+
+    Select * from MFAuditHistory
+
+----
+
+show audit history for a specific class
+
+.. code:: sql
+
+    Select ah.*, mc.name from MFAuditHistory ah
+    inner join MFClass mc
+    on ah.Class = mc.mfid
+    Where mc.name = 'Customer'
+    
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2020-03-27  LC         Add documentation
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
+
+SELECT TOP 500 mc.name AS Class, mc.mfid AS Class_ID,  [mc].[TableName], mah.[StatusName], mah.[StatusFlag], COUNT(*) AS [Count]
 
 FROM [dbo].[MFAuditHistory] AS [mah]
 INNER JOIN [dbo].[MFClass] AS [mc]
 ON mc.mfid = mah.[Class] 
 
-GROUP BY mc.name,  mah.[StatusName], [mc].[TableName], mah.[StatusFlag]
+GROUP BY mc.name, mc.mfid, mah.[StatusName], [mc].[TableName], mah.[StatusFlag]
 ORDER BY mc.name DESC
 
 

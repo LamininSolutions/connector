@@ -85,11 +85,17 @@ The result is either:
 - inserted in a temporary table. MFSearchLog is updated with the name of the table and summary of result.
 - output as an XML output parameter.
 
+One of the options when using spMFSearchForObject is to pipe the result
+to a global temporary table table. The table is automatically dropped after a period of time of no use or when the SQL server is restarted.
+
 Examples
 ========
 
+result to table
+
 .. code:: sql
 
+     DECLARE @tablename AS sysname, @XMLOutput AS XML
     EXEC [dbo].[spMFSearchForObject] @ClassID = 78                  -- the class MFID: this can be obtained from select Name, MFID from MFClass
                                     ,@SearchText = 'A'              -- any text value, this can be a part text. It does not cater for wildcards
                                     ,@Count = 5                     -- used to restrict the number of search result returns.
@@ -106,6 +112,24 @@ Examples
     SELECT *
     FROM [dbo].[MFSearchLog] AS [msl];
     GO
+
+--------
+
+result to XML
+
+.. code:: sql
+
+     DECLARE @tablename AS sysname, @XMLOutput AS XML
+    EXEC [dbo].[spMFSearchForObject] @ClassID = 78                  -- the class MFID: this can be obtained from select Name, MFID from MFClass
+                                    ,@SearchText = 'A'              -- any text value, this can be a part text. It does not cater for wildcards
+                                    ,@Count = 5                     -- used to restrict the number of search result returns.
+                                    ,@Debug = 0
+                                    ,@OutputType = 0              -- set to 0 to channel output to a XML
+                                    ,@XMLOutPut = @XMLOutPut OUTPUT 
+                                    ,@TableName = @TableName OUTPUT;
+
+     Select @XMLOutput
+
 
 Changelog
 =========

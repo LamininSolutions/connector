@@ -37,6 +37,59 @@ SET NOEXEC OFF;
 */		
 ALTER VIEW MFvwMetadataStructure
 AS
+
+/*rST**************************************************************************
+
+=====================
+MFvwMetadataStructure
+=====================
+
+Purpose
+=======
+
+This view allows for exploring the metadadata structure
+
+Examples
+========
+
+review all the properties for a specific class
+
+.. code:: sql
+
+	SELECT *
+	FROM   [MFvwMetadataStructure]
+	WHERE  [class] = 'Customer' ORDER BY Property_MFID
+
+----
+
+review all the classes for a specific property
+
+.. code:: sql
+
+	SELECT class,*
+	FROM   [MFvwMetadataStructure]
+	WHERE  [Property] = 'Customer' ORDER BY class_MFID
+
+----
+
+review all the valueslists and their associated properties by class. Use to IsObjectType switch to show for valuelists or object types
+
+.. code:: sql
+
+   SELECT Valuelist, [mfms].[Property], class FROM [dbo].[MFvwMetadataStructure] AS [mfms]
+   WHERE IsObjectType = 1
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2020-03-27  LC         Add documentation for the view
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
     SELECT  [mp].[Name] AS Property ,
             [mp].[Alias] AS Property_alias ,
             [mp].[MFID] AS Property_MFID ,
@@ -83,8 +136,6 @@ AS
                         FROM    [dbo].[MFObjectType] AS [mot]
                       ) AS ValuelistOwner ON [mvl].[OwnerID] = [ValuelistOwner].MFID
     WHERE   mp.[Deleted] = 0;
-
-
 
 	GO
 

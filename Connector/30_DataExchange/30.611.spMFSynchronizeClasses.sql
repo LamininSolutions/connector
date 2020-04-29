@@ -1,16 +1,6 @@
 PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFSynchronizeClasses]';
 GO
 
-   --BELOW HEADER
-/*------------------------------------------------------------------------------------------------
-	Author: DEV2
-	Create date: 27-03-2015
-	
-	
-															
-------------------------------------------------------------------------------------------------*/
-
-
 
 SET NOCOUNT ON 
 EXEC [Setup].[spMFSQLObjectsControl]
@@ -95,6 +85,7 @@ Date        Author     Description
 2017-12-3   LC         Prevent MFID -100 assignements to be included in update
 2017-09-11  LC         Resolve issue with constraints
 2016-09-26  DevTeam2   Removed vault settings and pass them as comma separate string in @VaultSettings parameter.
+2015-10-01  DevTeam2   Create proc
 ==========  =========  ========================================================
 
 **rST*************************************************************************/

@@ -48,6 +48,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-04-22  LC         create constraints when table is created
 2019-09-07  JC         Added documentation
 ==========  =========  ========================================================
 
@@ -102,7 +103,13 @@ IF NOT EXISTS ( SELECT  name
 			  
               CONSTRAINT [PK_MFClassProperty] PRIMARY KEY CLUSTERED
                 ( [MFClass_ID] ASC, [MFProperty_ID] ASC ) 
+
+              
             );
+
+ ALTER TABLE [dbo].[MFClassProperty] ADD CONSTRAINT [FK_MFClassProperty_MFClass] FOREIGN KEY ([MFClass_ID]) REFERENCES [dbo].[MFClass] ([ID])
+
+ALTER TABLE [dbo].[MFClassProperty] ADD CONSTRAINT [FK_MFClassProperty_MFProperty_ID] FOREIGN KEY ([MFProperty_ID]) REFERENCES [dbo].[MFProperty] ([ID])
 
         PRINT SPACE(10) + '... Table: created';
     END;
@@ -111,6 +118,10 @@ ELSE
 
 --INDEXES #############################################################################################################################
 
+-- Foreign Keys
+
+
+-- Permissions
 
 IF NOT EXISTS ( SELECT  *
                 FROM    sys.indexes
@@ -141,16 +152,4 @@ SELECT @dbrole = CAST(value AS NVARCHAR(100)) FROM mfsettings WHERE name = 'AppU
 	EXEC ('GRANT REFERENCES (MFProperty_ID) ON [dbo].[MFClassProperty] TO  [' + @dbrole + ']' +' WITH GRANT OPTION'  )
 
 
-
--- Foreign Keys -- the FK constraints are added when the first metadata sync takes place.
-	--IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE parent_object_id = OBJECT_ID('MFClassProperty') 
-	--				AND name =N'FK_MFProperty_ID' )
-	--BEGIN
-	--	PRINT space(10) + '... Constraint: FK_MFProperty_ID'
-	--	ALTER TABLE [dbo].[MFClassProperty] ADD 
-	--		CONSTRAINT [FK_MFClassProperty_MFProperty_ID] FOREIGN KEY ([MFProperty_ID])
-	--			REFERENCES [dbo].[MFProperty]([ID])
-
-				
-	--END
 

@@ -4,23 +4,27 @@
 MFObjectTypeToClassObject
 =========================
 
+Description:Object Type to Class Object Table 
+This is a special table for indexing all the class tables included in app accross all object types.
+This table is updated using the spMFObjectTypeUpdateClassIndex procedure
+
 Columns
 =======
 
 ID int (not null)
-  fixme description
+  ID
 ObjectType\_ID int (primarykey, not null)
-  fixme description
+  Object_Type
 Class\_ID int (primarykey, not null)
-  fixme description
+  Class
 Object\_MFID int (primarykey, not null)
-  fixme description
+  Object
 Object\_LastModifiedBy varchar(100)
-  fixme description
+  Table last modified by
 Object\_LastModified datetime
-  fixme description
+  Table last modified
 Object\_Deleted bit
-  fixme description
+  is Object deleted
 
 Used By
 =======
@@ -46,9 +50,7 @@ GO
 	Author: leRoux Cilliers, Laminin Solutions
 	Create date: 2016-04
 	Database: {Database}
-	Description:Object Type to Class Object Table 
-	This is a special table for indexing all the class tables included in app accross all object types.
-	This table is updated using the spMFObjectTypeUpdateClassIndex procedure
+	
 ------------------------------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------------------------------
   MODIFICATION HISTORY
@@ -106,6 +108,15 @@ CREATE TABLE [dbo].[MFObjectTypeToClassObject]
       PRIMARY KEY ( [ObjectType_ID],[Class_ID],[Object_MFID] ) 
      
     );
+
+    
+ALTER TABLE [dbo].[MFObjectTypeToClassObject] ADD CONSTRAINT [PK__MFObject__MFObjectTypeToClassObject_ObjectType_Class_MFID] PRIMARY KEY CLUSTERED  ([ObjectType_ID], [Class_ID], [Object_MFID])
+
+CREATE NONCLUSTERED INDEX [FKIX_MFObjectTypeToClassObject_Class_ID] ON [dbo].[MFObjectTypeToClassObject] ([Class_ID])
+GO
+CREATE NONCLUSTERED INDEX [FKIX_MFObjectTypeToClassObject_ObjectType_ID] ON [dbo].[MFObjectTypeToClassObject] ([ObjectType_ID])
+GO
+
 GO
 
 PRINT SPACE(10) + '... Table: created';

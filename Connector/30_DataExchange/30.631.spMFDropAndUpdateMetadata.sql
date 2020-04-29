@@ -76,8 +76,6 @@ Parameters
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
-
 
 Purpose
 =======
@@ -353,17 +351,12 @@ BEGIN TRY
 
         SELECT @ProcedureStep = 'setup temp tables';
 
-        SET @DebugText = N'';
-
-        IF @Debug > 0
-        BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-        END;
-
         -------------------------------------------------------------
         -- setup temp tables
         -------------------------------------------------------------
-        IF EXISTS (SELECT * FROM sys.sysobjects WHERE name = '#MFClassTemp')
+   
+   
+   IF EXISTS (SELECT * FROM sys.sysobjects WHERE name = '#MFClassTemp')
         BEGIN
             DROP TABLE #MFClassTemp;
         END;
@@ -394,12 +387,20 @@ BEGIN TRY
             DROP TABLE #MFWorkflowStateTemp;
         END;
 
+          SET @DebugText = N'';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+ 
+        IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        END;
+
 
 
         -------------------------------------------------------------
         -- Populate temp tables
         -------------------------------------------------------------
-        SET @ProcedureStep = 'Insert temp table for classes, properties and valuelistitems';
+        SET @ProcedureStep = 'Populate temp tables ';
 
         --Insert Current MFClass table data into temp table
         SELECT *

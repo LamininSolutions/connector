@@ -8,6 +8,7 @@ MODIFIED
 2018-9-27	LC	Update logic for mail profile and fix bug with incorrect variable
 2019-1-26	LC	Prevent default profile to be created if profile already exists
 2019-11-18  LC  remove setting the profile as default.  Companies may set another email as default
+2020-03-27  LC  add default setting for CreateUniqueClassIndexes
 */
 
 SET NOCOUNT ON 
@@ -152,6 +153,28 @@ BEGIN
                 1                                          -- Enabled - bit
                 );
 
+        IF NOT EXISTS
+        (
+            SELECT 1
+            FROM dbo.MFSettings
+            WHERE source_key = 'App_Default'
+                  AND Name = 'CreateUniqueClassIndexes'
+        )
+            INSERT dbo.MFSettings
+            (
+                source_key,
+                Name,
+                Description,
+                Value,
+                Enabled
+            )
+            VALUES
+            (   N'App_Default',                                  -- source_key - nvarchar(20)
+                'CreateUniqueClassIndexes',                         -- Name - varchar(50)
+                'If 1 spmfCreateTable will set unique indexes on class table', -- Description - varchar(500)
+                '0',                               -- Value - sql_variant
+                1                                          -- Enabled - bit
+                );
 
         SET NOCOUNT OFF;
     END;

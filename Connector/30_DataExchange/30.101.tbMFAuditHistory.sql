@@ -8,27 +8,35 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  identity int for records in the table
 RecID int
-  fixme description
+  the id of the record in the class table. if null then the record was not yet in the table when the session was processed
 SessionID int
-  fixme description
+   sequential number for the session. Each update for a specific class is regarded as a session. Only records that was updated/inserted show toe latest session id 
 TranDate datetime
-  fixme description
+  date that the session was processed
 ObjectType int
-  fixme description
+  MFID of the ObjectType of the class
 Class int
-  fixme description
+  MFID of the Class
 ObjID int
-  fixme description
+  Objid of the record from the Objver of the object in M-Files
 MFVersion smallint
-  fixme description
+  the version from the Objver when the object was processed
 StatusFlag smallint
-  fixme description
+  0 - the record MFversion in M-Files and SQL is identical Flag
+  1 - the record MFversion in M-Files is higher than SQL. This indicates a need for updating from Mfiles to SQL 
+  2 - the SQL version is later than the M-Files version (usually signalling a syncronisation error) 
+  3 - the record in SQL is flagged as deleted in SQL and does not exist in M-Files
+  4 - the record is not in M-Files and the record flag in SQL is not deleted. This usually indicate that the routine for deleting records have not yet been processed.
+  5 - when there is no record in SQL for an objver in M-Files. This usually indicate that the records was created in M-Files and that the update routine has not yet been run. This may indicate a need for updating from Mfiles to SQL
+  Note that all templates in M-Files will also show as statusflag 5 as templates are not inserted into SQL. Execute spmfUpdateTable to move the template objects to statusflag 6. 
+  6- the Record is a template. This status flag is update by spmfUpdateTable.
+  7 - The record in SQL is marked as deleted but the record exist in M-Files (likely to have been undeleted.
 StatusName varchar(100)
-  fixme description
+  Description of status
 UpdateFlag int
-  fixme description
+  this is the update status of spmfupdatetable when Flag spmfupdateitembyitem is processed
 
 Indexes
 =======
@@ -36,9 +44,12 @@ Indexes
 idx\_AuditHistory\_ObjType\_ObjID
   - ObjectType
   - ObjID
-idx\_AuditHistory\_Class\_Flag
+idx\_AuditHistory\_Class\_Objid
   - Class
   - ObjID
+idx\_AuditHistory\_Class\_StatusFlag
+  - Class
+  - StatusFlag
 
 Used By
 =======
@@ -54,6 +65,12 @@ Used By
 - spMFUpdateTable
 - spMFUpdateTableinBatches
 
+Additional Info
+===============
+
+Note that the records in this table is not automatically deleted. It is
+recommended that agent is used to delete old records in the table if
+they are no longer required.
 
 Changelog
 =========
@@ -61,33 +78,15 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-04-16  LC         Add index Class_StatusFlag
+2020-03-18  LC         Change name of index Class_Objid
 2019-09-07  JC         Added documentation
+2016-05-01  DEV2       Create Table 
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
 
 SET NOCOUNT ON; 
-GO
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-05
-	Database: 
-	Description: Audit history of comparison between M-Files and SQL
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  Select * from MFAuditHistory
-  drop table mfaudithistory
------------------------------------------------------------------------------------------------*/
-
-
 GO
 
 PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
@@ -97,7 +96,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFAuditHistory', -- nvarchar(100)
-    @Object_Release = '2.0.2.5', -- varchar(50)
+    @Object_Release = '4.6.16.57', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 go
 
@@ -124,8 +123,36 @@ StatusName VARCHAR(100),
 UpdateFlag int
 )
 
-CREATE INDEX idx_AuditHistory_ObjType_ObjID ON MFAuditHistory(ObjectType, [ObjID])
-CREATE INDEX idx_AuditHistory_Class_Flag ON MFAuditHistory(Class, [ObjID])
+ALTER TABLE [dbo].[MFAuditHistory] ADD CONSTRAINT [PK__MFAuditHIstory_ID] PRIMARY KEY CLUSTERED  ([ID])
+
+
+END
+
+
+
+BEGIN
+ 
+ PRINT SPACE(10)+ 'Update Indexes';
+
+ IF NOT EXISTS(SELECT 1 
+FROM sys.indexes 
+WHERE name='idx_AuditHistory_ObjType_ObjID'
+)
+CREATE INDEX idx_AuditHistory_ObjType_ObjID ON MFAuditHistory(ObjectType, [ObjID]);
+
+
+ IF NOT EXISTS(SELECT 1 
+FROM sys.indexes 
+WHERE name='idx_AuditHistory_Class_Objid'
+)
+CREATE INDEX idx_AuditHistory_Class_Objid ON MFAuditHistory(Class, [ObjID]);
+
+ IF NOT EXISTS(SELECT 1 
+FROM sys.indexes 
+WHERE name='idx_AuditHistory_Class_StatusFlag'
+)
+CREATE INDEX idx_AuditHistory_Class_StatusFlag ON MFAuditHistory(Class, StatusFlag);
+
 
 END
 

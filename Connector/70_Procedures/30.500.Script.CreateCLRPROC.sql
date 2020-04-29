@@ -1872,7 +1872,7 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFSyn
 	Author: , Laminin Solutions
 	Create date: 2018-02
 	Database: 
-	Description: CLR procedure to Import blob file into M-files
+	Description: CLR procedure to Import files into M-files
 ------------------------------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------------------------------
   MODIFICATION HISTORY
@@ -1915,6 +1915,70 @@ Create Procedure dbo.spMFSynchronizeFileToMFilesInternal
 WITH EXECUTE AS CALLER
 AS
 EXTERNAL NAME [LSConnectMFilesAPIWrapper].[MFilesWrapper].[Importfile]
+');
+
+
+PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
+    + '.[dbo].[spMFImportBlobFileToMFilesInternal]';
+
+
+
+
+SET NOCOUNT ON 
+EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFImportBlobFileToMFilesInternal', -- nvarchar(100)
+    @Object_Release = '4.6.17.58', -- varchar(50)
+    @UpdateFlag = 2 -- smallint
+
+
+/*------------------------------------------------------------------------------------------------
+	Author: , Laminin Solutions
+	Create date: 2020-04
+	Database: 
+	Description: CLR procedure to Import blob file into M-files
+------------------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------------------
+  MODIFICATION HISTORY
+  ====================
+ 	DATE			NAME		DESCRIPTION
+	YYYY-MM-DD		{Author}	{Comment}
+	
+    
+
+------------------------------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------------------------
+  USAGE:
+  =====
+
+
+-----------------------------------------------------------------------------------------------*/
+
+IF EXISTS ( SELECT  1
+            FROM    INFORMATION_SCHEMA.ROUTINES
+            WHERE   ROUTINE_NAME = 'spMFImportBlobFileToMFilesInternal'--name of procedure
+                    AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
+                    AND ROUTINE_SCHEMA = 'dbo' )
+    BEGIN
+        PRINT SPACE(10) + '...Drop CLR Procedure';
+        DROP PROCEDURE [dbo].spMFImportBlobFileToMFilesInternal;
+		
+    END;
+	
+    
+PRINT SPACE(10) + '...Stored Procedure: create';
+	
+EXEC (N'	 
+Create Procedure dbo.spMFImportBlobFileToMFilesInternal  
+@VaultSettings [nvarchar](4000) ,
+@XML nvarchar(MAX),
+@Data  VARBINARY(MAX),
+@XMLStr nvarchar(MAX),
+@FileLocation nvarchar(MAX),
+@Result nvarchar(max) OUT,
+@ErrorMsg nvarchar(max) OUT
+
+WITH EXECUTE AS CALLER
+AS
+EXTERNAL NAME [LSConnectMFilesAPIWrapper].[MFilesWrapper].[ImportBlobfile]
 ');
 
 

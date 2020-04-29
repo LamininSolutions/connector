@@ -322,8 +322,10 @@ BEGIN
   SET @DebugText = 'Precheck error CheckStatus %i';
 END
 
-
-
+IF @Debug > 0
+Begin
+SELECT @Checkstatus AS PreCheckstatus;
+END
 
 IF @Checkstatus = 1
 BEGIN -- check MFmodule of exist
@@ -332,29 +334,32 @@ END;
 
 IF @Checkstatus = 2
 BEGIN -- check module of exist
-    SET @DebugText = 'Module does not exist Checkstatus %i';
+    SET @DebugText = ' Module does not exist Checkstatus %i';
 END;
 
 IF @Checkstatus = 3
 BEGIN -- check license initialised
-    SET @DebugText = 'license has not yet been initialised Checkstatus %i';
+    SET @DebugText = ' license has not yet been initialised Checkstatus %i';
 END;
 
 IF @Checkstatus = 4
 BEGIN -- check Expiry date exist
     SET @ErrorCode = 2;
-    SET @DebugText = 'License Assembly is invalid Checkstatus %i';
+    SET @DebugText = ' License Assembly is invalid Checkstatus %i';
 END;
 
 IF @Checkstatus > 4
 BEGIN -- check Expiry date exist
-    SET @DebugText = 'License is valid Checkstatus %i';
+    SET @DebugText = ' License is valid Checkstatus';
 END;
 
 SET @DebugText = @DefaultDebugText + @DebugText;
+SET @ProcedureStep = 'Pre-checks error';
+
 
 IF @Debug > 0
 BEGIN
+
     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Checkstatus);
 END;
 
@@ -363,7 +368,7 @@ END;
 -------------------------------------------------------------
 SET @ProcedureStep = 'Initialise license';
 
-IF @Checkstatus = 3
+IF @Checkstatus in (3,4)
 BEGIN
     SET @DebugText = '%s';
     SET @DebugText = @DefaultDebugText + @DebugText;

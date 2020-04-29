@@ -51,6 +51,7 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-09-07  JC         Added documentation
+2017-02-10  DevTeam2   Create Table
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -69,27 +70,6 @@ SET NOCOUNT ON
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFObjectChangeHistory', -- nvarchar(100)
     @Object_Release = '3.1.2.38', -- varchar(50)
     @UpdateFlag = 2 -- smallint
-GO
-/*------------------------------------------------------------------------------------------------
-	Author: DEV 2, Laminin Solutions
-	Create date: 2017-08
-	Database: 
-	Description: MFiles Object History
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  Select * from MFObjectChangeHistory
-  
------------------------------------------------------------------------------------------------*/
-
-
 GO
 
 
@@ -114,6 +94,13 @@ IF NOT EXISTS ( SELECT  name
 			[ID] ASC
 		)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 		) ON [PRIMARY]
+
+        
+ALTER TABLE [dbo].[MFObjectChangeHistory] ADD CONSTRAINT [PK__MFObjectChangeHistory_ID] PRIMARY KEY CLUSTERED  ([ID])
+
+CREATE INDEX idx_ObjectChangeHistory_ObjType_ObjID ON [MFObjectChangeHistory](ObjectType_ID, [ObjID])
+CREATE INDEX idx_ObjectChangeHistory_Class_Objid ON [MFObjectChangeHistory](Class_ID, [ObjID])
+
 
         PRINT SPACE(10) + '... Table: created';
     END;

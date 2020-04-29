@@ -10,7 +10,7 @@ select * from mfsettings
 {varEmailProfile}
 */
 
-USE {varAppDB}
+USE [{varAppDB}]
 
 GO
 
@@ -24,18 +24,18 @@ Select @EDIT_MAILPROFILE_PROP = CAST(ISNULL(value,'{varEmailProfile}') AS NVARCH
 if exists (select 1 from [msdb].[dbo].[sysmail_account] as [a])
 begin
     set @Result_Message = 'Database Mail Installed';
+    
 
-
-    if not exists
+  
+  IF 
     (
-        select [p].[name]
+        select count(*)
         from [msdb].[dbo].[sysmail_account]                  as [a]
             inner join [msdb].[dbo].[sysmail_profileaccount] as [pa]
                 on [a].[account_id] = [pa].[account_id]
             inner join [msdb].[dbo].[sysmail_profile]        as [p]
                 on [pa].[profile_id] = [p].[profile_id]
-        where [p].[name] = @EDIT_MAILPROFILE_PROP
-    )
+    ) = 0
     begin
 
         -- Create a Database Mail profile

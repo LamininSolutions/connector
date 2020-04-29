@@ -52,35 +52,14 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-09-07  JC         Added documentation
+2017-08-22  LC         Add MFID as a column to the table
+2016-02-20  LC         Create table
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
 go
 SET NOCOUNT ON; 
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-02
-	Database: {Database}
-	Description: Login Accounts for Vault	
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	2017-8-22		LC			Add MFID as a column to the table
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  Select * from MFLoginAccount
-  
------------------------------------------------------------------------------------------------*/
-
-
-
-GO
-
 
 PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
     + '.[dbo].[MFLoginAccount]';
@@ -118,6 +97,9 @@ IF NOT EXISTS ( SELECT  name
                 NULL 
 
             );
+
+ALTER TABLE [dbo].[MFLoginAccount] ADD CONSTRAINT [PK__MFLoginAccount_ID] PRIMARY KEY CLUSTERED  ([ID])
+
 
         PRINT SPACE(10) + '... Table: created';
     END;

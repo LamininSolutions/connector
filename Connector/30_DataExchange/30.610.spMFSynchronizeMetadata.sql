@@ -386,43 +386,6 @@ Date        Author     Description
                           , @LogProcedureStep = @ProcedureStep
                           , @debug = @debug
 
-		    ---------------------------------------------
-              --SYNCHRONIZE PROEPRTY
-              ---------------------------------------------
-                        SELECT  @ProcedureStep = 'Synchronizing Properties'
-                              , @SPName = 'spMFSynchronizeProperties';
-
-                        IF @Debug > 9
-                           RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
-
-                        EXECUTE @return_value = [dbo].[spMFSynchronizeProperties]
-                            @VaultSettings
-                          , @Debug
-                          , @ResponseProperties OUTPUT;
-  
-                        SET @StartTime = GETUTCDATE();
-
-                        SET @LogTypeDetail = 'Message'
-                        SET @LogTextDetail = @SPName
-                        SET @LogStatusDetail = 'Completed'
-                        SET @Validation_ID = NULL
-                        SET @LogColumnValue = ''
-                        SET @LogColumnValue = ''
-
-                        EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @LogType = @LogTypeDetail
-                          , @LogText = @LogTextDetail
-                          , @LogStatus = @LogStatusDetail
-                          , @StartTime = @StartTime
-                          , @MFTableName = @MFTableName
-                          , @Validation_ID = @Validation_ID
-                          , @ColumnName = @LogColumnName
-                          , @ColumnValue = @LogColumnValue
-                          , @Update_ID = @Update_ID
-                          , @LogProcedureName = @ProcedureName
-                          , @LogProcedureStep = @ProcedureStep
-                          , @debug = @debug
             
   
               ---------------------------------------------
@@ -501,7 +464,44 @@ Date        Author     Description
                           , @LogProcedureName = @ProcedureName
                           , @LogProcedureStep = @ProcedureStep
                           , @debug = @debug
-            
+   		    ---------------------------------------------
+              --SYNCHRONIZE PROEPRTY
+              ---------------------------------------------
+                        SELECT  @ProcedureStep = 'Synchronizing Properties'
+                              , @SPName = 'spMFSynchronizeProperties';
+
+                        IF @Debug > 9
+                           RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
+
+                        EXECUTE @return_value = [dbo].[spMFSynchronizeProperties]
+                            @VaultSettings
+                          , @Debug
+                          , @ResponseProperties OUTPUT;
+  
+                        SET @StartTime = GETUTCDATE();
+
+                        SET @LogTypeDetail = 'Message'
+                        SET @LogTextDetail = @SPName
+                        SET @LogStatusDetail = 'Completed'
+                        SET @Validation_ID = NULL
+                        SET @LogColumnValue = ''
+                        SET @LogColumnValue = ''
+
+                        EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert]
+                            @ProcessBatch_ID = @ProcessBatch_ID
+                          , @LogType = @LogTypeDetail
+                          , @LogText = @LogTextDetail
+                          , @LogStatus = @LogStatusDetail
+                          , @StartTime = @StartTime
+                          , @MFTableName = @MFTableName
+                          , @Validation_ID = @Validation_ID
+                          , @ColumnName = @LogColumnName
+                          , @ColumnValue = @LogColumnValue
+                          , @Update_ID = @Update_ID
+                          , @LogProcedureName = @ProcedureName
+                          , @LogProcedureStep = @ProcedureStep
+                          , @debug = @debug
+         
               ---------------------------------------------
               --SYNCHRONIZE Class
               ---------------------------------------------
@@ -515,6 +515,31 @@ Date        Author     Description
                             @VaultSettings
                           , @Debug
                           , @ResponseMFClass OUTPUT;
+                    SET @StartTime = GETUTCDATE();
+
+                        SET @LogTypeDetail = 'Message'
+                        SET @LogTextDetail = @SPName
+                        SET @LogStatusDetail = 'Completed'
+                        SET @Validation_ID = NULL
+                        SET @LogColumnValue = ''
+                        SET @LogColumnValue = ''
+
+                        EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert]
+                            @ProcessBatch_ID = @ProcessBatch_ID
+                          , @LogType = @LogTypeDetail
+                          , @LogText = @LogTextDetail
+                          , @LogStatus = @LogStatusDetail
+                          , @StartTime = @StartTime
+                          , @MFTableName = @MFTableName
+                          , @Validation_ID = @Validation_ID
+                          , @ColumnName = @LogColumnName
+                          , @ColumnValue = @LogColumnValue
+                          , @Update_ID = @Update_ID
+                          , @LogProcedureName = @ProcedureName
+                          , @LogProcedureStep = @ProcedureStep
+                          , @debug = @debug
+         
+   
 
 -------------------------------------------------------------
 -- Create MFUSerMessage Table

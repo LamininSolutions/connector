@@ -125,6 +125,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-03-12  LC         Remove debug text
 2019-08-30  JC         Added documentation
 2019-01-26  LC         Resolve issues with commits
 2019-01-21  LC         Remove unnecessary log entry for dbcc
@@ -218,8 +219,8 @@ SET @trancount = @@TranCount;
 --IF @trancount > 0
 --GOTO EXITPROC;
 
-IF @Debug > 0
-SELECT @trancount AS processBatch_TranCount_New;
+--IF @Debug > 0
+--SELECT @trancount AS processBatch_TranCount_New;
 
 --IF @trancount > 0
 --SAVE TRANSACTION [spMFProcessBatch_Upsert]

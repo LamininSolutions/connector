@@ -4,9 +4,9 @@ GO
 SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
-                                 @ObjectName = N'spMFCreateTable', -- nvarchar(100)
-                                 @Object_Release = '4.4.14.55',    -- varchar(250)
-                                 @UpdateFlag = 2;
+    @ObjectName = N'spMFCreateTable', -- nvarchar(100)
+    @Object_Release = '4.6.18.58',    -- varchar(2506
+    @UpdateFlag = 2;
 
 IF EXISTS
 (
@@ -190,6 +190,10 @@ Date        Author     Description
 2019-09-20  LC         allow for ID at end of name of a lookup property
 2019-10-14  LC         Resolve multilookup table data type incorrectly set
 2019-12-01  LC         Resolve where duplicate columns exist and removal of ID
+2020-03-11  LC         Add check license
+2020-03-18  LC         Add non clustered unique index for objid
+2020-03-27  LC         Add MFSetting to allow optional create of indexes
+2020-04-22  LC         Improve naming of constraints
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -200,15 +204,15 @@ BEGIN
         -------------------------------------------------------------
         -- Local variable Declaration
         -------------------------------------------------------------
-        DECLARE @Output NVARCHAR(200),
-                @ClassID INT,
-                @TableName NVARCHAR(128),
-                @dsql NVARCHAR(MAX) = N'',
-                @ConstColumn NVARCHAR(MAX),
-                @IDColumn NVARCHAR(MAX),
-                @Count INT,
-                @ProcedureName sysname = 'spMFCreateTable',
-                @ProcedureStep sysname = 'Start';
+        DECLARE @Output    NVARCHAR(200),
+            @ClassID       INT,
+            @TableName     NVARCHAR(128),
+            @dsql          NVARCHAR(MAX) = N'',
+            @ConstColumn   NVARCHAR(MAX),
+            @IDColumn      NVARCHAR(MAX),
+            @Count         INT,
+            @ProcedureName sysname       = 'spMFCreateTable',
+            @ProcedureStep sysname       = 'Start';
 
         -------------------------------------------------------------
         --Check if the name exixsts in MFClass
@@ -222,6 +226,16 @@ BEGIN
         )
         BEGIN
             -------------------------------------------------------------
+            -- Check license
+            -------------------------------------------------------------
+            ------------------------------------------------------
+            --Validating Module for calling CLR Procedure
+            ------------------------------------------------------
+            EXEC dbo.spMFCheckLicenseStatus 'spMFCreateTable',
+                'spMFCreateTable',
+                'Create Table';
+
+            -------------------------------------------------------------
             --SELECT PROPERTY NAME AND DATA TYPE
             -------------------------------------------------------------
             SET @ProcedureStep = 'SELECT PROPERTY NAME AND DATA TYPE';
@@ -231,8 +245,8 @@ BEGIN
             FROM
             (
                 SELECT ColumnName,
-                       MFDataType_ID,
-                       ID
+                    MFDataType_ID,
+                    ID
                 FROM dbo.MFProperty
                 WHERE ID IN
                       (
@@ -333,9 +347,9 @@ BEGIN
                                ELSE
                                    SUBSTRING(ColumnName, 1, LEN(ColumnName) - 5)
                                    + REPLACE((SUBSTRING(ColumnName, (LEN(ColumnName) - 4), 5)), '_ID', '')
-                           END AS ColumnName,
-                           1 AS MFDataType_ID,
-                           'False' AS PredefinedOrAutomatic
+                           END  AS ColumnName,
+                        1       AS MFDataType_ID,
+                        'False' AS PredefinedOrAutomatic
                     FROM #Temp
                     WHERE MFDataType_ID IN
                           (
@@ -352,9 +366,9 @@ BEGIN
                                ELSE
                                    SUBSTRING(ColumnName, 1, LEN(ColumnName) - 5)
                                    + REPLACE((SUBSTRING(ColumnName, (LEN(ColumnName) - 4), 5)), '_ID', '')
-                           END AS ColumnName,
-                           9 AS MFDataType_ID,
-                           'False' AS PredefinedOrAutomatic
+                           END  AS ColumnName,
+                        9       AS MFDataType_ID,
+                        'False' AS PredefinedOrAutomatic
                     FROM #Temp
                     WHERE MFDataType_ID IN
                           (
@@ -404,12 +418,12 @@ BEGIN
                 -----------------------------------------------------------------------------                  
                 SET @ProcedureStep = 'Add Additional Default columns in localised text';
 
-                DECLARE @NameOrTitle VARCHAR(100),
-                        @classPropertyName VARCHAR(100),
-                        @Workflow VARCHAR(100),
-                        @State VARCHAR(100),
-                        @SingleFile VARCHAR(100),
-                        @WorkflowName VARCHAR(100);
+                DECLARE @NameOrTitle   VARCHAR(100),
+                    @classPropertyName VARCHAR(100),
+                    @Workflow          VARCHAR(100),
+                    @State             VARCHAR(100),
+                    @SingleFile        VARCHAR(100),
+                    @WorkflowName      VARCHAR(100);
 
                 SELECT @NameOrTitle = ColumnName
                 FROM dbo.MFProperty
@@ -419,8 +433,8 @@ BEGIN
                 FROM dbo.MFProperty
                 WHERE MFID = 100;
 
-                SELECT @Workflow = ColumnName,
-                       @WorkflowName = Name
+                SELECT @Workflow  = ColumnName,
+                    @WorkflowName = Name
                 FROM dbo.MFProperty
                 WHERE MFID = 38;
 
@@ -464,9 +478,10 @@ BEGIN
                 (REPLACE(@Workflow, '_ID', ''), 'NVARCHAR(100)', 'NULL'),
                 (@State, 'INTEGER', 'NULL'),
                 (REPLACE(@State, '_ID', ''), 'NVARCHAR(100)', 'NULL'),
-                (@SingleFile, 'BIT', 'NOT NULL DEFAULT(0)');
+                (@SingleFile, 'BIT', 'NOT NULL ');
 
                 SET @ProcedureStep = 'Add Class and Name or title';
+
                 ------Added By DevTeam2 For Task 937
                 IF NOT EXISTS (SELECT * FROM #Temp AS t WHERE t.ColumnName = @NameOrTitle)
                 BEGIN
@@ -483,7 +498,7 @@ BEGIN
                 IF @Debug = 1
                 BEGIN
                     SELECT '#Temp',
-                           *
+                        *
                     FROM #Temp;
 
                     RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
@@ -494,7 +509,7 @@ BEGIN
 					  NOTES
 					  */
                 DECLARE @ClassCustomName NVARCHAR(100),
-                        @ClassMFID INT;
+                    @ClassMFID           INT;
 
                 SELECT @ClassCustomName = Name
                 FROM dbo.MFProperty
@@ -518,7 +533,7 @@ BEGIN
                 ORDER BY ColumnName;
 
                 SELECT @ConstColumn
-                    = N'[LastModified]  DATETIME DEFAULT(GETDATE()) , ' + N'[Process_ID] INT, ' + N'[ObjID]			INT , '
+                    = N'[LastModified]  DATETIME , ' + N'[Process_ID] INT, ' + N'[ObjID]			INT , '
                       + N'[ExternalID]			NVARCHAR(100) , '
                       + N'[MFVersion]		INT,[FileCount] int , [Deleted] BIT,[Update_ID] int , '; ---- Added for task 106 [FileCount]
 
@@ -534,6 +549,10 @@ BEGIN
                       + @TableName + N']  DEFAULT 1 FOR [Process_ID]
 				    ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_FileCount_' + @TableName
                       + N']  DEFAULT 0 FOR [FileCount]
+                       ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_LastModified_' + @TableName
+                      + N']  DEFAULT GetDate() FOR [LastModified]
+                        ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_'+@SingleFile+'_' + @TableName
+                      + N']  DEFAULT 0 FOR '+QUOTENAME(@SingleFile)+'
 				     ';
 
                 ---------------------------------------------------------------------------
@@ -563,16 +582,14 @@ BEGIN
                     = N'ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Class_' + @TableName
                       + N'] DEFAULT(' + CAST(-1 AS VARCHAR(10)) + N') FOR ' + QUOTENAME(@ClassCustomName + '_ID') + N'';
 
-                --SELECT  @dsql = N'ALTER TABLE '
-                --                   + QUOTENAME(@TableName) + ' ADD  CONSTRAINT [DK_Class_' + @TableName + '] DEFAULT('+ CAST(@ClassMFID AS VARCHAR(10)) +') FOR [Class_ID] ';
+                EXEC sys.sp_executesql @Stmt = @dsql,
+                    @Param = @Params,
+                    @Tablename = @TableName;
+
                 IF @Debug = 1
                 BEGIN
                     SELECT @dsql AS [Alter table for defaults];
                 END;
-
-                EXEC sys.sp_executesql @Stmt = @dsql,
-                                       @Param = @Params,
-                                       @Tablename = @TableName;
 
                 IF @Debug = 1
                     RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
@@ -583,7 +600,7 @@ BEGIN
                 SET @ProcedureStep = 'Add MFSQL_Message and MFSQL_Process_Batch columns';
 
                 DECLARE @IsDetailLogging SMALLINT,
-                        @SQL NVARCHAR(MAX);
+                    @SQL                 NVARCHAR(MAX);
 
                 SELECT @IsDetailLogging = CAST(ISNULL(ms.Value, '0') AS INT)
                 FROM dbo.MFSettings AS ms
@@ -606,7 +623,7 @@ BEGIN
                         BEGIN
                             SET @SQL = N'
 Alter Table ' +             @TableName + N'
-Add MFSQL_Message nvarchar(100) null;';
+Add MFSQL_Message nvarchar(max) null;';
 
                             EXEC (@SQL);
                         END; --columns does not exist on table
@@ -632,29 +649,52 @@ Add  MFSQL_Process_batch int null;';
                 -------------------------------------------------------------
                 -- Add indexes and foreign keys
                 -------------------------------------------------------------
-                SET @SQL
-                    = N'
+                DECLARE @CreateUniqueIndexes INT;
+
+                SELECT @CreateUniqueIndexes = CAST(ISNULL(ms.Value, '0') AS INT)
+                FROM dbo.MFSettings AS ms
+                WHERE ms.Name = 'CreateUniqueClassIndexes';
+
+                IF @CreateUniqueIndexes = 1
+                BEGIN
+                    SET @SQL
+                        = N'
+
+
+ALTER TABLE ' +     QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DF_' + @TableName
+                          + N'_ObjID]  DEFAULT (IDENT_CURRENT(''' + @TableName + N''')*(-1)) FOR [ObjID]';
+
+                    EXEC (@SQL);
+
+                    SET @SQL
+                        = N'
 IF NOT EXISTS(SELECT 1 
 FROM sys.indexes 
 WHERE name=''IX_' + @TableName + N'_Objid'' AND object_id = OBJECT_ID(''dbo.' + @TableName
-                      + N'''))
+                          + N'''))
 CREATE UNIQUE NONCLUSTERED INDEX IX_' + @TableName + N'_Objid
-ON dbo.' +      @TableName + N'(Objid)
-WHERE Objid IS NOT NULL;';
+ON dbo.' +          @TableName + N'(Objid);';
 
-                --select @SQL
-                --           EXEC (@SQL);
-                SET @SQL
-                    = N'
+                    EXEC (@SQL);
+
+                    -------------------------------------------------------------
+                    -- Set index on objid
+                    -------------------------------------------------------------
+
+                    --select @SQL
+                    --           EXEC (@SQL);
+                    SET @SQL
+                        = N'
 IF NOT EXISTS(SELECT 1 
 FROM sys.indexes 
 WHERE name=''IX_' + @TableName + N'_ExternalID'' AND object_id = OBJECT_ID(''dbo.' + @TableName
-                      + N'''))
+                          + N'''))
 CREATE UNIQUE NONCLUSTERED INDEX IX_' + @TableName + N'_ExternalID
-ON dbo.' +      @TableName + N'(ExternalID)
+ON dbo.' +          @TableName + N'(ExternalID)
 WHERE ExternalID IS NOT NULL;';
 
-                --          EXEC (@SQL);
+                    EXEC (@SQL);
+                END;
 
                 /*************************************************************************
 STEP Add trigger to table
@@ -736,17 +776,17 @@ NOTES
         )
         VALUES
         ('spMFCreateTable', ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), ERROR_STATE(), ERROR_SEVERITY(),
-         ERROR_LINE());
+            ERROR_LINE());
 
         -----------------------------------------------------------------------------
         -- DISPLAYING ERROR DETAILS
         -----------------------------------------------------------------------------
         SELECT ERROR_NUMBER() AS ErrorNumber,
-               ERROR_MESSAGE() AS ErrorMessage,
-               ERROR_PROCEDURE() AS ErrorProcedure,
-               ERROR_STATE() AS ErrorState,
-               ERROR_SEVERITY() AS ErrorSeverity,
-               ERROR_LINE() AS ErrorLine;
+            ERROR_MESSAGE()   AS ErrorMessage,
+            ERROR_PROCEDURE() AS ErrorProcedure,
+            ERROR_STATE()     AS ErrorState,
+            ERROR_SEVERITY()  AS ErrorSeverity,
+            ERROR_LINE()      AS ErrorLine;
 
         RETURN 2;
     END CATCH;

@@ -54,6 +54,10 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-09-07  JC         Added documentation
+2018-06-29  LC         Add Column for MultiDocFolder
+2018-09-27  LC         Add script to alter column if missing
+2019-02-22  LC         Increase size of column for filename
+2017-06-15  LC         Created table
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -70,30 +74,6 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
 								   , @UpdateFlag = 2;
 -- smallint
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2017-09
-	Database: 
-	Description: MFExportFileHistory table records for files exported from M-Files
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	2018-6-29		lc			Add Column for MultiDocFolder
-	2018-9-27		lc			Add script to alter column if missing
-	2019-2-22		lc			Increase size of column for filename
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  Select * from MFExportFileHistory
-  
---DROP TABLE dbo.[MFExportFileHistory]
------------------------------------------------------------------------------------------------*/
-
-
-
 
 IF NOT EXISTS (	  SELECT [name]
 				  FROM	 [sys].[tables]
@@ -101,9 +81,6 @@ IF NOT EXISTS (	  SELECT [name]
 						 AND SCHEMA_NAME([schema_id]) = 'dbo'
 			  )
 	BEGIN
-
-
-
 
 CREATE TABLE MFExportFileHistory
 (ID INT IDENTITY PRIMARY key
@@ -122,18 +99,15 @@ CREATE TABLE MFExportFileHistory
 ,Created DATETIME DEFAULT (GETDATE())
 )
 
+ALTER TABLE [dbo].[MFExportFileHistory] ADD CONSTRAINT [PK__MFExportFileHistory_ID] PRIMARY KEY CLUSTERED  ([ID])
+
 
 	END
 
 
 
 GO
---Table modifications #############################################################################################################################
 
-/*	
-	Effective Version: 4.2.5.43
-	MultiDocFolder is introoduced in this version
-*/
 IF NOT EXISTS (	  SELECT	1
 				  FROM		[INFORMATION_SCHEMA].[COLUMNS] AS [c]
 				  WHERE		[c].[TABLE_NAME] = 'MFExportFileHistory'

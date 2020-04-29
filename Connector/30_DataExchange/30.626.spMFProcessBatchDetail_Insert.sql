@@ -7,7 +7,7 @@ go
 SET NOCOUNT ON
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
 								   , @ObjectName = N'spMFProcessBatchDetail_Insert'
-								   , @Object_Release = '4.2.8.47'
+								   , @Object_Release = '4.6.15.57'
 								   , @UpdateFlag = 2
 	  go
 
@@ -146,6 +146,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-03-12  LC         Improve default wording of text
 2019-08-30  JC         Added documentation
 2019-01-27  LC         Exclude MFUserMessage table from any logging
 2018-10-31  LC         Update logging text
@@ -218,7 +219,8 @@ Date        Author     Description
 															)
 						VALUES (   @ProcessBatch_ID
 								 , @LogType			-- LogType - nvarchar(50)
-								 , @LogProcedureName + ': ' + @LogProcedureStep
+							--	 , @LogProcedureName + ': ' + @LogProcedureStep
+                             , @LogProcedureName
 								 , @LogText			-- LogText - nvarchar(4000)
 								 , @LogStatus		-- Status - nvarchar(50)
 								 , @DurationSeconds -- DurationSeconds - decimal
@@ -232,7 +234,7 @@ Date        Author     Description
                            IF @debug > 0
                               BEGIN
                                     
-                                    SET @DebugText = @DefaultDebugText + ': ' + @LogText + ' ColumnName: %s ColumnValue: %s '	
+                                    SET @DebugText = @DefaultDebugText + ': ' + @LogText + '  %s  %s '	
                                     RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep, @ColumnName, @ColumnValue)
                               END
   

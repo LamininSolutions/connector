@@ -71,6 +71,10 @@ CREATE TABLE MFObjectChangeHistoryUpdateControl
     ColumnNames NVARCHAR(4000) NOT NULL
 )
 
+
+ALTER TABLE [dbo].[MFObjectChangeHistoryUpdateControl] ADD CONSTRAINT [PK__MFObjectChangeHistoryUpdateControl_ID] PRIMARY KEY CLUSTERED  ([ID])
+
+
 END
 
 GO

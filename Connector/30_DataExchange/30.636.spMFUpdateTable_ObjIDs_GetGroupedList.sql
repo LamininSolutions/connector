@@ -6,7 +6,7 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
 
 EXEC Setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTable_ObjIds_GetGroupedList', -- nvarchar(100)
-    @Object_Release = '3.1.1.36', -- varchar(50)
+    @Object_Release = '4.6.15.57', -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
 
@@ -33,10 +33,9 @@ GO
 -- the following section will be always executed
 SET NOEXEC OFF;
 GO
-
 IF OBJECT_ID('tempdb..#ObjIdList') IS NOT NULL
    DROP TABLE  #ObjIdList;
-CREATE TABLE #ObjIdList ( [ObjId] INT )
+CREATE TABLE #ObjIdList ( [ObjId] INT, Flag int )
 GO
 
 ALTER PROCEDURE [dbo].[spMFUpdateTable_ObjIds_GetGroupedList]
@@ -87,8 +86,9 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-04-08  LC         Resolve issue with #objidlist not exist 
 2019-08-30  JC         Added documentation
-2017-06-08  AC         Change default size of @ObjIds_FieldLenth to 2000 from 4000 as NVARCHAR(4000) is same as VARCHAR(2000)
+2017-06-08  AC         Change default size of @ObjIds_FieldLenth 
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -111,9 +111,21 @@ Date        Author     Description
 	-----------------------------------------------------
 	--Calculate Number of Groups in RecordSet
 	-----------------------------------------------------
+ IF OBJECT_ID('tempdb..#ObjIdList') IS NULL
+CREATE TABLE #ObjIdList ( [ObjId] INT )
+
+ IF (SELECT OBJECT_ID('tempdb..##GroupHdr')) IS  NULL
+		CREATE TABLE #GroupHdr([GroupNumber] INT, [ObjIDs] NVARCHAR(4000));
+	
+    IF (SELECT OBJECT_ID('tempdb..##GroupDtl')) IS NULL	
+	CREATE TABLE #GroupDtl ([ObjID] INT,[GroupNumber] int );
+
+
 	SET @ProcedureStep = 'Get Number of Groups '
 	DECLARE @NumberofGroups INT
 
+ --   IF (SELECT OBJECT_ID('tempdb..#objidlist')) IS NOT NULL
+ --   Begin
     SELECT  @NumberofGroups = ( SELECT  COUNT(*)
                                 FROM    #ObjIdList
                               ) / ( @ObjIds_FieldLenth --ObjIds fieldlenth
@@ -131,7 +143,6 @@ Date        Author     Description
 	--Assign Group Numbers to Source Records
 	-----------------------------------------------------
 	SET @ProcedureStep = 'Assign Group Numbers to Source Records '
-	CREATE TABLE #GroupDtl ([ObjID] INT,[GroupNumber] int )
 	
 	INSERT  #GroupDtl
 			( [ObjID]
@@ -150,13 +161,12 @@ Date        Author     Description
 	--Get ObjIDs CSV List by GroupNumber
 	-----------------------------------------------------
 	SET @ProcedureStep = 'Get ObjIDs CSV List by GroupNumber '
-
-		CREATE TABLE #GroupHdr ([GroupNumber] INT, [ObjIDs] NVARCHAR(4000))
-		INSERT  #GroupHdr
-				( [GroupNumber]
-				, [ObjIDs]
-				)
-				SELECT  [source].[GroupNumber]
+		INSERT INTO #GroupHdr
+		(
+		    GroupNumber,
+		    ObjIDs
+		)     
+        SELECT  [source].[GroupNumber]
 					  , [ObjIDs] = STUFF(( SELECT ','
 											  , CAST([ObjID] AS VARCHAR(10))
 										 FROM   #GroupDtl
@@ -173,7 +183,7 @@ Date        Author     Description
 		IF @Debug > 0
 			    RAISERROR('Proc: %s Step: %s: %d record(s)',10,1,@ProcedureName, @ProcedureStep,@rowcount);
 		
-
+--END
 
 	-----------------------------------------------------
 	--Return GroupedList

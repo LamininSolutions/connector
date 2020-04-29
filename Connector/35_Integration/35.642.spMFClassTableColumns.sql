@@ -111,7 +111,7 @@ Examples
 
 .. code:: sql
 
-    EXEC [dbo].[spMFClassTableColumns] -- nvarchar(200)
+    EXEC [dbo].[spMFClassTableColumns] 
     --review result
     SELECT * FROM ##spMFClassTableColumns
 

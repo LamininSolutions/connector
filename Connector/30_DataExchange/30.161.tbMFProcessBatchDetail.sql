@@ -134,6 +134,9 @@ IF NOT EXISTS (	  SELECT [name]
 			  , [Update_ID] INT NULL
 			);
 
+            ALTER TABLE [dbo].[MFProcessBatchDetail] ADD CONSTRAINT [PK__MFProcessBatchDetail_ID] PRIMARY KEY CLUSTERED  ([ProcessBatchDetail_ID])
+
+
 	END
 
 GO

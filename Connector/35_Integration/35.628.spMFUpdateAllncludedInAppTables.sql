@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFUpdateAllncludedInAppTables', -- nvarchar(100)
-                                 @Object_Release = '4.4.14.56',                    -- varchar(250)
+                                 @Object_Release = '4.5.15.57',                    -- varchar(250)
                                  @UpdateFlag = 2;                                  -- smallint
 GO
 
@@ -85,16 +85,31 @@ Warning
 
 Setting @IsIncremental to 0 and including a large number of tables with a large number of objects could take a considerable time to finish. 
 
-The procedure will automatically default to using 200 000 records as refault for each class table.  
+The procedure will automatically default to using 200 000 records as default for each new class table.  
 
 Examples
 ========
 
 .. code:: sql
 
-    DECLARE @Return int
-    EXEC @Return = spMFUpdateAllncludedInAppTables 2, 0
-    SELECT @return
+    --example for incremental updates (to be included in agent for daily update)
+    DECLARE @ProcessBatch_ID INT;
+    EXEC dbo.spMFUpdateAllncludedInAppTables @UpdateMethod = 1, 
+                                         @RemoveDeleted = 1,  
+                                         @IsIncremental = 1,    
+                                         @ProcessBatch_ID = @ProcessBatch_ID OUTPUT, 
+                                         @Debug = 0
+                                         
+.. code:: sql
+
+    --example for initating all table - use only when small class tables are involved
+    DECLARE @ProcessBatch_ID INT;
+    EXEC dbo.spMFUpdateAllncludedInAppTables @UpdateMethod = 1, 
+                                         @RemoveDeleted = 1,  
+                                         @IsIncremental = 0,    
+                                         @ProcessBatch_ID = @ProcessBatch_ID OUTPUT, 
+                                         @Debug = 0
+
 
 Changelog
 =========
@@ -102,6 +117,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-03-06  LC         Include spMFUpdateChangeHistory through spMFUpdateMfilestoSQL
+2020-03-06  LC         Exclude MFUserMessages
 2019-12-10  LC         Functionality extended to intialise all tables
 2019-11-04  LC         Include spMFUpdateObjectChangeHistory in this routine
 2019-08-30  JC         Added documentation
@@ -227,7 +244,9 @@ BEGIN TRY
             @TableLastModified DATETIME,
             @id INT,
             @schema NVARCHAR(5) = N'dbo',
-            @Param NVARCHAR(MAX);
+            @Param NVARCHAR(MAX),
+            @UpdateTypeID INT = 1,
+            @MFID INT;
 
     IF @Debug > 0
         RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
@@ -247,7 +266,9 @@ BEGIN TRY
         ID INT,
         Name VARCHAR(100),
         TableName VARCHAR(100),
-        TableLastModified DATETIME
+        MFID INT,
+        TableLastModified DATETIME,
+        HistoryUpdate bit
     );
 
     INSERT INTO #TableList
@@ -255,16 +276,23 @@ BEGIN TRY
         ID,
         Name,
         TableName,
-        TableLastModified
+        MFID,
+        TableLastModified,
+        HistoryUpdate
     )
     SELECT mc.ID,
            mc.Name,
            mc.TableName,
-           NULL
+           MFID,
+           NULL,
+           CASE WHEN h.MFTableName IS NOT NULL THEN 1 ELSE 0 end
     FROM dbo.MFClass AS mc
         INNER JOIN
         (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES) AS t
             ON t.TABLE_NAME = mc.TableName
+LEFT JOIN (SELECT mochuc.MFTableName FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc
+GROUP BY mochuc.MFTableName) h
+ON h.MFTableName = mc.TableName
     WHERE mc.IncludeInApp IN ( 1, 2 );
 
     DECLARE @Row INT;
@@ -272,6 +300,8 @@ BEGIN TRY
     SELECT @Row = MIN(tl.ID)
     FROM #TableList AS tl;
 
+    IF @IsIncremental = 0
+    SET @UpdateTypeID = 0;
     -------------------------------------------------------------
     -- Begin loop
     -------------------------------------------------------------
@@ -279,19 +309,26 @@ BEGIN TRY
     BEGIN
         SELECT @id = @Row;
 
-        SELECT @MFTableName = TableName
+        SELECT @MFTableName = TableName, @MFID = MFID
         FROM #TableList
         WHERE ID = @id;
 
+        IF @IsIncremental = 0
+        BEGIN
+        Delete FROM dbo.MFAuditHistory
+        WHERE Class = @MFID
+        END
         DECLARE @MFLastUpdateDate SMALLDATETIME,
                 @Update_IDOut INT;
 
-        EXEC dbo.spMFUpdateMFilesToMFSQL @MFTableName = @MFTableName,                  -- nvarchar(128)
-                                         @MFLastUpdateDate = @MFLastUpdateDate OUTPUT, -- smalldatetime
-                                         @UpdateTypeID = 1,                            -- tinyint
-                                         @Update_IDOut = @Update_IDOut OUTPUT,         -- int
-                                         @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,   -- int
-                                         @debug = 0;                                   -- tinyint
+        
+        EXEC dbo.spMFUpdateMFilesToMFSQL @MFTableName = @MFTableName, 
+         @MFLastUpdateDate = @MFLastUpdateDate OUTPUT, 
+         @UpdateTypeID = @UpdateTypeID,  
+         @WithObjectHistory = 1,
+         @Update_IDOut = @Update_IDOut OUTPUT,  
+          @ProcessBatch_ID = @ProcessBatch_ID OUTPUT, 
+          @debug = 0;
 
         UPDATE #TableList
         SET TableLastModified = @MFLastUpdateDate
@@ -299,7 +336,7 @@ BEGIN TRY
 
         SELECT @Row =
         (
-            SELECT MIN(tl.ID) AS id FROM #TableList AS tl WHERE tl.ID > @Row
+            SELECT MIN(tl.ID) AS id FROM #TableList AS tl WHERE tl.ID > @Row AND tl.TableName <> 'MFUserMessages'
         );
     END;
 
@@ -311,21 +348,6 @@ BEGIN TRY
         FROM #TableList;
     END;
 
-
-    -------------------------------------------------------------
-    -- Update object change history
-    -------------------------------------------------------------
-    IF
-    (
-        SELECT COUNT(*) FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc
-    ) > 0
-    BEGIN
-
-        EXEC dbo.spMFUpdateObjectChangeHistory @WithClassTableUpdate = 0,
-                                               @ProcessBatch_ID = 0, -- int
-                                               @Debug = 0;           -- smallint
-
-    END;
     -------------------------------------------------------------
     --END PROCESS
     -------------------------------------------------------------

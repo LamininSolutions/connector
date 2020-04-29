@@ -68,7 +68,7 @@ Parameters
     - New class ID
   @ColumnNames nvarchar(1000) (optional)
     - Default = NULL
-    - New property ID’s(separated by comma) both MFID or property or columnName can be used.
+    - both MFID or property or columnName can be used (separated by comma) 
   @ColumnValues nvarchar(1000) (optional)
     Value of the properties(separated by comma) Use # the separate the ids in case of a multilookup
   @Update\_IDOUT int (output)
@@ -78,7 +78,6 @@ Parameters
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
 
 Purpose
 =======
@@ -123,12 +122,12 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-08-30  JC         Added documentation
-2018-04-22  AC         Resolve issue with "Conversion failed when converting the nvarchar value 'DELETE FROM {} WHERE OBJId = {} AND ' to data type int
+2018-04-22  AC         Resolve issue with failed conversion
 2018-04-04  DEV2       Added License module validation code.
-2017-12-20  LC         Set a default value for propertids and propertyValues; add parameters for UpdateID, and ProcessBatchID, Change naming conversion of Column related parameters, use MFUpdateTAble to process object in new class.
+2017-12-20  LC         Set a default value for propertids and propertyValues
 2017-11-23  LC         Localization of properties
 2017-07-25  LC         Replace Settings with MFVaultSettings for getting username and vaultname
-2016-09-21  DEV2       Removed @Username, @Password, @NetworkAddress,@VaultName and fetch default vault setting as commo separated in @VaultSettings Parameter.
+2016-09-21  DEV2       set @VaultSettings Parameter.
 2016-08-22  LC         Update settings index
 2015-07-18  DEV2       New parameter add in spMFCreateObjectInternal
 2015-07-02  DEV2       @PropertyIDs can be property ID or ColumnName

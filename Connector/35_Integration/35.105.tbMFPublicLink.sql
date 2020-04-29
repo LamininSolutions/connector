@@ -32,7 +32,6 @@ Used By
 
 - spMFCreatePublicSharedLink
 
-
 Changelog
 =========
 
@@ -40,6 +39,7 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 2019-09-07  JC         Added documentation
+2016-04-10  LC         Create table
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -57,27 +57,6 @@ SET NOCOUNT ON
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFPublicLink', -- nvarchar(100)
     @Object_Release = '3.1.1.34', -- varchar(50)
     @UpdateFlag = 2 -- smallint
-GO
-/*------------------------------------------------------------------------------------------------
-	Author: DevTeam2, Laminin Solutions
-	Create date: 2016-02
-	Database: 
-	Description: MFiles Public Share Link
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  Select * from MFPublicLink
-  
------------------------------------------------------------------------------------------------*/
-
-
 GO
 
 
@@ -104,6 +83,7 @@ IF NOT EXISTS ( SELECT  name
 		)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 		) ON [PRIMARY]
 
+        ALTER TABLE [dbo].[MFPublicLink] ADD CONSTRAINT [PK__MFPublicLink_ID] PRIMARY KEY CLUSTERED  ([Id])
 
 
         PRINT SPACE(10) + '... Table: created';

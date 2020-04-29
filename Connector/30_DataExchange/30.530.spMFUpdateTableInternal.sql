@@ -8,7 +8,7 @@ GO
 SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFUpdateTableInternal', -- nvarchar(100)
-                                 @Object_Release = '4.4.14.55',            -- varchar(250)
+                                 @Object_Release = '4.6.15.56',            -- varchar(250)
                                  @UpdateFlag = 2;
 -- smallint
 GO
@@ -92,6 +92,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-02-20  LC         Change assembly to system.culture time
 2019-11-18  LC         Update time format to address localisation
 2019-08-30  JC         Added documentation
 2019-04-01  LC         Add process_id = 0 as condition
@@ -588,14 +589,14 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
             = @ColumnForInsert
               + CASE
                     WHEN DATA_TYPE = 'DATE' THEN
-                        ' CONVERT(DATETIME, NULLIF(' + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),105) AS '
+                        ' CONVERT(DATETIME, NULLIF(' + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ','''')) AS '
                         + QUOTENAME(COLUMN_NAME) + ','
                     WHEN DATA_TYPE = 'TIME' THEN
                         ' CONVERT(TIME(0), NULLIF(' + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),0) AS '
                         + QUOTENAME(COLUMN_NAME) + ','
                     WHEN DATA_TYPE = 'DATETIME' THEN
                         ' DATEADD(MINUTE,DATEDIFF(MINUTE,getUTCDATE(),Getdate()),CONVERT(DATETIME, NULLIF('
-                        + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),105 )) AS ' + QUOTENAME(COLUMN_NAME)
+                        + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ','''') )) AS ' + QUOTENAME(COLUMN_NAME)
                         + ','
                     WHEN DATA_TYPE = 'BIT' THEN
                         'CASE WHEN ' + QUOTENAME(COLUMN_NAME) + ' = ''1'' THEN  CAST(''1'' AS BIT) WHEN '
@@ -648,14 +649,14 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
               + CASE
                     WHEN DATA_TYPE = 'DATE' THEN
                         '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME) + ' = CONVERT(DATETIME, NULLIF(t.'
-                        + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),105 ) ,'
+                        + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ','''') ) ,'
                     WHEN DATA_TYPE = 'TIME' THEN
                         '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME) + ' = CONVERT(TIME(0), NULLIF(t.'
                         + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),0)  ,'
                     WHEN DATA_TYPE = 'DATETIME' THEN
                         '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME)
                         + ' = DATEADD(MINUTE,DATEDIFF(MINUTE,getUTCDATE(),Getdate()), CONVERT(DATETIME,NULLIF(t.'
-                        + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),105 )),'
+                        + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ','''') )),'
                     WHEN DATA_TYPE = 'BIT' THEN
                         '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME) + ' =(CASE WHEN ' + 't.'
                         + QUOTENAME(COLUMN_NAME) + ' = ''1'' THEN  CAST(''1'' AS BIT)  WHEN t.'

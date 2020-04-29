@@ -90,6 +90,11 @@ CREATE table MFilesEvents ( ID           INT
 ,                         loaddate     DATETIME
 ,                         Events       xml )
 
+
+ALTER TABLE [dbo].[MFEventLog_OpenXML] ADD CONSTRAINT [PK__MFEventLog_OpenXML_ID] PRIMARY KEY CLUSTERED  ([Id])
+
+
+
         PRINT SPACE(10) + '... Table: created';
     END;
 ELSE

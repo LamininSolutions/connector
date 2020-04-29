@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFUpdateTable',
                                  -- nvarchar(100)
-                                 @Object_Release = '4.5.14.56',
+                                 @Object_Release = '4.6.16.57',
                                  -- varchar(50)
                                  @UpdateFlag = 2;
 -- smallint
@@ -205,6 +205,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-03-09  LC         Resolve issue with timestamp format for finish formatting
+2020-02-27  LC         Resolve issue with open XML_Docs
 2020-01-06  LC         Resolve issue: variable is null: @RetainDeletions
 2020-01-06  LC         Resolving performance bug when filtering on objids  
 2019-10-01  LC         Allow for rounding where float has long decimals
@@ -868,7 +870,7 @@ BEGIN TRY
                                 = @Query
                                   + N'Union All
  select ID,  Objid, MFversion, ExternalID, ColName as ColumnName, 
- format(value,''dd-MM-yyyy HH:mm'') AS Value from ' + QUOTENAME(@MFTableName)
+ convert(varchar(4000),(convert(datetime,value))) AS Value from ' + QUOTENAME(@MFTableName)
                                   + N' t
         unpivot
         (
@@ -1631,7 +1633,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
 			SELECT @CheckOutObjects AS CheckedOutObjects
         END;
 
-        EXEC sys.sp_xml_preparedocument @idoc2 OUTPUT, @NewObjectXml;
+  --      EXEC sys.sp_xml_preparedocument @idoc2 OUTPUT, @NewObjectXml;
 
         IF @DeletedObjects IS NULL
         BEGIN
@@ -1670,6 +1672,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
                 ) AS objVers
                 FOR XML AUTO
             );
+           exec sys.sp_xml_removedocument @idoc3
         END;
 
         IF @Debug > 100
@@ -2293,6 +2296,14 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
 											FROM #DeletedRecordId
 											WHERE [' + @MFTableName + N'].ObjID = #DeletedRecordId.ID';
 
+
+            UPDATE mah
+            SET StatusFlag = 7, StatusName = 'Deleted'
+            FROM dbo.MFAuditHistory AS mah
+            INNER JOIN #DeletedRecordId AS dri
+            ON dri.ID = mah.ObjID AND mah.Class = @ClassId
+
+
             IF @Debug > 100
             BEGIN
                 SELECT *
@@ -2332,10 +2343,21 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
                 SET @Query = N'Delete from ' + QUOTENAME(@MFTableName) + N' Where deleted = 1';
 
                 EXEC (@Query);
+
+                DELETE FROM dbo.MFAuditHistory WHERE StatusFlag = 7 AND Class = @ClassId
+
             END;
+
+
 
             DROP TABLE #DeletedRecordId;
         END;
+                                        -------------------------------------------------------------
+            -- Remove redundant items from MFAuditHistory
+            -------------------------------------------------------------
+
+            DELETE FROM dbo.MFAuditHistory
+            WHERE StatusFlag = 5 AND Class = @ClassId
     END;
     ELSE
     BEGIN

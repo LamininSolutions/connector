@@ -1,4 +1,4 @@
-USE {varAppDB}
+USE [{varAppDB}]
 
 GO
 

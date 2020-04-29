@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFClassTableStats' -- nvarchar(100)
-                                    ,@Object_Release = '3.1.4.41'         -- varchar(50)
+                                    ,@Object_Release = '4.6.15.57'         -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
 GO
@@ -82,29 +82,33 @@ Additional Info
 
 The procedure also show a summary of the key status records from the process_id column of the tables. The number of records in the following categories are shown:
 
-==============  ===============================================================
-Column          Description
---------------  ---------------------------------------------------------------
-ClassID         MFID of the class
-TableName       Name of Class table
-IncludeInApp    IncludeInApp Flag
-SQLRecordCount  Totals records in SQL (Note that this is not necessarily the same as the total per M-Files)
-MFRecordCount   Total records in M-Files. This result is derived from the last time that spMFTableAudit procedure was run to produce a list of the objectversions of all the objects for a specific class
-MFNotInSQL      Total record in M-Files not yet updated in SQL
-Deleted         Total for Deleted flag set to 1
-SyncError       Total Synchronization errors (process_id = 2)
-Process_ID_1    Total of records with process_id = 1
-MFError         Total of records with process_id = 3 as MFError
-SQLError        Total of records with process_id =4 as SQL Error
-LastModifed     Most recent date that SQL updated a record in the table
-MFLastModified  Most recent that an update was made in M-Files on the record
-SessionID       ID  of the latest spMFTableAudit procedure execution.
-==============  ===============================================================
+=================  =====================================================================================================
+Column             Description
+-----------------  -----------------------------------------------------------------------------------------------------
+ClassID            MFID of the class
+TableName          Name of Class table
+IncludeInApp       IncludeInApp Flag
+SQLRecordCount     Totals records in SQL (Note that this is not necessarily the same as the total per M-Files)
+MFRecordCount      Total records in M-Files including deleted objects. 
+                   This result is derived from the last time that spMFTableAudit procedure was run to produce a list
+                   of the objectversions of all the objects for a specific class. 
+MFNotInSQL         Total record in M-Files not yet updated in SQL. This excludes deleted objects in M-Files which are
+                   recorded in MFAuditTable with statusflag = 6
+Deleted            Total for Deleted flag set to 1 plus deleted in M-Files and not in class table
+SyncError          Total Synchronization errors (process_id = 2)
+Process_ID_not_0   Total of records with process_id <> 0 this includes the errors and show records that will be
+                   excluded from an @updatemethod = 1 routine
+MFError            Total of records with process_id = 3 as MFError
+SQLError           Total of records with process_id =4 as SQL Error
+LastModifed        Most recent date that SQL updated a record in the table
+MFLastModified     Most recent that an update was made in M-Files on the record
+SessionID          ID  of the latest spMFTableAudit procedure execution.
+=================  =====================================================================================================
 
 Warnings
 ========
 
-The MFRecordCount results of spMFClassTableStats is only accurate based on the last execution of spMFAuditTable for a particular class table.
+The MFRecordCount results of spMFClassTableStats is only accurate based on the last execution of spMFTableAudit for a particular class table.
 
 Examples
 ========
@@ -137,6 +141,10 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-04-16  LC         Add with nolock option
+2020-03-06  LC         Remove statusflag 6 from notinSQL
+2020-03-06  LC         Change deleted to include deleted from audit table
+2020-03-06  LC         Change Column to show process_id not 0
 2019-09-26  LC         Update documentation
 2019-08-30  JC         Added documentation
 2017-12-27  LC         run tableaudit for each table to update status from MF
@@ -200,7 +208,7 @@ CREATE TABLE [##spMFClassTableStats]
    ,[MFNotInSQL] INT
    ,[Deleted] INT
    ,[SyncError] INT
-   ,[Process_ID_1] INT
+   ,[Process_ID_not_0] INT
    ,[MFError] INT
    ,[SQLError] INT
    ,[LastModified] DATETIME
@@ -231,7 +239,7 @@ INSERT INTO [##spMFClassTableStats]
    ,[MFNotInSQL]
    ,[Deleted]
    ,[SyncError]
-   ,[Process_ID_1]
+   ,[Process_ID_not_0]
    ,[MFError]
    ,[SQLError]
    ,[LastModified]
@@ -279,7 +287,7 @@ BEGIN
 
     SET @SQL
         = N'
-Declare @SQLcount INT, @LastModified datetime, @MFLastModified datetime, @Deleted int, @SyncError int, @ProcessID_1 int, @MFError INt, @SQLError Int
+Declare @SQLcount INT, @LastModified datetime, @MFLastModified datetime, @Deleted int, @SyncError int, @ProcessID_not_0 int, @MFError INt, @SQLError Int
 
 
 IF EXISTS(SELECT [t].[TABLE_NAME] FROM [INFORMATION_SCHEMA].[TABLES] AS [t] where Table_name = ''' + @TableName
@@ -293,14 +301,14 @@ SELECT @SQLcount = COUNT(*), @LastModified = max(LastModified), @MFLastModified 
 Select @Deleted = count(*) FROM ' + QUOTENAME(@TableName) + ' where deleted <> 0;
 Select @SyncError = count(*) FROM ' + QUOTENAME(@TableName)
           + ' where Process_id = 2;
-Select @ProcessID_1 = count(*) FROM ' + QUOTENAME(@TableName)
-          + ' where Process_id = 1;
+Select @ProcessID_not_0 = count(*) FROM ' + QUOTENAME(@TableName)
+          + ' where Process_id <> 0;
 Select @MFError = count(*) FROM ' + QUOTENAME(@TableName) + ' where Process_id = 3;
 Select @SQLError = count(*) FROM ' + QUOTENAME(@TableName)
           + ' where Process_id = 4;
 UPDATE t
 SET t.[SQLRecordCount] =  @SQLcount, LastModified = @LastModified, MFLastModified = @MFLastModified,
-Deleted = @Deleted, SyncError = @SyncError, Process_ID_1 = @ProcessID_1, MFError = @MFerror, SQLError = @SQLError
+Deleted = @Deleted, SyncError = @SyncError, Process_ID_not_0 = @ProcessID_not_0, MFError = @MFerror, SQLError = @SQLError
 
 FROM [##spMFClassTableStats] AS [t]
 WHERE t.[TableName] = ''' + @TableName + '''
@@ -335,18 +343,25 @@ print ''' + @TableName + ' has not been created'';
 
  
         SELECT @MFCount = COUNT(*)
-        FROM [dbo].[MFAuditHistory] AS [mah]
+        FROM [dbo].[MFAuditHistory] AS [mah] WITH(NOLOCK)
         WHERE [mah].[Class] = @ID
               AND [mah].[StatusFlag] NOT IN ( 3, 4 ); --not in MF
 
         SELECT @NotINSQL = COUNT(*)
-        FROM [dbo].[MFAuditHistory] AS [mah]
+        FROM [dbo].[MFAuditHistory] AS [mah] WITH(NOLOCK)
         WHERE [mah].[Class] = @ID
-              AND [mah].[StatusFlag] IN ( 5, 6 ); -- templates and other records not in SQL
+              AND [mah].[StatusFlag] = 5; -- templates and other records not in SQL
+
+              DECLARE @Deleted int
+                      SELECT @Deleted = COUNT(*)
+        FROM [dbo].[MFAuditHistory] AS [mah] WITH(NOLOCK)
+        WHERE [mah].[Class] = @ID
+              AND [mah].[StatusFlag] = 6; -- templates and other records not in SQL
 
         UPDATE [smcts]
         SET [smcts].[MFRecordCount] = @MFCount
            ,[smcts].[MFNotInSQL] = @NotINSQL
+           ,smcts.Deleted = smcts.Deleted + @Deleted
         FROM [##spMFClassTableStats] AS [smcts]
         WHERE [smcts].[ClassID] = @ID;
 
@@ -359,7 +374,7 @@ print ''' + @TableName + ' has not been created'';
            AND @WithReset = 1
         BEGIN
             SET @SQL
-                = N'delete from ' + QUOTENAME(@TableName)
+                = N'delete from ' + QUOTENAME(@TableName) 
                   + ' where deleted = 1
 		update ##spMFClassTableStats set Deleted = 0 where TableName = ''' + @TableName + '''
 		'   ;
@@ -403,7 +418,7 @@ BEGIN
           ,[MFNotInSQL]
           ,[Deleted]
           ,[SyncError]
-          ,[Process_ID_1]
+          ,[Process_ID_not_0]
           ,[MFError]
           ,[SQLError]
           ,[LastModified]
@@ -416,4 +431,5 @@ BEGIN
 END;
 
 RETURN 1;
+
 GO
