@@ -83,7 +83,7 @@ Date        Author     Description
 2019-08-30  JC         Added documentation
 2016-09-26  DevTeam2   Removed vaultsettings parameters and pass them as 
                        comma separated string in @VaultSettings parameter
-2018-04-04 DevTeam2    Added License module validation code
+2018-04-04  DevTeam2   Added License module validation code
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
