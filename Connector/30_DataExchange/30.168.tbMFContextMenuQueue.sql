@@ -88,7 +88,7 @@ IF NOT EXISTS (	  SELECT	[name]
 	BEGIN
 		CREATE  TABLE dbo.MFContextMenuQueue
 (
-    id INT IDENTITY PRIMARY KEY,
+    id INT IDENTITY,
     ContextMenu_ID INT NOT null,
     ObjectID INT ,
     ObjectType INT,

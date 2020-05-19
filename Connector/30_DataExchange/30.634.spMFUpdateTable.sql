@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFUpdateTable',
                                  -- nvarchar(100)
-                                 @Object_Release = '4.6.16.57',
+                                 @Object_Release = '4.6.18.59',
                                  -- varchar(50)
                                  @UpdateFlag = 2;
 -- smallint
@@ -135,6 +135,8 @@ Process_id in class table must be 1 for rows to be updated or added to M-Files. 
 Warnings
 ========
 
+When using a filter (e.g. for a single object) to update the table with Update method 1 and the filter object process_id is not 0 then the filter will automatically revert to updating all records. Take care to pass valid filters before passing them into the procedure call.
+
 Examples
 ========
 
@@ -205,6 +207,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-05-12  LC         Set last modified user to MFSQL
+2020-04-20  LC         exclude last modified and and MF user to be modified
 2020-03-09  LC         Resolve issue with timestamp format for finish formatting
 2020-02-27  LC         Resolve issue with open XML_Docs
 2020-01-06  LC         Resolve issue: variable is null: @RetainDeletions
@@ -824,11 +828,10 @@ BEGIN TRY
                                   INNER JOIN dbo.MFProperty AS mp
                                       ON mp.ColumnName = C.name
                               WHERE C.object_id = OBJECT_ID(@MFTableName)
-                                    --                                    AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 20, 21, 23, 25 )
-                                    --AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 23, 25 )
+                        --      AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 20, 21, 23, 25 )
+                           --         AND ISNULL([mp].[MFID], -1) NOT IN ( - 1,20, 21, 23, 25 )
                                     AND ISNULL(mp.MFID, -1) NOT IN ( -1 )
                                     --Removed values to update created and updated values in m-files
-                                    --AND ISNULL([mp].[MFID], -1) NOT IN ( - 1, 20, 21, 23, 25 )
                                     AND mp.ColumnName <> 'Deleted'
                                     AND mp.MFDataType_ID IN
                     (
@@ -911,8 +914,8 @@ BEGIN TRY
                 --SELECT @DeleteQuery AS deletequery
                 SELECT @Query = SUBSTRING(@Query, 11, 8000) + @DeleteQuery;
 
-                IF @Debug > 100
-                    PRINT @Query;
+   --             IF @Debug > 100
+  --                 PRINT @Query;
 
                 -------------------------------------------------------------
                 -- insert into column value pair
@@ -924,7 +927,7 @@ BEGIN TRY
 SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from 
 (' +                @Query + N') list';
 
-                IF @Debug = 100
+                IF @Debug > 100
                 BEGIN
                     SELECT @Query AS 'ColumnValue pair query';
                 END;
@@ -946,7 +949,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
                     AS (SELECT mfms.Property
                         FROM dbo.MFvwMetadataStructure AS mfms
                         WHERE mfms.TableName = @MFTableName
-                              AND mfms.Property_MFID NOT IN ( 20, 21, 23, 25 )
+                           --   AND mfms.Property_MFID NOT IN ( 20, 21, 23, 25 )
                               -- AND [mfms].[Property_MFID] NOT IN (  23, 25 )
                               AND mfms.Required = 1
                         EXCEPT
@@ -1062,10 +1065,31 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,Value,NULL,null,null from
                     INNER JOIN dbo.MFDataType AS mdt
                         ON mp.MFDataType_ID = mdt.ID;
 
+                        -------------------------------------------------------------
+                        -- update MFlastUpdate datetime; MFLastModified MFSQL user
+                        -------------------------------------------------------------
+UPDATE cvp
+SET cvp.ColumnValue = CAST(GETDATE() AS NVARCHAR(4000))
+FROM #ColumnValuePair AS cvp
+WHERE mfid = 21
+
+DECLARE @lastModifiedUser_ID INT
+SELECT @lastModifiedUser_ID = mla.MFID FROM dbo.MFVaultSettings AS mvs
+INNER JOIN dbo.MFLoginAccount AS mla
+ON mvs.Username = mla.UserName
+
+UPDATE cvp
+SET cvp.ColumnValue = CAST(@lastModifiedUser_ID AS NVARCHAR(4000))
+FROM #ColumnValuePair AS cvp
+WHERE mfid = 23
+
+
+                        IF @debug > 100
+                        SELECT * FROM #ColumnValuePair AS cvp;
                 -------------------------------------------------------------
                 -- END of preparating column value pair
-                -------------------------------------------------------------
-                SELECT @Count = COUNT(*)
+                -------------------------------------------------------------           
+               SELECT @Count = COUNT(*)
                 FROM #ColumnValuePair AS cvp;
 
                 SET @ProcedureStep = 'ColumnValue Pair ';

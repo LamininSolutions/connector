@@ -88,12 +88,8 @@ IF NOT EXISTS ( SELECT  name
 			[MFLastModifiedBy_ID] [int] NULL,
 			[Property_ID] [int] NULL,
 			[Property_Value] [nvarchar](300) NULL,
-			[CreatedOn] [datetime] NULL,
-		PRIMARY KEY CLUSTERED 
-		(
-			[ID] ASC
-		)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
-		) ON [PRIMARY]
+			[CreatedOn] [datetime] NULL
+		)
 
         
 ALTER TABLE [dbo].[MFObjectChangeHistory] ADD CONSTRAINT [PK__MFObjectChangeHistory_ID] PRIMARY KEY CLUSTERED  ([ID])

@@ -105,12 +105,10 @@ CREATE TABLE [dbo].[MFObjectTypeToClassObject]
       Object_LastModifiedBy VARCHAR(100) ,
       Object_LastModified DATETIME ,
       Object_Deleted BIT ,
-      PRIMARY KEY ( [ObjectType_ID],[Class_ID],[Object_MFID] ) 
+      CONSTRAINT [PK_MFObjectTypeToClassObject] PRIMARY KEY ( [ObjectType_ID],[Class_ID],[Object_MFID] ) 
      
     );
 
-    
-ALTER TABLE [dbo].[MFObjectTypeToClassObject] ADD CONSTRAINT [PK__MFObject__MFObjectTypeToClassObject_ObjectType_Class_MFID] PRIMARY KEY CLUSTERED  ([ObjectType_ID], [Class_ID], [Object_MFID])
 
 CREATE NONCLUSTERED INDEX [FKIX_MFObjectTypeToClassObject_Class_ID] ON [dbo].[MFObjectTypeToClassObject] ([Class_ID])
 GO

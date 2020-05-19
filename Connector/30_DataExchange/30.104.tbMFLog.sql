@@ -166,7 +166,7 @@ IF NOT EXISTS ( SELECT  name
               [ErrorSeverity] INT NULL ,
               [ErrorLine] INT NULL ,
               [CreateDate] DATETIME
-                CONSTRAINT [DF__MFLog__Creat__1367EE2606]
+                CONSTRAINT [DF_MFLog_CreateDate]
                 DEFAULT ( GETDATE() )
                 NULL ,
               CONSTRAINT [PK_MFLog] PRIMARY KEY CLUSTERED ( [LogID] ASC )

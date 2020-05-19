@@ -3,7 +3,7 @@ GO
 SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFUpdateObjectChangeHistory', -- nvarchar(100)
-                                 @Object_Release = '4.6.15.57',
+                                 @Object_Release = '4.7.18.58',
                                  @UpdateFlag = 2;
 
 GO
@@ -144,6 +144,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-05-06  LC         Validate the column in control table
 2020-03-06  LC         Add MFTableName and objids - run per table
 2019-11-04  LC         Create procedure
 
@@ -284,6 +285,7 @@ BEGIN
         DECLARE @ObjectType_ID INT;
         DECLARE @Property_IDs NVARCHAR(MAX);
 
+        
         -------------------------------------------------------------
         -- Create table update list
         -------------------------------------------------------------
@@ -303,9 +305,12 @@ BEGIN
         SELECT mochuc.MFTableName,
                STUFF(
                (
-                   SELECT ',' + mochuc2.ColumnNames
+                   SELECT distinct ',' + fmpds.ListItem 
                    FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc2
-                   WHERE mochuc2.MFTableName = mochuc.MFTableName
+                   CROSS APPLY dbo.fnMFParseDelimitedString(mochuc2.ColumnNames, ',') AS fmpds
+                   INNER JOIN dbo.MFProperty AS mp
+                   ON fmpds.ListItem = mp.ColumnName
+                  WHERE mochuc2.MFTableName = mochuc.MFTableName
                    FOR XML PATH('')
                ),
                1,
@@ -314,7 +319,7 @@ BEGIN
                     ),
                STUFF(
                (
-                   SELECT ',' + CAST(mp.MFID AS VARCHAR(10))
+                   SELECT DISTINCT ',' + CAST(mp.MFID AS VARCHAR(10))
                    FROM dbo.MFObjectChangeHistoryUpdateControl AS htu
                        CROSS APPLY dbo.fnMFParseDelimitedString(htu.ColumnNames, ',') AS fmpds
                        INNER JOIN dbo.MFProperty mp
@@ -327,9 +332,12 @@ BEGIN
                ''
                     )
         FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc
+        INNER JOIN dbo.MFClass AS mc
+        ON mochuc.MFTableName = mc.TableName
         WHERE mochuc.MFTableName = @MFTableName
               OR @MFTableName IS NULL
         GROUP BY mochuc.MFTableName;
+
 
         SET @DebugText = N'';
         SET @DebugText = @DefaultDebugText + @DebugText;
@@ -374,6 +382,13 @@ BEGIN
                        @Property_IDs = htu.PropertyIDs
                 FROM @UpdateList AS htu
                 WHERE htu.ID = @ID;
+
+
+        -------------------------------------------------------------
+        -- Validate columns in control table
+        -------------------------------------------------------------
+        
+        SELECT * FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc
 
 
                 IF @Debug > 0

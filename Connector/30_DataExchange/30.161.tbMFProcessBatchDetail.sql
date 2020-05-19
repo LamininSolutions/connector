@@ -114,7 +114,7 @@ IF NOT EXISTS (	  SELECT [name]
 
 		CREATE TABLE [dbo].[MFProcessBatchDetail]
 			(
-				[ProcessBatchDetail_ID] INT IDENTITY(1, 1) NOT NULL PRIMARY KEY
+				[ProcessBatchDetail_ID] INT IDENTITY(1, 1) NOT NULL
 			  , [ProcessBatch_ID] INT NULL
 			  , [LogType] NVARCHAR(50) NULL
 			  , [ProcedureRef] NVARCHAR(258) NULL

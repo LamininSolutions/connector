@@ -66,7 +66,7 @@ IF NOT EXISTS ( SELECT  name
 
 
 CREATE TABLE MFObjectChangeHistoryUpdateControl
-(ID INT IDENTITY PRIMARY KEY ,
+(ID INT IDENTITY ,
     MFTableName NVARCHAR(200) NOT null,
     ColumnNames NVARCHAR(4000) NOT NULL
 )

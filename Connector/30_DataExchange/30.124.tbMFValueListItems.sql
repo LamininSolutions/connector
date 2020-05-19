@@ -10,21 +10,21 @@ Columns
 ID int (primarykey, not null)
   SQL Primary Key
 Name nvarchar(100)
-  fixme description
+  Name of the valuelist item
 MFID nvarchar(20)
-  M-Files ID
+  M-Files internal ID
 MFValueListID int
-  Associated MFValueList primary key
+  ID column column in MFValuelist table
 OwnerID int
-  fixme description
+  MFID of the owner valuelistitem
 ModifiedOn datetime (not null)
-  When was the row last modified
+  When was the row last modified in SQL. This column is automatically populated.
 CreatedOn datetime (not null)
-  When was the row created
+  When was the row created in SQL. This column is automatically populated.
 Deleted bit (not null)
-  Is deleted
+  Is deleted in M-Files
 AppRef nvarchar(25)
-  AppRef of the Valuelist item
+  Unique reference of the Valuelist item accross all all Valuelists
 Owner\_AppRef nvarchar(25)
   AppRef of the Valuelist item that owns the item
 ItemGUID nvarchar(200)
@@ -36,7 +36,7 @@ Process\_ID int
   - 1 = use SQL value to update M-Files
   - 2 = delete item in M-Files
 IsNameUpdate bit
-  fixme description
+  This column is used internally to indicate a requirement to push updates of the name of the valuelist item to class tables where this item is being used.
 
 Additional Info
 ===============

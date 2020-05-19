@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFCreateTable', -- nvarchar(100)
-    @Object_Release = '4.6.18.58',    -- varchar(2506
+    @Object_Release = '4.7.18.59',    -- varchar(2506
     @UpdateFlag = 2;
 
 IF EXISTS
@@ -194,6 +194,7 @@ Date        Author     Description
 2020-03-18  LC         Add non clustered unique index for objid
 2020-03-27  LC         Add MFSetting to allow optional create of indexes
 2020-04-22  LC         Improve naming of constraints
+2020-05-12  LC         Add index on Update_ID to improve performance
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -694,6 +695,19 @@ ON dbo.' +          @TableName + N'(ExternalID)
 WHERE ExternalID IS NOT NULL;';
 
                     EXEC (@SQL);
+
+                    SET @SQL
+                        = N'
+IF NOT EXISTS(SELECT 1 
+FROM sys.indexes 
+WHERE name=''IX_' + @TableName + N'_Update_ID'' AND object_id = OBJECT_ID(''dbo.' + @TableName
+                          + N'''))
+CREATE NONCLUSTERED INDEX IX_' + @TableName + N'_Update_ID
+ON dbo.' +          @TableName + N'(Update_ID)
+WHERE Update_ID IS NOT NULL;';
+
+                    EXEC (@SQL);
+
                 END;
 
                 /*************************************************************************

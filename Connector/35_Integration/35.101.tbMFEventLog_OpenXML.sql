@@ -46,28 +46,6 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFEvent
     @Object_Release = '2.0.2.0', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: DEvTeam2, Laminin Solutions
-	Create date: 2017-01
-	Database: 
-	Description: MFiles Event Log
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  Select * from MFEventLog_OpenXML
-  
------------------------------------------------------------------------------------------------*/
-
-
-GO
-
 
 IF NOT EXISTS ( SELECT  name
                 FROM    sys.tables
@@ -76,27 +54,19 @@ IF NOT EXISTS ( SELECT  name
     BEGIN
         CREATE TABLE MFEventLog_OpenXML
 		(
-		Id INT IDENTITY PRIMARY KEY,
+		Id INT IDENTITY,
 		XMLData XML,
 		LoadedDateTime DATETIME
 		)
-
---	DROP TABLE MFilesEvents
-CREATE table MFilesEvents ( ID           INT
-,                         [Type]       NVARCHAR(100)
-,                         [Category]   NVARCHAR(100)
-,                         [TimeStamp]  NVARCHAR(100)
-,                         CausedByUser NVARCHAR(100)
-,                         loaddate     DATETIME
-,                         Events       xml )
-
 
 ALTER TABLE [dbo].[MFEventLog_OpenXML] ADD CONSTRAINT [PK__MFEventLog_OpenXML_ID] PRIMARY KEY CLUSTERED  ([Id])
 
 
 
         PRINT SPACE(10) + '... Table: created';
-    END;
+END
+
+
 ELSE
     PRINT SPACE(10) + '... Table: exists';
 

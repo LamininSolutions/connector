@@ -50,7 +50,6 @@ FROM    [dbo].[MFSettings];
 TRUNCATE TABLE [dbo].[MFSettings];
 
 
-
 INSERT  [dbo].[MFSettings]
         ( [source_key], [Name], [Description], [Value], [Enabled] )
 VALUES  ( N'Email', N'SupportEmailRecipient', N'Email account for recipient of automated support mails',
@@ -64,6 +63,8 @@ VALUES  ( N'Email', N'SupportEmailRecipient', N'Email account for recipient of a
           N'{varCLRPath}', 1 ),
         ( N'App_Default', N'AppUserRole', N'Database App User role', N'{varAppDBRole}', 1 ),
         ( N'App_Default', N'AppUser', N'Database App User', N'{varAppLogin_Name}', 1 ),
+                ( N'MF_Default', N'VaultGUID', N'GUID of vault', N'{varGUID}', 1 ),
+                        ( N'MF_Default', N'ServerURL', N'Web URL for M-Files', N'{varWebURL}', 1 ),
 	    (
 	      'Files_Default'   
 	   , 'RootFolder' 

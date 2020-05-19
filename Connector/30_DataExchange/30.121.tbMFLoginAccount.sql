@@ -1,3 +1,4 @@
+
 /*rST**************************************************************************
 
 ==============
@@ -81,8 +82,7 @@ IF NOT EXISTS ( SELECT  name
   
         CREATE TABLE [dbo].[MFLoginAccount]
             (
-              [ID] INT IDENTITY(1, 1)
-                       NOT NULL PRIMARY KEY ,
+              [ID] INT IDENTITY(1, 1),
               [AccountName] NVARCHAR(250) not NULL ,
               [UserName] NVARCHAR(250) NOT NULL ,
 			  [MFID] INT NULL,
