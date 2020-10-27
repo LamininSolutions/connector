@@ -15,23 +15,6 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFUpd
     @UpdateFlag = 2 -- smallint
 GO
 
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux
-	
-	Description:  
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  {An example of how the code would be used}
-  
------------------------------------------------------------------------------------------------*/
 IF EXISTS ( SELECT  1
             FROM   information_schema.Routines
             WHERE   ROUTINE_NAME = 'spMFUpdateAssemblies'--name of procedure
@@ -79,30 +62,33 @@ Parameters
 Purpose
 =======
 
-Update assemblies when version changes
+Update assemblies when M-Files version changes
 
 Additional Info
 ===============
 
-This procedure is compiled during installation with inserts relating the to specific database
+This procedure is compiled during installation. The procedure can only be used in the specific database.
 
-Use the @MFilesVersion parameter to reset the MFVersion in MFSettings.  This allows for using this procedure to fix an erroneous version in the MFSettings Table
+Use the @MFilesVersion parameter to reset the MFVersion in MFSettings.  This allows for using this procedure to fix an erroneous version in the MFSettings table
 
 It will use the MFversion in the MFsettings table to drop all CLR procedures, reload all the CLR assemblies, and reload all the CLR Procedures
 
 Examples
 ========
 
+To update the assemblies based on the MFVersion in MFSettings
+
 .. code:: sql
 
-    To update the assemblies based on the MFVersion in MFSettings
     Exec spMFUpdateAssemblies
 
-    To update the assemblies with a different MFVersion
+------
+
+To update the assemblies with a different MFVersion or manually update the assemblies
 
 .. code:: sql
 
-    Exec spMFUpdateAssemblies @MFilesVersion '19.8.8082.5'
+    Exec spMFUpdateAssemblies @MFilesVersion = '19.8.8082.5'
 
 Changelog
 =========
@@ -110,6 +96,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-10-27  LC         Refine error messages and logging
 2019-09-27  LC         Add MFilesVersion parameter with default
 2019-03-10  LC         Created
 ==========  =========  ========================================================

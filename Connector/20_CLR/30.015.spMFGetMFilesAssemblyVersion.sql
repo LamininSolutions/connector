@@ -109,7 +109,7 @@ Manually update the version in the Connector. Set the parameter to current insta
 
 .. code:: sql
 
-    Exec spMFUpdateAssemblies @MFilesVersion = '20.9.9430.4'
+    Exec spMFUpdateAssemblies @MFilesVersion = '20.9.9430.5'
 
 Changelog
 =========

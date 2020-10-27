@@ -184,14 +184,14 @@ BEGIN
             SELECT @DBName = DB_NAME();
 
             --	Select @ScriptFilePath=cast(Value as varchar(250)) from MFSettings where Name='AssemblyInstallPath'
-            EXEC dbo.spMFUpdateAssemblies;
+            EXEC dbo.spMFUpdateAssemblies @MFilesVersion;
         END;
     END TRY
     BEGIN CATCH
         SET @ProcedureStep = N'Catch matching version error ';
 
         UPDATE dbo.MFSettings
-        SET Value = @MFilesOldVersion
+        SET Value = ISNULL(@MFilesOldVersion,'')
         WHERE Name = 'MFVersion';
 
         INSERT INTO dbo.MFLog
