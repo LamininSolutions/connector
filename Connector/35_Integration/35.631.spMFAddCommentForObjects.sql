@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFAddCommentForObjects',
                                  -- nvarchar(100)
-                                 @Object_Release = '4.4.14.55',
+                                 @Object_Release = '4.8.22.62',
                                  -- varchar(50)
                                  @UpdateFlag = 2;
 -- smallint
@@ -119,6 +119,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-08-22  LC         change of deleted column definition
 2019-11-23  LC         Redesign procedure
 2019-08-30  JC         Added documentation
 ==========  =========  ========================================================
@@ -279,6 +280,12 @@ BEGIN TRY
         FROM dbo.MFClass
         WHERE TableName = @MFTableName; --SUBSTRING(@TableName, 3, LEN(@TableName))
 
+        -------------------------------------------------------------
+        -- Get deleted property name
+        -------------------------------------------------------------
+        DECLARE @DeletedColumn NVARCHAR(100)
+        SELECT @DeletedColumn = ColumnName FROM MFProperty WHERE MFID = 27
+
         IF @Debug > 9
         BEGIN
             SET @DebugText = @DefaultDebugText + N'Class: %i';
@@ -329,7 +336,7 @@ BEGIN TRY
 
         SET @SelectQuery
             = N'Insert into #ObjidsForComment (Objid) Select t.Objid FROM ' + QUOTENAME(@MFTableName)
-              + N' as t WHERE Process_ID = ' + CAST(@Process_id AS NVARCHAR(20)) + N' AND Deleted = 0';
+              + N' as t WHERE Process_ID = ' + CAST(@Process_id AS NVARCHAR(20)) + N' AND '+QUOTENAME(@DeletedColumn)+' is null';
 
 
 
@@ -396,8 +403,6 @@ BEGIN TRY
                                      @ObjIDs = @Objids,                          -- nvarchar(max)
                                      @Update_IDOut = @Update_IDOut OUTPUT,       -- int
                                      @ProcessBatch_ID = @ProcessBatch_ID OUTPUT, -- int
-                                     @SyncErrorFlag = NULL,                      -- bit
-                                     @RetainDeletions = NULL,                    -- bit
                                      @Debug = 0;                                 -- smallint
 
 -------------------------------------------------------------
@@ -444,8 +449,6 @@ BEGIN TRY
                                      @UpdateMethod = 0,                          -- int
                                      @Update_IDOut = @Update_IDOut OUTPUT,       -- int
                                      @ProcessBatch_ID = @ProcessBatch_ID OUTPUT, -- int
-                                     @SyncErrorFlag = NULL,                      -- bit
-                                     @RetainDeletions = NULL,                    -- bit
                                      @Debug = 0;                                 -- smallint
 
             -------------------------------------------------------------

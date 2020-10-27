@@ -78,6 +78,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-09-02  LC         Add unique index objectype, class, objid
 2020-04-16  LC         Add index Class_StatusFlag
 2020-03-18  LC         Change name of index Class_Objid
 2019-09-07  JC         Added documentation
@@ -96,7 +97,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFAuditHistory', -- nvarchar(100)
-    @Object_Release = '4.6.16.57', -- varchar(50)
+    @Object_Release = '4.8.22.63', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 go
 
@@ -141,11 +142,18 @@ WHERE name='idx_AuditHistory_ObjType_ObjID'
 CREATE INDEX idx_AuditHistory_ObjType_ObjID ON MFAuditHistory(ObjectType, [ObjID]);
 
 
- IF NOT EXISTS(SELECT 1 
+ IF EXISTS(SELECT 1 
 FROM sys.indexes 
 WHERE name='idx_AuditHistory_Class_Objid'
 )
-CREATE INDEX idx_AuditHistory_Class_Objid ON MFAuditHistory(Class, [ObjID]);
+DROP INDEX idx_AuditHistory_Class_Objid ON dbo.MFAuditHistory;
+
+
+ IF NOT EXISTS(SELECT 1 
+FROM sys.indexes 
+WHERE name='idx_AuditHistory_ObjType_Class_Objid'
+)
+CREATE UNIQUE INDEX idx_AuditHistory_ObjType_Class_Objid ON MFAuditHistory(ObjectType, Class, [ObjID]);
 
  IF NOT EXISTS(SELECT 1 
 FROM sys.indexes 

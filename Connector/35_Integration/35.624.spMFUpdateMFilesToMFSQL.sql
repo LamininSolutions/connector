@@ -4,7 +4,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateMFilesToMFSQL', -- nvarchar(100)
-    @Object_Release = '4.6.17.58',            -- varchar(50)
+    @Object_Release = '4.8.23.64',            -- varchar(50)
     @UpdateFlag = 2;
 
 -- smallint
@@ -25,14 +25,14 @@ ELSE
     PRINT SPACE(10) + '...Stored Procedure: create';
 GO
 
-
- IF OBJECT_ID('tempdb..#ObjIdList') IS NULL
-                        CREATE TABLE #ObjIdList                       
-                    (
-                        ObjId INT,
-                        Flag INT
-                    );
+IF OBJECT_ID('tempdb..#ObjIdList') IS NULL
+    CREATE TABLE #ObjIdList
+    (
+        ObjId INT,
+        Flag INT
+    );
 GO
+
 -- if the routine exists this stub creation stem is parsed but not executed
 CREATE PROCEDURE dbo.spMFUpdateMFilesToMFSQL
 AS
@@ -50,8 +50,10 @@ ALTER PROCEDURE dbo.spMFUpdateMFilesToMFSQL
     @MFTableName NVARCHAR(128),
     @MFLastUpdateDate SMALLDATETIME = NULL OUTPUT,
     @UpdateTypeID TINYINT = 1,
-    @MaxObjects INT = 200000,
+    @MaxObjects INT = 20000,
     @WithObjectHistory BIT = 0,
+    @RetainDeletions BIT = 0,
+    @WithStats BIT = 0,
     @Update_IDOut INT = NULL OUTPUT,
     @ProcessBatch_ID INT = NULL OUTPUT,
     @debug TINYINT = 0
@@ -156,6 +158,10 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-09-04  LC         Resolve bug with full update 
+2020-08-23  LC         replace get max objid with index update
+2020-08-23  LC         Add parameter to retain deletions, default set to NO.
+2020-08-22  LC         Elliminate use of get deleted records
 2020-04-23  LC         Set maxobjects
 2020-03-06  LC         Add updating of object history
 2020-02-14  LC         Resolve skipped audit items where class missing items
@@ -230,11 +236,8 @@ BEGIN
         @OutofSync        INT,
         @ProcessErrors    INT,
         @Class_ID         INT,
-        @DefaultToObjid   INT ;
+        @DefaultToObjid   INT;
 
-        SET @DefaultToObjid = CASE when @MaxObjects <> 2000000 THEN @MaxObjects
-        ELSE 200000
-        End
 
     BEGIN TRY
         IF EXISTS (SELECT 1 FROM dbo.MFClass WHERE TableName = @MFTableName)
@@ -285,7 +288,7 @@ BEGIN
             /*************************************************************************************
 	REFRESH M-FILES --> MFSQL	 *************************************************************************************/
             -------------------------------------------------------------
-            -- Get column for last modified
+            -- Get column for last modified, deleted
             -------------------------------------------------------------
             DECLARE @lastModifiedColumn NVARCHAR(100);
 
@@ -295,6 +298,11 @@ BEGIN
 
             --'Last Modified'
 
+           DECLARE @DeletedColumn NVARCHAR(100);
+
+        SELECT @DeletedColumn = mp.ColumnName
+        FROM dbo.MFProperty AS mp
+        WHERE mp.MFID = 27;
             -------------------------------------------------------------
             -- Get last modified date
             -------------------------------------------------------------
@@ -302,19 +310,12 @@ BEGIN
             SET @sqlParam = N'@MFLastModifiedDate Datetime output';
             SET @sql
                 = N'
-SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + N') FROM ' + QUOTENAME(@MFTableName)
-                  + N' );';
+SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedColumn) + N'),''1950-01-01'') FROM ' + QUOTENAME(@MFTableName) + N' );';
 
             EXEC sys.sp_executesql @Stmt = @sql,
                 @Params = @sqlParam,
                 @MFLastModifiedDate = @MFLastModifiedDate OUTPUT;
-
-            SET @MFLastModifiedDate = CASE
-                                          WHEN @UpdateTypeID = @UpdateType_2_Deletes THEN
-                                              NULL
-                                          ELSE
-                                              ISNULL(DATEADD(DAY, -1, @MFLastModifiedDate), '2000-01-01')
-                                      END;
+           
             SET @DebugText = N'Filter Date: ' + CAST(@MFLastModifiedDate AS NVARCHAR(100));
             SET @DebugText = @DefaultDebugText + @DebugText;
 
@@ -326,17 +327,34 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + N'
             -------------------------------------------------------------
             -- Determine the overall size of the object type index
             -------------------------------------------------------------
+/*
+0 = identical : [ao].[LatestCheckedInVersion] = [t].[MFVersion] AND [ao].[deleted]= 'False' and DeletedColumn is null
+1 = MF IS Later : [ao].[LatestCheckedInVersion] > [t].[MFVersion]  
+2 = SQL is later : ao.[LatestCheckedInVersion] < ISNULL(t.[MFVersion],-1) 
+3 = Checked out : ao.CheckedoutTo <> 0
+4 =  Deleted SQL to be updated : WHEN isnull(ao.[Deleted],'True' and isnull(t.DeletedColumn,'False')
+5 =  In SQL Not in audit table : N t.[MFVersion] is null and ao.[MFVersion] is not null   
+6 = Not yet process in SQL : t.id IS NOT NULL AND t.objid IS NULL
+*/
+
             DECLARE @NewObjectXml NVARCHAR(MAX);
             DECLARE @StatusFlag_0_Identical TINYINT = 0;
+            DECLARE @StatusFlag_3_Checkedout TINYINT = 3;
             DECLARE @StatusFlag_1_MFilesIsNewer TINYINT = 1;
-            DECLARE @StatusFlag_5_NotInMFSQL TINYINT = 5;
+            DECLARE @StatusFlag_4_Deleted TINYINT = 4;
+            DECLARE @StatusFlag_5_InMFSQLNotMF TINYINT = 5;
             DECLARE @StatusFlag_6_NotInMFSQL TINYINT = 6;
 
             -------------------------------------------------------------
-            -- Get class id
+            -- Get class id and objecttype id
             -------------------------------------------------------------
-            SELECT @Class_ID = mc.MFID
-            FROM dbo.MFClass AS mc
+            DECLARE @ObjectType_ID INT;
+
+            SELECT @Class_ID   = mc.MFID,
+                @ObjectType_ID = mot.MFID
+            FROM dbo.MFClass                AS mc
+                INNER JOIN dbo.MFObjectType AS mot
+                    ON mc.MFObjectType_ID = mot.ID
             WHERE mc.TableName = @MFTableName;
 
             -------------------------------------------------------------
@@ -355,13 +373,7 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + N'
             BEGIN
                 DECLARE @MFAuditHistorySessionID INT = NULL;
 
-                IF @UpdateTypeID = (@UpdateType_0_FullRefresh)
-                --AND
-                --(
-                --    SELECT COUNT(*)
-                --    FROM [dbo].[MFAuditHistory] AS [mah]
-                --    WHERE [mah].[Class] = @Class_ID
-                --) = 0
+                IF @UpdateTypeID = @UpdateType_0_FullRefresh
                 BEGIN
                     SET @StartTime = GETUTCDATE();
                     SET @DebugText = N'';
@@ -378,33 +390,49 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + N'
                     -------------------------------------------------------------  
                     DECLARE @Tobjid INT;
 
-                    SELECT @Tobjid = MAX(mah.ObjID)
-                    FROM dbo.MFAuditHistory AS mah
-                    WHERE mah.Class = @Class_ID;
+     --               SELECT @Tobjid =  MAX(mah.ObjID)
+     --               FROM dbo.MFAuditHistory AS mah
+     --               WHERE mah.Class = @Class_ID;
 
-                    IF @Tobjid IS NULL
+					--IF @Tobjid = CASE WHEN @Tobjid < @MaxObjects THEN @Tobjid
+					-- WHEN @MaxObjects = 20000 THEN @MaxObjects 
+					-- ELSE null
+				 --   END 
+
+				
                     BEGIN
-                        EXEC dbo.spMFTableAuditinBatches @MFTableName = @MFTableName, -- nvarchar(100)
-                            @FromObjid = 1,                                           -- int
-                            @ToObjid = @DefaultToObjid,                               -- int
-                            @WithStats = 0,                                           -- bit
-                            @ProcessBatch_ID = @ProcessBatch_ID,
-                            @Debug = @debug;                                          -- int
-                    END;
-                    ELSE
-                    BEGIN
-                        EXEC dbo.spMFTableAuditinBatches @MFTableName = @MFTableName, -- nvarchar(100)
-                            @FromObjid = 1,                                           -- int
-                            @ToObjid = @Tobjid,                                       -- int
-                            @WithStats = 0,                                           -- bit
-                            @ProcessBatch_ID = @ProcessBatch_ID,
-                            @Debug = @debug;                                          -- int
-                    END;
+                       
+                    -------------------------------------------------------------
+                    -- Get object version result based on date for full refresh
+                    -------------------------------------------------------------	    
+                 --truncate history
+
+                 DELETE FROM MFAuditHistory WHERE Class = @Class_ID AND ObjectType = @ObjectType_ID;
+
+                 EXEC @return_value = dbo.spMFTableAudit @MFTableName = @MFTableName,
+                        @MFModifiedDate = '1950-01-01',
+                        @ObjIDs = NULL,
+                        @SessionIDOut = @MFAuditHistorySessionID OUTPUT,
+                        @NewObjectXml = @NewObjectXml OUTPUT,
+                        @DeletedInSQL = @DeletedInSQL OUTPUT,
+                        @UpdateRequired = @UpdateRequired OUTPUT,
+                        @OutofSync = @OutofSync OUTPUT,
+                        @ProcessErrors = @ProcessErrors OUTPUT,
+                        @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
+                        @Debug = 0;
+
+                        IF @Debug > 0
+                        SELECT @return_value AS AuditUpdate_returnvalue;
+
+                        SELECT @Tobjid = MAX(mottco.Objid)
+                        FROM dbo.MFAuditHistory  AS mottco
+                        WHERE mottco.ObjectType = @ObjectType_ID AND mottco.class = @Class_ID;
+  END;
 
                     SET @ProcedureStep = N'Get Object Versions with Batch Audit';
                     SET @StartTime = GETUTCDATE();
                     SET @LogTypeDetail = N'Status';
-                    SET @LogTextDetail = N' Batch Audit Max Object: ' + CAST(@DefaultToObjid AS VARCHAR(30));
+                    SET @LogTextDetail = N' Batch Audit Max Object: ' + CAST(ISNULL(@DefaultToObjid,0) AS VARCHAR(30));
                     SET @LogStatusDetail = N'In progress';
                     SET @LogColumnName = N'';
                     SET @LogColumnValue = N'';
@@ -424,7 +452,7 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + N'
                     -------------------------------------------------------------
                     -- class table update in batches
                     -------------------------------------------------------------
-                    SET @Tobjid = ISNULL(@Tobjid, 0) + 500;
+                    SET @Tobjid = ISNULL(@Tobjid, 0) + 1000;
                     SET @DebugText = N'Max Objid %i';
                     SET @DebugText = @DefaultDebugText + @DebugText;
                     SET @ProcedureStep = N'Set Max objid';
@@ -452,14 +480,7 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + N'
                         @LogProcedureStep = @ProcedureStep,
                         @debug = @debug;
 
-                    EXEC @return_value = dbo.spMFUpdateTableinBatches @MFTableName = @MFTableName, -- nvarchar(100)
-                        @UpdateMethod = 1,                                                         -- int
-                        @WithTableAudit = 1,                                                       -- int
-                        @FromObjid = 1,                                                            -- bigint
-                        @ToObjid = @Tobjid,                                                        -- bigint
-                        @WithStats = 0,                                                            -- bit
-                        @ProcessBatch_ID = @ProcessBatch_ID,
-                        @Debug = @debug;                                                           -- int
+                
 
                     SET @error = @@Error;
                     SET @LogStatusDetail = CASE
@@ -496,7 +517,7 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + N'
                     -------------------------------------------------------------         
                     IF
                     (
-                        SELECT COUNT(*)
+                        SELECT ISNULL(COUNT(id),0)
                         FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc
                         WHERE mochuc.MFTableName = @MFTableName
                     ) > 0
@@ -515,20 +536,27 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + N'
                 -------------------------------------------------------------
                 -- Incremental update
                 -------------------------------------------------------------
-                IF (
-                       @UpdateTypeID = (@UpdateType_0_FullRefresh)
-                       AND
-                       (
-                           SELECT COUNT(*)
-                           FROM dbo.MFAuditHistory AS mah
-                           WHERE mah.Class = @Class_ID
-                       ) > 0
-                   )
-                   OR (@UpdateTypeID IN ( @UpdateType_1_Incremental, @UpdateType_2_Deletes ))
+                --IF (
+                --       @UpdateTypeID = @UpdateType_0_FullRefresh
+                --       AND
+                --       (
+                --           SELECT ISNULL(COUNT(id),0)
+                --           FROM dbo.MFAuditHistory AS mah
+                --           WHERE mah.Class = @Class_ID
+                --       ) > 0
+                --   )
+                --   OR (@UpdateTypeID IN ( @UpdateType_1_Incremental, @UpdateType_2_Deletes ))
+          
+          -------------------------------------------------------------
+          -- If incremental update
+          -------------------------------------------------------------
+          
+          IF @UpdateTypeID = @UpdateType_1_Incremental
+
                 BEGIN
 
                     -------------------------------------------------------------
-                    -- perform table audit on with date filter
+                    -- do table update with most recent update date filter
                     -------------------------------------------------------------
                     DECLARE @SessionIDOut INT;
 
@@ -583,15 +611,13 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + N'
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Tobjid);
                 END;
 
-                SELECT @rowcount = COUNT(*)
+                SELECT @rowcount = ISNULL(COUNT(id),0)
                 FROM dbo.MFAuditHistory au
                 WHERE au.Class = @Class_ID
-                      AND au.StatusFlag IN ( @StatusFlag_1_MFilesIsNewer, 4, @StatusFlag_5_NotInMFSQL,
-                                               @StatusFlag_6_NotInMFSQL
-                                           )
+                      AND au.StatusFlag <> @StatusFlag_0_Identical
                       AND au.ObjectType <> 9;
 
-                SET @LogColumnName = N'Status flag 1,4, 5 and 6:  ';
+                SET @LogColumnName = N'Status flag not 0:  ';
                 SET @LogColumnValue = CAST(@rowcount AS NVARCHAR(256));
                 SET @LogStatusDetail = CASE
                                            WHEN
@@ -623,24 +649,23 @@ SELECT @MFLastModifiedDate = (SELECT MAX(' + QUOTENAME(@lastModifiedColumn) + N'
                 -- object versions updated
                 -------------------------------------------------------------
 
-                -------------------------------------------------------------
-                -- Catch audit history entries not in class table that is set to identical
-                -------------------------------------------------------------
-                SET @ProcedureStep = N'Reset identical flag';
-                SET @sqlParam = N'@Class_ID int, @StatusFlag_0_Identical tinyint';
-                SET @sql
-                    = N'UPDATE ah
-SET ah.StatusFlag = 5
-FROM MFAuditHistory ah 
-left outer join  ' + QUOTENAME(@MFTableName)
-                      + N' t
-on ah.objid = t.objid
-where ah.Class = @Class_ID and t.id is NULL AND ah.StatusFlag = @StatusFlag_0_Identical';
+--                -------------------------------------------------------------
+--                -- Catch audit history entries not in class table that is set to identical
+--                -------------------------------------------------------------
+--                SET @ProcedureStep = N'Reset identical flag';
+--                SET @sqlParam = N'@Class_ID int';
+--                SET @sql
+--                    = N'UPDATE ah
+--SET ah.StatusFlag = 5
+--FROM MFAuditHistory ah 
+--left outer join  ' + QUOTENAME(@MFTableName)
+--                      + N' t
+--on ah.objid = t.objid
+--where ah.Class = @Class_ID and t.id is NULL';
 
-                EXEC sys.sp_executesql @Stmt = @sql,
-                    @param = @sqlParam,
-                    @Class_ID = @Class_ID,
-                    @StatusFlag_0_Identical = @StatusFlag_0_Identical;
+--                EXEC sys.sp_executesql @Stmt = @sql,
+--                    @param = @sqlParam,
+--                    @Class_ID = @Class_ID;
 
                 -------------------------------------------------------------
                 -- Get list of objects to update
@@ -649,30 +674,25 @@ where ah.Class = @Class_ID and t.id is NULL AND ah.StatusFlag = @StatusFlag_0_Id
                 BEGIN
                     SET @ProcedureStep = N'Create Class table objid list';
 
+                    IF OBJECT_ID('tempdb..#ObjIdList') IS NOT NULL
+                        DROP TABLE #ObjIdList;
 
-
-                                    IF OBJECT_ID('tempdb..#ObjIdList') IS NOT NULL
-                                        DROP TABLE #ObjIdList;
-
-                        CREATE TABLE #ObjIdList
-                          
+                    CREATE TABLE #ObjIdList
                     (
-                        ObjId INT,
+                        ObjId INT primary key,
                         Flag INT
                     );
 
+                    
                     INSERT #ObjIdList
                     (
                         ObjId,
                         Flag
                     )
-
                     SELECT au.ObjID,
                         au.StatusFlag
                     FROM dbo.MFAuditHistory au
-                    WHERE au.StatusFlag IN ( @StatusFlag_1_MFilesIsNewer, 4, @StatusFlag_5_NotInMFSQL,
-                                               @StatusFlag_6_NotInMFSQL
-                                           )
+                    WHERE au.UpdateFlag = 1
                           AND au.Class = @Class_ID;
 
                     SET @rowcount = @@RowCount;
@@ -683,6 +703,7 @@ where ah.Class = @Class_ID and t.id is NULL AND ah.StatusFlag = @StatusFlag_0_Id
 
                         RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @rowcount);
                     END;
+
 
                     -------------------------------------------------------------
                     -- Group object list
@@ -734,7 +755,7 @@ where ah.Class = @Class_ID and t.id is NULL AND ah.StatusFlag = @StatusFlag_0_Id
                         SET @LogColumnName = N'Group# ' + ISNULL(CAST(@CurrentGroup AS VARCHAR(20)), '(null)');
                         SET @LogColumnValue =
                         (
-                            SELECT CAST(COUNT(*) AS VARCHAR(10))FROM #ObjIdList AS oil
+                            SELECT CAST(COUNT(ISNULL(objid,0)) AS VARCHAR(10))FROM #ObjIdList AS oil
                         );
 
                         EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
@@ -756,7 +777,6 @@ where ah.Class = @Class_ID and t.id is NULL AND ah.StatusFlag = @StatusFlag_0_Id
 
                         SET @StartTime = GETUTCDATE();
 
-
                         EXEC @return_value = dbo.spMFUpdateTable @MFTableName = @MFTableName,
                             @UpdateMethod = @UpdateMethod_1_MFilesToMFSQL, --M-Files to MFSQL
                             @UserId = NULL,
@@ -764,7 +784,8 @@ where ah.Class = @Class_ID and t.id is NULL AND ah.StatusFlag = @StatusFlag_0_Id
                             @ObjIDs = @ObjIds_toUpdate,                    -- CSV List
                             @Update_IDOut = @Update_IDOut OUTPUT,
                             @ProcessBatch_ID = @ProcessBatch_ID,
-                            @Debug = @debug;
+                            @RetainDeletions = @RetainDeletions,
+                            @Debug = 0;
 
                         SET @error = @@Error;
                         SET @LogStatusDetail = CASE
@@ -800,7 +821,7 @@ where ah.Class = @Class_ID and t.id is NULL AND ah.StatusFlag = @StatusFlag_0_Id
                         -------------------------------------------------------------
                         IF
                         (
-                            SELECT COUNT(*)
+                            SELECT ISNULL(COUNT(id),0)
                             FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc
                             WHERE mochuc.MFTableName = @MFTableName
                         ) > 0
@@ -930,21 +951,8 @@ ON t2.objid = cte.objid
                         @Debug = @debug;                                                -- smallint
                 END;
 
-                -- get history
-
-                -------------------------------------------------------------
-                -- Remove deletions
-                -------------------------------------------------------------
-                SET @ProcedureStep = N'Remove deletions';
-
-                EXEC dbo.spMFGetDeletedObjects @MFTableName = @MFTableName, -- nvarchar(200)
-                    @LastModifiedDate = '2000-01-01',                       -- datetime
-                    @RemoveDeleted = 1,                                     -- bit
-                    @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,             -- int
-                    @Debug = 0;
-
-                -- smallint
-
+               
+     
                 -------------------------------------------------------------
                 -- Get last update date
                 -------------------------------------------------------------

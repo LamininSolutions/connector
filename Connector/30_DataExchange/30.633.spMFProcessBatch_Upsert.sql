@@ -286,8 +286,8 @@ IF @ProcessBatch_ID IS NOT NULL
                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ProcessBatch_ID);
            END;
 
-		   IF @Debug > 0
-SELECT @trancount AS processBatch_TranCount_Update;
+--		   IF @Debug > 0
+--SELECT @trancount AS processBatch_TranCount_Update;
 
 --    IF @@TranCount > 0
 --	SAVE TRANSACTION [spMFProcessBatch_Upsert]

@@ -28,6 +28,9 @@ Property\_Value nvarchar(300)
   - Interpreting and relating to this value will depend on the type of property.
 CreatedOn datetime
   Timestamp when row was created
+Process_id  int
+  default = null
+  This column is used to process change history deletions
 
 Additional Info
 ===============
@@ -50,6 +53,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-10-11  LC         Add column for process_id
 2019-09-07  JC         Added documentation
 2017-02-10  DevTeam2   Create Table
 ==========  =========  ========================================================
@@ -68,7 +72,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFObjectChangeHistory', -- nvarchar(100)
-    @Object_Release = '3.1.2.38', -- varchar(50)
+    @Object_Release = '4.8.24.65', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
 
@@ -88,10 +92,11 @@ IF NOT EXISTS ( SELECT  name
 			[MFLastModifiedBy_ID] [int] NULL,
 			[Property_ID] [int] NULL,
 			[Property_Value] [nvarchar](300) NULL,
-			[CreatedOn] [datetime] NULL
+			[CreatedOn] [datetime] NULL,
+            Process_id INT null
 		)
 
-        
+  
 ALTER TABLE [dbo].[MFObjectChangeHistory] ADD CONSTRAINT [PK__MFObjectChangeHistory_ID] PRIMARY KEY CLUSTERED  ([ID])
 
 CREATE INDEX idx_ObjectChangeHistory_ObjType_ObjID ON [MFObjectChangeHistory](ObjectType_ID, [ObjID])
@@ -100,6 +105,11 @@ CREATE INDEX idx_ObjectChangeHistory_Class_Objid ON [MFObjectChangeHistory](Clas
 
         PRINT SPACE(10) + '... Table: created';
     END;
+
+    IF NOT EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.columns AS c WHERE c.TABLE_NAME = 'MFObjectChangeHistory' AND Column_Name = 'Process_id')
+ALTER TABLE dbo.MFObjectChangeHistory
+ADD Process_id int;
+
 ELSE
     PRINT SPACE(10) + '... Table: exists';
 

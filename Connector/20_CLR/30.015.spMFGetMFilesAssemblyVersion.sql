@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFGetMFilesAssemblyVersion'
 -- nvarchar(100)
-                                    ,@Object_Release = '4.5.15.56'
+                                    ,@Object_Release = '4.7.20.60'
 -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
@@ -46,6 +46,7 @@ GO
 ALTER PROCEDURE [dbo].[spMFGetMFilesAssemblyVersion]
     @IsUpdateAssembly BIT = 0 OUTPUT
    ,@MFilesVersion VARCHAR(100) OUTPUT
+   ,@Debug SMALLINT = 0
 AS
 /*rST**************************************************************************
 
@@ -103,6 +104,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-06-29  LC         Review logic the check and update MFVersion
 2020-02-10  LC         New CLR procedure to get MFVersion from local machine
 2019-09-17  LC         Update documentation
 2019-09-17  LC         Improve error trapping, add MFlog msg
@@ -115,7 +117,7 @@ Date        Author     Description
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
-BEGIN
+
     SET NOCOUNT ON;
 
         -------------------------------------------------------------
@@ -139,38 +141,53 @@ BEGIN
     FROM [dbo].[MFSettings]
     WHERE [Name] = 'MFVersion';
 
-    --		SELECT @DbMFileVersion
+    IF @debug > 0 
+    		SELECT @DbMFileVersion AS SQLVersion;
 
     -----------------------------------------------------------------
     -- Checking module access for CLR procdure  spmfGetMFilesVersionInternal
     ------------------------------------------------------------------
     IF
     (
-        SELECT OBJECT_ID('dbo.spmfGetMFilesVersionInternal')
+        SELECT OBJECT_ID('dbo.spmfGetLocalMFilesVersionInternal')
     ) IS NOT NULL
     BEGIN
         EXECUTE spmfGetLocalMFilesVersionInternal
                                               @LsMFilesVersion OUTPUT;
 
-        SELECT @LsMFilesVersion;
+                                              IF @debug > 0
+                                              SELECT @LsMFilesVersion AS MFVersion;
+
 
         IF @LsMFilesVersion = @DbMFileVersion
         BEGIN
             SET @IsUpdateAssembly = 0;
             SET @MFilesVersion = @LsMFilesVersion;
+
+            IF @debug > 0
+            BEGIN
+            RAISERROR('Matched %s',10,1,@MFilesVersion)
+            END
         --			print 'Match'
         END; --if version match
-        END -- if CLR exist
-        ELSE
+        ELSE       
         BEGIN
+            IF @debug > 0
+            BEGIN
+            RAISERROR('Not Matched MF version %s SQL Version %s',10,1,@LsMFilesVersion, @DbMFileVersion)
+            END
 
-            SELECT @MFilesVersion = CAST([ms].[Value] AS VARCHAR(100) )
-            FROM [dbo].[MFSettings] AS [ms]
-            WHERE [ms].[Name] = 'MFVersion';
-            Set @Msg =  'Current version in MFSettings is ' + @MFilesVersion + '. Unable to find CLR spmfGetLocalMFilesVersionInternal, manually update MFSettings with correct version, then run exec spMFUpdateAssemblies '
+         SET @IsUpdateAssembly = 1;
+         SET @MFilesVersion = @DbMFileVersion
+            --SELECT @MFilesVersion = CAST([ms].[Value] AS VARCHAR(100) )
+            --FROM [dbo].[MFSettings] AS [ms]
+            --WHERE [ms].[Name] = 'MFVersion';
+       
+       UPDATE s
+       SET value = @LsMFilesVersion
+     from  dbo.MFSettings s WHERE name = 'MFVersion'
 
-            SET @ProcedureStep = 'Catch CLR error ';
-
+/*
         INSERT INTO [dbo].[MFLog]
         (
             [SPName]
@@ -187,9 +204,9 @@ BEGIN
         ('spMFCheckAndUpdateAssemblyVersion', ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), @ProcedureStep
         ,ERROR_STATE(), ERROR_SEVERITY(), null, ERROR_LINE());
 
-            RAISERROR(@Msg,16,1);
-        END;
+            RAISERROR(@Msg,10,1);
+*/
 
-    END;
-
+    END; -- end else
+    END; --proc exists
 GO

@@ -1,11 +1,12 @@
-PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFUpdateObjectChangeHistory]';
+PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFUpdateObjectChangeHistory]';
 GO
-SET NOCOUNT ON;
-EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
-                                 @ObjectName = N'spMFUpdateObjectChangeHistory', -- nvarchar(100)
-                                 @Object_Release = '4.7.18.58',
-                                 @UpdateFlag = 2;
 
+SET NOCOUNT ON;
+
+EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
+    @ObjectName = N'spMFUpdateObjectChangeHistory', -- nvarchar(100)
+    @Object_Release = '4.7.18.58',
+    @UpdateFlag = 2;
 GO
 
 IF EXISTS
@@ -18,6 +19,7 @@ IF EXISTS
 )
 BEGIN
     PRINT SPACE(10) + '...Stored Procedure: update';
+
     SET NOEXEC ON;
 END;
 ELSE
@@ -29,11 +31,12 @@ CREATE PROCEDURE dbo.spMFUpdateObjectChangeHistory
 AS
 SELECT 'created, but not implemented yet.';
 --just anything will do
-
 GO
+
 -- the following section will be always executed
 SET NOEXEC OFF;
 GO
+
 ALTER PROCEDURE dbo.spMFUpdateObjectChangeHistory
 (
     @MFTableName NVARCHAR(200) = NULL,
@@ -43,7 +46,6 @@ ALTER PROCEDURE dbo.spMFUpdateObjectChangeHistory
     @Debug SMALLINT = 0
 )
 AS
-
 
 /*rST**************************************************************************
 
@@ -144,6 +146,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-06-26  LC         added additional exception management
 2020-05-06  LC         Validate the column in control table
 2020-03-06  LC         Add MFTableName and objids - run per table
 2019-11-04  LC         Create procedure
@@ -151,7 +154,6 @@ Date        Author     Description
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
-
 BEGIN
     SET NOCOUNT ON;
 
@@ -206,15 +208,12 @@ BEGIN
     DECLARE @LogType AS NVARCHAR(50) = N'Status';
     DECLARE @LogText AS NVARCHAR(4000) = N'';
     DECLARE @LogStatus AS NVARCHAR(50) = N'Started';
-
     DECLARE @LogTypeDetail AS NVARCHAR(50) = N'System';
     DECLARE @LogTextDetail AS NVARCHAR(4000) = N'';
     DECLARE @LogStatusDetail AS NVARCHAR(50) = N'In Progress';
     DECLARE @ProcessBatchDetail_IDOUT AS INT = NULL;
-
     DECLARE @LogColumnName AS NVARCHAR(128) = NULL;
     DECLARE @LogColumnValue AS NVARCHAR(256) = NULL;
-
     DECLARE @count INT = 0;
     DECLARE @Now AS DATETIME = GETDATE();
     DECLARE @StartTime AS DATETIME = GETUTCDATE();
@@ -227,37 +226,33 @@ BEGIN
     DECLARE @sql NVARCHAR(MAX) = N'';
     DECLARE @sqlParam NVARCHAR(MAX) = N'';
 
-
     -------------------------------------------------------------
     -- INTIALIZE PROCESS BATCH
     -------------------------------------------------------------
     SET @ProcedureStep = N'Start Logging';
-
     SET @LogText = N'Processing ' + @ProcedureName;
 
     EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
-                                     @ProcessType = @ProcessType,
-                                     @LogType = N'Status',
-                                     @LogText = @LogText,
-                                     @LogStatus = N'In Progress',
-                                     @debug = @Debug;
-
+        @ProcessType = @ProcessType,
+        @LogType = N'Status',
+        @LogText = @LogText,
+        @LogStatus = N'In Progress',
+        @debug = @Debug;
 
     EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-                                           @LogType = N'Debug',
-                                           @LogText = @ProcessType,
-                                           @LogStatus = N'Started',
-                                           @StartTime = @StartTime,
-                                           @MFTableName = @MFTableName,
-                                           @Validation_ID = @Validation_ID,
-                                           @ColumnName = NULL,
-                                           @ColumnValue = NULL,
-                                           @Update_ID = @Update_ID,
-                                           @LogProcedureName = @ProcedureName,
-                                           @LogProcedureStep = @ProcedureStep,
-                                           @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT,
-                                           @debug = 0;
-
+        @LogType = N'Debug',
+        @LogText = @ProcessType,
+        @LogStatus = N'Started',
+        @StartTime = @StartTime,
+        @MFTableName = @MFTableName,
+        @Validation_ID = @Validation_ID,
+        @ColumnName = NULL,
+        @ColumnValue = NULL,
+        @Update_ID = @Update_ID,
+        @LogProcedureName = @ProcedureName,
+        @LogProcedureStep = @ProcedureStep,
+        @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT,
+        @debug = 0;
 
     BEGIN TRY
         -------------------------------------------------------------
@@ -272,7 +267,6 @@ BEGIN
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
-
         DECLARE @params NVARCHAR(MAX);
         DECLARE @Process_ID INT = 5;
         DECLARE @ColumnNames NVARCHAR(4000);
@@ -285,7 +279,6 @@ BEGIN
         DECLARE @ObjectType_ID INT;
         DECLARE @Property_IDs NVARCHAR(MAX);
 
-        
         -------------------------------------------------------------
         -- Create table update list
         -------------------------------------------------------------
@@ -296,6 +289,7 @@ BEGIN
             ColumnNames NVARCHAR(MAX),
             PropertyIDs NVARCHAR(MAX)
         );
+
         INSERT INTO @UpdateList
         (
             MFTableName,
@@ -303,41 +297,42 @@ BEGIN
             PropertyIDs
         )
         SELECT mochuc.MFTableName,
-               STUFF(
-               (
-                   SELECT distinct ',' + fmpds.ListItem 
-                   FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc2
-                   CROSS APPLY dbo.fnMFParseDelimitedString(mochuc2.ColumnNames, ',') AS fmpds
-                   INNER JOIN dbo.MFProperty AS mp
-                   ON fmpds.ListItem = mp.ColumnName
-                  WHERE mochuc2.MFTableName = mochuc.MFTableName
-                   FOR XML PATH('')
-               ),
-               1,
-               1,
-               ''
-                    ),
-               STUFF(
-               (
-                   SELECT DISTINCT ',' + CAST(mp.MFID AS VARCHAR(10))
-                   FROM dbo.MFObjectChangeHistoryUpdateControl AS htu
-                       CROSS APPLY dbo.fnMFParseDelimitedString(htu.ColumnNames, ',') AS fmpds
-                       INNER JOIN dbo.MFProperty mp
-                           ON fmpds.ListItem = mp.ColumnName
-                   WHERE htu.MFTableName = mochuc.MFTableName
-                   FOR XML PATH('')
-               ),
-               1,
-               1,
-               ''
-                    )
+            STUFF(
+            (
+                SELECT DISTINCT
+                    ',' + fmpds.ListItem
+                FROM dbo.MFObjectChangeHistoryUpdateControl                            AS mochuc2
+                    CROSS APPLY dbo.fnMFParseDelimitedString(mochuc2.ColumnNames, ',') AS fmpds
+                    INNER JOIN dbo.MFProperty AS mp
+                        ON fmpds.ListItem = mp.ColumnName
+                WHERE mochuc2.MFTableName = mochuc.MFTableName
+                FOR XML PATH('')
+            ),
+                     1,
+                     1,
+                     ''
+                 ),
+            STUFF(
+            (
+                SELECT DISTINCT
+                    ',' + CAST(mp.MFID AS VARCHAR(10))
+                FROM dbo.MFObjectChangeHistoryUpdateControl                        AS htu
+                    CROSS APPLY dbo.fnMFParseDelimitedString(htu.ColumnNames, ',') AS fmpds
+                    INNER JOIN dbo.MFProperty mp
+                        ON fmpds.ListItem = mp.ColumnName
+                WHERE htu.MFTableName = mochuc.MFTableName
+                FOR XML PATH('')
+            ),
+                     1,
+                     1,
+                     ''
+                 )
         FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc
-        INNER JOIN dbo.MFClass AS mc
-        ON mochuc.MFTableName = mc.TableName
+            INNER JOIN dbo.MFClass                  AS mc
+                ON mochuc.MFTableName = mc.TableName
         WHERE mochuc.MFTableName = @MFTableName
               OR @MFTableName IS NULL
         GROUP BY mochuc.MFTableName;
-
 
         SET @DebugText = N'';
         SET @DebugText = @DefaultDebugText + @DebugText;
@@ -347,17 +342,17 @@ BEGIN
         BEGIN
             SELECT *
             FROM @UpdateList AS ul;
+
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
-
         SELECT @ID = MIN(htu.ID)
         FROM @UpdateList AS htu;
+
         SET @params = N'@Process_id int';
 
         IF ISNULL(@ID, 0) > 0
         BEGIN
-
             WHILE @ID IS NOT NULL
             BEGIN
                 SET @DebugText = N'';
@@ -377,33 +372,40 @@ BEGIN
                 -- Get table details
                 -------------------------------------------------------------
                 SET @ProcedureStep = N'Get Table variables';
+
                 SELECT @MFTableName = htu.MFTableName,
-                       @ColumnNames = htu.ColumnNames,
-                       @Property_IDs = htu.PropertyIDs
+                    @ColumnNames    = htu.ColumnNames,
+                    @Property_IDs   = htu.PropertyIDs
                 FROM @UpdateList AS htu
                 WHERE htu.ID = @ID;
 
-
-        -------------------------------------------------------------
-        -- Validate columns in control table
-        -------------------------------------------------------------
-        
-        SELECT * FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc
+                -------------------------------------------------------------
+                -- Validate columns in control table
+                -------------------------------------------------------------
 
 
                 IF @Debug > 0
                 BEGIN
-
+                SELECT *
+                FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc;
                     SELECT PropertyIDS = @Property_IDs;
+
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
+                IF @Property_IDs IS NULL
+                Begin
+                                SET @DebugText = N':Invalid Column in dbo.MFObjectChangeHistoryUpdateControl ';
+                SET @DebugText = @DefaultDebugText + @DebugText;
+                SET @ProcedureStep = N'Validate columns for history  ';
+
+                       RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+                END
                 -------------------------------------------------------------
                 -- Update table
                 -------------------------------------------------------------
                 IF @WithClassTableUpdate = 1
                 BEGIN
-
                     SET @DebugText = N'';
                     SET @DebugText = @DefaultDebugText + @DebugText;
                     SET @ProcedureStep = N'Update class Table included';
@@ -413,59 +415,56 @@ BEGIN
                         RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                     END;
 
-SET @sql = N'UPDATE t
+                    SET @sql = N'UPDATE t
 Set process_id = 0 
-FROM ' + QUOTENAME(@MFTableName) + 't
-WHERE process_id = ' +CAST(@process_id AS varchar(10)) + ';'
+FROM ' +            QUOTENAME(@MFTableName) + N't
+WHERE process_id = ' + CAST(@Process_ID AS VARCHAR(10)) + N';';
 
-EXEC(@SQL)
+                    EXEC (@sql);
 
                     DECLARE @MFLastUpdateDate SMALLDATETIME,
-                            @Update_IDOut INT,
-                            @ProcessBatch_ID1 INT;
-                    EXEC dbo.spMFUpdateMFilesToMFSQL @MFTableName = @MFTableName,                  -- nvarchar(128)
-                                                     @MFLastUpdateDate = @MFLastUpdateDate OUTPUT, -- smalldatetime
-                                                     @UpdateTypeID = 1,                            -- tinyint
-                                                     @Update_IDOut = @Update_IDOut OUTPUT,         -- int
-                                                     @ProcessBatch_ID = @ProcessBatch_ID1 OUTPUT,  -- int
-                                                     @debug = 0;                                   -- tinyint
+                        @Update_IDOut         INT,
+                        @ProcessBatch_ID1     INT;
 
-                 SET @DebugText = N'';
-                 
-                 SET @DebugText = @DefaultDebugText + @DebugText;
+                    EXEC dbo.spMFUpdateMFilesToMFSQL @MFTableName = @MFTableName, -- nvarchar(128)
+                        @MFLastUpdateDate = @MFLastUpdateDate OUTPUT,             -- smalldatetime
+                        @UpdateTypeID = 1,                                        -- tinyint
+                        @Update_IDOut = @Update_IDOut OUTPUT,                     -- int
+                        @ProcessBatch_ID = @ProcessBatch_ID1 OUTPUT,              -- int
+                        @debug = 0;                                               -- tinyint
+
+                    SET @DebugText = N'';
+                    SET @DebugText = @DefaultDebugText + @DebugText;
                     SET @ProcedureStep = N'Class Table update completed';
 
                     IF @Debug > 0
                     BEGIN
                         RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                     END;
+                END;
 
-
-                END; --end with Table update
+                --end with Table update
 
                 -------------------------------------------------------------
                 -- Get @startDate
                 -------------------------------------------------------------
                 SET @ProcedureStep = N'Get Start date ';
-                         Set @DebugText = ''
-                SET @DebugText = @DefaultDebugText + @DebugText
-          
-       
+                SET @DebugText = N'';
+                SET @DebugText = @DefaultDebugText + @DebugText;
+
                 IF @Debug > 0
                 BEGIN
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
-                SELECT @MFID = mc.MFID,
-                       @ObjectType_ID = ot.MFID
-                FROM dbo.MFClass AS mc
+                SELECT @MFID       = mc.MFID,
+                    @ObjectType_ID = ot.MFID
+                FROM dbo.MFClass                AS mc
                     INNER JOIN dbo.MFObjectType ot
                         ON mc.MFObjectType_ID = ot.ID
                 WHERE mc.TableName = @MFTableName;
 
-                
- --               SELECT * FROM dbo.MFObjectChangeHistory AS moch
-
+                --               SELECT * FROM dbo.MFObjectChangeHistory AS moch
                 SELECT @StartDate = MAX(moch.LastModifiedUtc)
                 FROM dbo.MFObjectChangeHistory AS moch
                 WHERE moch.ObjectType_ID = @ObjectType_ID
@@ -475,7 +474,7 @@ EXEC(@SQL)
                               SELECT Item FROM dbo.fnMFSplitString(@Property_IDs, ',')
                           );
 
-SELECT @StartDate = DATEADD(DAY,-1,ISNULL(@StartDate,'2000-01-01'))
+                SELECT @StartDate = DATEADD(DAY, -1, ISNULL(@StartDate, '2000-01-01'));
 
                 SELECT @IsFullHistory = CASE
                                             WHEN @StartDate > '2000-01-01' THEN
@@ -484,12 +483,12 @@ SELECT @StartDate = DATEADD(DAY,-1,ISNULL(@StartDate,'2000-01-01'))
                                                 1
                                         END;
 
-                SET @ProcedureStep = 'Get from date '
-                SET @DebugText = CAST(@StartDate AS NVARCHAR(30))
-                SET @DebugText = @DefaultDebugText + @DebugText
+                SET @ProcedureStep = N'Get from date ';
+                SET @DebugText = CAST(@StartDate AS NVARCHAR(30));
+                SET @DebugText = @DefaultDebugText + @DebugText;
 
-                IF @Debug > 0   
-     BEGIN
+                IF @Debug > 0
+                BEGIN
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
@@ -497,15 +496,16 @@ SELECT @StartDate = DATEADD(DAY,-1,ISNULL(@StartDate,'2000-01-01'))
                 -- Get count of class table records, if > 10 000 then batch history update
                 -------------------------------------------------------------
                 SET @params = N'@Count int output';
-
                 SET @sql = N'SELECT @count = COUNT(*) FROM ' + QUOTENAME(@MFTableName) + N' t;';
 
                 EXEC sys.sp_executesql @sql, @params, @count OUTPUT;
 
-                SET @DebugText = 'Full history : ' + CAST(@IsFullHistory AS NVARCHAR(30)) + ' Total records: ' + CAST(@count AS NVARCHAR(10));
+                SET @DebugText
+                    = N'Full history : ' + CAST(@IsFullHistory AS NVARCHAR(30)) + N' Total records: '
+                      + CAST(@count AS NVARCHAR(10));
                 SET @DebugText = @DefaultDebugText + @DebugText;
- --               SET @ProcedureStep = N'Updating change history ';
 
+                --               SET @ProcedureStep = N'Updating change history ';
                 IF @Debug > 0
                 BEGIN
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
@@ -514,20 +514,18 @@ SELECT @StartDate = DATEADD(DAY,-1,ISNULL(@StartDate,'2000-01-01'))
                 -------------------------------------------------------------
                 -- Set objects to update in batch mode with batch size of ???
                 -------------------------------------------------------------
-Set @DebugText = ''
-SET @DebugText = @DefaultDebugText + @DebugText
-Set @Procedurestep = 'Get objids '
+                SET @DebugText = N'';
+                SET @DebugText = @DefaultDebugText + @DebugText;
+                SET @ProcedureStep = N'Get objids ';
 
-IF @debug > 0
-	Begin
-		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
-	END
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                END;
 
                 IF @Objids IS NOT NULL
                 BEGIN
                     SET @params = N'@Process_id int, @ObjIds nvarchar(max)';
-
-
                     SET @sql
                         = N'
 UPDATE t
@@ -536,99 +534,111 @@ FROM ' +            QUOTENAME(@MFTableName)
                           + N' t
 where objid in (Select item from dbo.fnMFSplitString(@objIds,'',''))
 ;'                  ;
---PRINT @SQL
+
+                    --PRINT @SQL
                     EXEC sys.sp_executesql @sql, @params, @Process_ID, @Objids;
 
-           Set @DebugText = 'Filtered ' + ISNULL(@objids,'')
-               SET @DebugText = @DefaultDebugText + @DebugText
-               
-               IF @debug > 0
-               	Begin
-               		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
-               	END
-    
-    
+                    SET @DebugText = N'Filtered ' + ISNULL(@Objids, '');
+                    SET @DebugText = @DefaultDebugText + @DebugText;
 
+                    IF @Debug > 0
+                    BEGIN
+                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                    END;
                 END;
                 ELSE
                 BEGIN
                     SET @params = N'@Process_id int';
-
-
                     SET @sql = N'
 UPDATE t
 SET Process_ID = @Process_ID
 FROM ' +            QUOTENAME(@MFTableName) + N' t
 ;'                  ;
 
-                    EXEC sys.sp_executesql @sql, @params, @Process_ID;       
+                    EXEC sys.sp_executesql @sql, @params, @Process_ID;
 
-               Set @DebugText = 'All objects ' 
-               SET @DebugText = @DefaultDebugText + @DebugText
-               
-               IF @debug > 0
-               	Begin
-               		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
-               	END
-                END;--end else all objids   
+                    SET @DebugText = N'All objects ';
+                    SET @DebugText = @DefaultDebugText + @DebugText;
+
+                    IF @Debug > 0
+                    BEGIN
+                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                    END;
+                END;
+
+                --end else all objids   
                 -------------------------------------------------------------
                 -- Get history
                 -------------------------------------------------------------
+                SET @DebugText = N'';
+                SET @DebugText = @DefaultDebugText + @DebugText;
+                SET @ProcedureStep = N'Get history with spmfGetObjectHistory';
 
-                Set @DebugText = ''
-                SET @DebugText = @DefaultDebugText + @DebugText
-                Set @Procedurestep = 'Get history with spmfGetObjectHistory'
-                
-                IF @debug > 0
-                	Begin
-                		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
-                	END
-  
-  SET @sqlParam = N'@rowcount int output'
-  SET @SQL = N'SELECT @rowcount = COUNT(*) FROM '+ QUOTENAME(@MFtableName) + '
-   WHERE Process_ID = '+CAST(@Process_id as varchar(10))+''
-   EXEC sp_ExecuteSQL @SQL, @sqlParam, @rowcount OUTPUT
-   
-   Set @DebugText = ': process_id count %i'  
-   Set @DebugText = @DefaultDebugText + @DebugText
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                END;
 
-   
-   IF @debug > 0
-   	Begin
-   		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@Rowcount );
-   	END
-   
+                SET @sqlParam = N'@rowcount int output';
+                SET @sql = N'SELECT @rowcount = COUNT(*) FROM ' + QUOTENAME(@MFTableName) + N'
+   WHERE Process_ID = '    + CAST(@Process_ID AS VARCHAR(10)) + N'';
+
+                EXEC sys.sp_executesql @sql, @sqlParam, @rowcount OUTPUT;
+
+                SET @DebugText = N': process_id count %i';
+                SET @DebugText = @DefaultDebugText + @DebugText;
+
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @rowcount);
+                END;
+
+                IF @rowcount > 0
+                Begin
                 --SELECT FullHistory = @IsFullHistory,
                 --       StartDate = @StartDate;
+                EXEC @return_value = dbo.spMFGetHistory @MFTableName = @MFTableName, -- nvarchar(128)
+                    @Process_id = @Process_ID,                                       -- int
+                    @ColumnNames = @ColumnNames,                                     -- nvarchar(4000)
+                    @SearchString = NULL,                                            -- nvarchar(4000)
+                    @IsFullHistory = @IsFullHistory,                                 -- bit
+                    @NumberOFDays = @NumberOFDays,                                   -- int
+                    @StartDate = @StartDate,                                         -- datetime
+                    @Update_ID = @Update_ID OUTPUT,                                  -- int
+                    @ProcessBatch_id = @ProcessBatch_ID OUTPUT,                      -- int
+                    @Debug = @Debug;                                                 -- int
 
-                EXEC @return_value = dbo.spMFGetHistory @MFTableName = @MFTableName,                -- nvarchar(128)
-                                        @Process_id = @Process_ID,                  -- int
-                                        @ColumnNames = @ColumnNames,                -- nvarchar(4000)
-                                        @SearchString = NULL,                       -- nvarchar(4000)
-                                        @IsFullHistory = @IsFullHistory,            -- bit
-                                        @NumberOFDays = @NumberOFDays,              -- int
-                                        @StartDate = @StartDate,                    -- datetime
-                                        @Update_ID = @Update_ID OUTPUT,             -- int
-                                        @ProcessBatch_id = @ProcessBatch_ID OUTPUT, -- int
-                                        @Debug = 0;                            -- int
-Set @DebugText = @MFTableName + ' Result: ' + CAST(@return_value AS VARCHAR(10))
-SET @DebugText = @DefaultDebugText + @DebugText
-Set @Procedurestep = 'Get history '
+     IF @debug > 0
+     SELECT @return_value AS ReturnValue;
 
-IF @debug > 0
-	Begin
-		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
-	END
+                IF  @return_value <> 1
+                Begin
+                 SET @DebugText = N': spMFGetHistory failed return value ' + CAST(@return_value AS VARCHAR(5));
+                SET @DebugText = @DefaultDebugText + @DebugText;
+                    RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+                END --ifdebug
 
+                  END --if rowcount > 0
+
+                SET @DebugText = @MFTableName + N' records updated: ' + CAST(@rowcount AS VARCHAR(10));
+                SET @DebugText = @DefaultDebugText + @DebugText;
+                SET @ProcedureStep = N'Get history ';
+
+               
+
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                END;
 
                 SELECT @ID =
                 (
                     SELECT MIN(htu.ID) FROM @UpdateList AS htu WHERE htu.ID > @ID
                 );
-
             END;
+        END;
 
-        END; --end if ChangeHistoryUpdatecontrol exist
+        --end if ChangeHistoryUpdatecontrol exist
 
         -------------------------------------------------------------
         --END PROCESS
@@ -636,32 +646,33 @@ IF @debug > 0
         END_RUN:
         SET @ProcedureStep = N'End';
         SET @LogStatus = N'Completed';
+
         -------------------------------------------------------------
         -- Log End of Process
         -------------------------------------------------------------   
-
         EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID,
-                                         @ProcessType = @ProcessType,
-                                         @LogType = N'Debug',
-                                         @LogText = @LogText,
-                                         @LogStatus = @LogStatus,
-                                         @debug = @Debug;
+            @ProcessType = @ProcessType,
+            @LogType = N'Debug',
+            @LogText = @LogText,
+            @LogStatus = @LogStatus,
+            @debug = @Debug;
 
         SET @StartTime = GETUTCDATE();
 
         EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-                                               @LogType = N'Debug',
-                                               @LogText = @ProcessType,
-                                               @LogStatus = @LogStatus,
-                                               @StartTime = @StartTime,
-                                               @MFTableName = @MFTableName,
-                                               @Validation_ID = @Validation_ID,
-                                               @ColumnName = NULL,
-                                               @ColumnValue = NULL,
-                                               @Update_ID = @Update_ID,
-                                               @LogProcedureName = @ProcedureName,
-                                               @LogProcedureStep = @ProcedureStep,
-                                               @debug = 0;
+            @LogType = N'Debug',
+            @LogText = @ProcessType,
+            @LogStatus = @LogStatus,
+            @StartTime = @StartTime,
+            @MFTableName = @MFTableName,
+            @Validation_ID = @Validation_ID,
+            @ColumnName = NULL,
+            @ColumnValue = NULL,
+            @Update_ID = @Update_ID,
+            @LogProcedureName = @ProcedureName,
+            @LogProcedureStep = @ProcedureStep,
+            @debug = 0;
+
         RETURN 1;
     END TRY
     BEGIN CATCH
@@ -685,38 +696,37 @@ IF @debug > 0
         )
         VALUES
         (@ProcedureName, ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), ERROR_STATE(), ERROR_SEVERITY(),
-         ERROR_LINE(), @ProcedureStep);
+            ERROR_LINE(), @ProcedureStep);
 
         SET @ProcedureStep = N'Catch Error';
+
         -------------------------------------------------------------
         -- Log Error
         -------------------------------------------------------------   
         EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
-                                         @ProcessType = @ProcessType,
-                                         @LogType = N'Error',
-                                         @LogText = @LogTextDetail,
-                                         @LogStatus = @LogStatus,
-                                         @debug = @Debug;
+            @ProcessType = @ProcessType,
+            @LogType = N'Error',
+            @LogText = @LogTextDetail,
+            @LogStatus = @LogStatus,
+            @debug = @Debug;
 
         SET @StartTime = GETUTCDATE();
 
         EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-                                               @LogType = N'Error',
-                                               @LogText = @LogTextDetail,
-                                               @LogStatus = @LogStatus,
-                                               @StartTime = @StartTime,
-                                               @MFTableName = @MFTableName,
-                                               @Validation_ID = @Validation_ID,
-                                               @ColumnName = NULL,
-                                               @ColumnValue = NULL,
-                                               @Update_ID = @Update_ID,
-                                               @LogProcedureName = @ProcedureName,
-                                               @LogProcedureStep = @ProcedureStep,
-                                               @debug = 0;
+            @LogType = N'Error',
+            @LogText = @LogTextDetail,
+            @LogStatus = @LogStatus,
+            @StartTime = @StartTime,
+            @MFTableName = @MFTableName,
+            @Validation_ID = @Validation_ID,
+            @ColumnName = NULL,
+            @ColumnValue = NULL,
+            @Update_ID = @Update_ID,
+            @LogProcedureName = @ProcedureName,
+            @LogProcedureStep = @ProcedureStep,
+            @debug = 0;
 
         RETURN -1;
     END CATCH;
-
 END;
-
 GO

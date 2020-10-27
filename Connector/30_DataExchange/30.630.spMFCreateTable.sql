@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFCreateTable', -- nvarchar(100)
-    @Object_Release = '4.7.18.59',    -- varchar(2506
+    @Object_Release = '4.8.22.62',    -- varchar(2506
     @UpdateFlag = 2;
 
 IF EXISTS
@@ -195,6 +195,7 @@ Date        Author     Description
 2020-03-27  LC         Add MFSetting to allow optional create of indexes
 2020-04-22  LC         Improve naming of constraints
 2020-05-12  LC         Add index on Update_ID to improve performance
+2020-08-18  LC         replace deleted column flag with property 27 (deleted)
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -424,7 +425,8 @@ BEGIN
                     @Workflow          VARCHAR(100),
                     @State             VARCHAR(100),
                     @SingleFile        VARCHAR(100),
-                    @WorkflowName      VARCHAR(100);
+                    @WorkflowName      VARCHAR(100),
+                    @Deleted              VARCHAR(100);
 
                 SELECT @NameOrTitle = ColumnName
                 FROM dbo.MFProperty
@@ -448,6 +450,10 @@ BEGIN
                 FROM dbo.MFProperty
                 WHERE MFID = 22;
 
+                      ------Added By LC For 
+                SELECT @Deleted = ColumnName
+                FROM dbo.MFProperty
+                WHERE MFID = 27;
                 -------------------------------------------------------------
                 -- test duplicates
                 -------------------------------------------------------------
@@ -479,7 +485,8 @@ BEGIN
                 (REPLACE(@Workflow, '_ID', ''), 'NVARCHAR(100)', 'NULL'),
                 (@State, 'INTEGER', 'NULL'),
                 (REPLACE(@State, '_ID', ''), 'NVARCHAR(100)', 'NULL'),
-                (@SingleFile, 'BIT', 'NOT NULL ');
+                (@SingleFile, 'BIT', 'NOT NULL '),
+                (@Deleted, 'Datetime', 'NULL ');
 
                 SET @ProcedureStep = 'Add Class and Name or title';
 
@@ -536,16 +543,17 @@ BEGIN
                 SELECT @ConstColumn
                     = N'[LastModified]  DATETIME , ' + N'[Process_ID] INT, ' + N'[ObjID]			INT , '
                       + N'[ExternalID]			NVARCHAR(100) , '
-                      + N'[MFVersion]		INT,[FileCount] int , [Deleted] BIT,[Update_ID] int , '; ---- Added for task 106 [FileCount]
+                      + N'[MFVersion]		INT,[FileCount] int , [Update_ID] int , '; ---- Added for task 106 [FileCount]
 
                 SELECT @dsql = @IDColumn + @dsql + @ConstColumn;
 
                 SELECT @dsql
                     = N'CREATE TABLE ' + QUOTENAME(@TableName) + N' (' + LEFT(@dsql, LEN(@dsql) - 1)
                       + N'
-								 CONSTRAINT pk_' + @TableName + N'ID PRIMARY KEY (ID))
-									ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Deleted_'
-                      + @TableName + N']  DEFAULT 0 FOR [Deleted]
+								 CONSTRAINT pk_' + @TableName + N'ID PRIMARY KEY (ID))' +
+									--ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Deleted_'
+         --             + @TableName + N']  DEFAULT 0 FOR [Deleted]
+         '
 									ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Process_id_'
                       + @TableName + N']  DEFAULT 1 FOR [Process_ID]
 				    ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_FileCount_' + @TableName

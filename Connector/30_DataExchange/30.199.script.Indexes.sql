@@ -4,6 +4,8 @@
 --foreign key index for FK_MFClass_ObjectType_ID  
 --4.6.16.57
 --add more indexes
+--4.8.22.62 
+--remove indexes for tables no longer required (MFObjectTypeToClassObject)
 
 SET NOCOUNT ON
 SET QUOTED_IDENTIFIER ON
@@ -28,28 +30,6 @@ IF NOT EXISTS
 )
     CREATE NONCLUSTERED INDEX FKIX_MFClass_MFWorkflow_ID
     ON dbo.MFClass (MFWorkflow_ID);
-
---foreign key index for FK_ObjectTypeToClassIndex_Class_ID  
-IF NOT EXISTS
-(
-    SELECT 1
-    FROM sys.indexes
-    WHERE name = 'FKIX_MFObjectTypeToClassObject_Class_ID'
-          AND object_id = OBJECT_ID('[dbo].[MFObjectTypeToClassObject]')
-)
-    CREATE NONCLUSTERED INDEX FKIX_MFObjectTypeToClassObject_Class_ID
-    ON dbo.MFObjectTypeToClassObject (Class_ID);
-
---foreign key index for FK_ObjectTypeToClassIndex_ObjectType_ID  
-IF NOT EXISTS
-(
-    SELECT 1
-    FROM sys.indexes
-    WHERE name = 'FKIX_MFObjectTypeToClassObject_ObjectType_ID'
-          AND object_id = OBJECT_ID('[dbo].[MFObjectTypeToClassObject]')
-)
-    CREATE NONCLUSTERED INDEX FKIX_MFObjectTypeToClassObject_ObjectType_ID
-    ON dbo.MFObjectTypeToClassObject (ObjectType_ID);
 
 --foreign key index for FK_MFProperty_MFValueList  
 IF NOT EXISTS

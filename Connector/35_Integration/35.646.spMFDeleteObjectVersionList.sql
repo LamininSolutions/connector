@@ -1,10 +1,10 @@
-PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.dbo.spMFDeleteObjectList';
+PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.dbo.spMFDeleteObjectVersionList';
 
 SET NOCOUNT ON;
 GO
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
-    @ObjectName = N'spMFDeleteObjectList', -- nvarchar(100)
+    @ObjectName = N'spMFDeleteObjectVersionList', -- nvarchar(100)
     @Object_Release = '4.8.24.65',         -- varchar(50)
     @UpdateFlag = 2;                       -- smallint
 GO
@@ -13,7 +13,7 @@ IF EXISTS
 (
     SELECT 1
     FROM INFORMATION_SCHEMA.ROUTINES
-    WHERE ROUTINE_NAME = 'spMFDeleteObjectList' --name of procedure
+    WHERE ROUTINE_NAME = 'spMFDeleteObjectVersionList' --name of procedure
           AND ROUTINE_TYPE = 'PROCEDURE' --for a function --'FUNCTION'
           AND ROUTINE_SCHEMA = 'dbo'
 )
@@ -27,7 +27,7 @@ ELSE
 GO
 
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE dbo.spMFDeleteObjectList
+CREATE PROCEDURE dbo.spMFDeleteObjectVersionList
 AS
 SELECT 'created, but not implemented yet.';
 --just anything will do
@@ -37,11 +37,11 @@ GO
 SET NOEXEC OFF;
 GO
 
-ALTER PROC dbo.spMFDeleteObjectList
+ALTER PROC dbo.spMFDeleteObjectVersionList
 (
     @TableName NVARCHAR(100),
     @Process_id INT,
-    @DeleteWithDestroy BIT = 0,
+    @DeleteWithDestroy BIT = 1,
     @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug INT = 0
 )
@@ -74,44 +74,36 @@ Parameters
 Purpose
 =======
 
-Procedure to delete a series of objects
+Procedure to delete a series of object versions from a list
+
+This procedure is mainly used to remove unwanted versions of objects, especially in scenarios where these versions where created by repetitive integrations.
 
 Prerequisites
 =============
 
 Set process_id of objects to be deleted in the class table prior to running the delete procedure.
 
+This procedure use the table MFObjectChangeHistory as source.  Explore and determine the versions to be deteled using the spmfGetHistory procedure and then to update the Process_id on MFObjectChangeHistory to 1 for the object versions to be included in the deletion.
+
 Examples
 ========
 
 .. code:: sql
 
-    --check items before commencing
-    SELECT id, objid, deleted, [Process_ID], *
-    FROM   [MFCustomer]
+    --check items before setting process_id
+    SELECT mc.id, mch.id, mc.objid, mch.MFversion, mc.MFVersion, mch.[Process_ID], mch.property_id, mch.property_Value, mch.LastModifiedUTC
+    FROM   [MFCustomer] mc
+    inner join MFObjectChangeHistory mch
+    on mc.objid = mch.objid and mc.class_id = mch.class_id
+    order by lastModifiedUTC
+
     --set process_id object to be deleted 
-    UPDATE [MFCustomer]
+    UPDATE MFObjectChangeHistory
     SET	   [Process_ID] = 5
     WHERE  [ID] = 13
 
     --CHECK MFILES BEFORE DELETING TO SHOW DIFF
 
-    --to delete
-    EXEC [spMFDeleteObjectList] 'MFCustomer'
-						  , 5
-						  , 0
-
-    --or
-
-    EXEC [spMFDeleteObjectList] @tableName = 'MFCustomer'
-						  , @Process_ID = 5
-						  , @DeleteWithDestroy = 0
-
-    -- to destroy
-
-    EXEC [spMFDeleteObjectList] 'MFCustomer'
-						  , 5
-						  , 1
 
 Changelog
 =========
@@ -119,11 +111,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2020-10-06  LC         Modified to process delete operation in batch
-2020-08-22  LC         deleted records in class table will be removed 
-2018-04-9   lc         Delete object from class table after deletion.
-2018-6-26   LC         Improve return value
-2018-8-2    LC         Suppress SQL error when nothing deleted
+2020-10-06  LC         Add new procedure
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -134,7 +122,7 @@ Date        Author     Description
 DECLARE @MFTableName AS NVARCHAR(128) = @TableName;
 DECLARE @ProcessType AS NVARCHAR(50);
 
-SET @ProcessType = ISNULL(@ProcessType, 'Delete Objects');
+SET @ProcessType = ISNULL(@ProcessType, 'Delete Object versions');
 
 -------------------------------------------------------------
 -- CONSTATNS: MFSQL Global 
@@ -165,7 +153,7 @@ DECLARE @error AS INT = 0;
 -------------------------------------------------------------
 -- VARIABLES: DEBUGGING
 -------------------------------------------------------------
-DECLARE @ProcedureName AS NVARCHAR(128) = N'spMFDeleteObjectList';
+DECLARE @ProcedureName AS NVARCHAR(128) = N'spMFDeleteObjectVersionList';
 DECLARE @ProcedureStep AS NVARCHAR(128) = N'Start';
 DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s';
 DECLARE @DebugText AS NVARCHAR(256) = N'';
@@ -332,37 +320,23 @@ BEGIN TRY
         Destroy BIT
     );
 
-    SET @Params = N'@ObjectType_ID int, @Process_id INT, @DeleteWithDestroy Bit';
-    SET @Query
-        = N'
-
 		INSERT INTO #ObjectList
 		        ( ObjectType_ID,
                 [Objid],
                 MFVersion,
                 Destroy)
 
-SELECT  @objectType_ID, t.[ObjID], MFVersion, @DeleteWithDestroy
-FROM ' + QUOTENAME(@TableName) + N' as t
+SELECT distinct @objectType_ID, t.[ObjID], MFVersion, @DeleteWithDestroy
+FROM MFObjectChangeHistory as t
 WHERE  t.[Process_ID] = @Process_id
-ORDER BY objid ASC;';
-
-    EXEC sys.sp_executesql @Stmt = @Query,
-        @Param = @Params,
-        @Process_id = @Process_id,
-        @DeleteWithDestroy = @DeleteWithDestroy,
-        @ObjectType_ID = @ObjectType_ID;
+ORDER BY objid ASC
+;
 
     -------------------------------------------------------------
     -- Count records to be deleted
     -------------------------------------------------------------
-    SET @Params = N'@Count Int Output, @Process_id INT';
-    SET @sql = N'SELECT @Count = COUNT(*) FROM ' + QUOTENAME(@TableName) + N'Where Process_ID = @Process_ID';
-
-    EXEC sys.sp_executesql @Stmt = @sql,
-        @Param = @Params,
-        @Count = @count OUTPUT,
-        @Process_id = @Process_id;
+   
+    SELECT @Count = COUNT(*) FROM dbo.MFObjectChangeHistory AS moch WHERE Process_ID = @Process_ID
 
     SET @ProcedureStep = N'Total objects to delete';
     SET @LogTypeDetail = N'Status';
@@ -468,6 +442,7 @@ ORDER BY objid ASC;';
             EXEC sys.sp_xml_preparedocument @Idoc OUTPUT, @XMLOut;
 
             SELECT objId,
+           ObjVers as MFVersion,
                 statusCode,
                 Message
             INTO #DeletedResult
@@ -476,6 +451,7 @@ ORDER BY objid ASC;';
                 WITH
                 (
                     objId INT,
+                    ObjVers INT,
                     statusCode INT,
                     Message NVARCHAR(100)
                 );
@@ -521,15 +497,15 @@ ORDER BY objid ASC;';
 
             SELECT @Success = COUNT(*)
             FROM #DeletedResult AS dr
-            WHERE dr.statusCode = 1;
+            WHERE dr.statusCode in (1,2,3);
 
             SELECT @NotExist = COUNT(*)
             FROM #DeletedResult AS dr
-            WHERE dr.statusCode = 4;
+            WHERE dr.statusCode in (4,5)
 
             SELECT @DelErrors = COUNT(*)
             FROM #DeletedResult AS dr
-            WHERE dr.statusCode IN ( 2, 3 );
+            WHERE dr.statusCode =6 ;
 
             SET @DebugText
                 = N' Not Exist: ' + CAST(ISNULL(@NotExist, 0) AS VARCHAR(10)) + N' Other errors: '
@@ -554,20 +530,18 @@ ORDER BY objid ASC;';
             -------------------------------------------------------------
             -- remove records that does not exist
             -------------------------------------------------------------
-            IF @NotExist > 0
+ /*           IF @NotExist > 0
             BEGIN
                 SET @ProcedureStep = 'Removed records that does not exist :';
-                SET @sql
-                    = N'
+                SET 
             Begin tran
-            Delete FROM ' + QUOTENAME(@MFTableName)
-                      + N' 
+            Delete FROM MFObjectChangeHistory 
                       where objid in (Select dr.objid from 
              #DeletedResult dr
-            WHERE dr.statusCode = 4);
-            Commit tran';
+            WHERE dr.statusCode = 4)
+            and MFVersion ;
+            Commit tran
 
-                EXEC sys.sp_executesql @Stmt = @sql;
 
                 SET @DebugText = CAST(ISNULL(@NotExist, 0) AS NVARCHAR(10));
                 SET @DebugText = @DefaultDebugText + @DebugText;
@@ -578,7 +552,7 @@ ORDER BY objid ASC;';
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
             END;
-
+*/
             -------------------------------------------------------------
             -- Report failed errors
             -------------------------------------------------------------
@@ -622,18 +596,17 @@ ORDER BY objid ASC;';
                 @LogProcedureStep = @ProcedureStep,
                 @debug = @Debug;
 
-            SET @ProcedureStep = N'Update Table ' + @MFTableName + N' with result';
-            SET @sql
-                = N'
+            SET @ProcedureStep = N'Update Table MFobjectChangeHistory with result';
+
             Begin tran
             UPDATE t 
-SET ' +     QUOTENAME(@DeletedColumn)
-                  + N' = GETDATE(), t.Process_ID = CASE WHEN dr.statusCode = 1 THEN 0
+SET t.Process_ID = CASE WHEN dr.statusCode IN( 1,2,3) THEN 0
 ELSE 3 end
 FROM #DeletedResult AS dr
-INNER JOIN ' + QUOTENAME(@MFTableName) + N' AS t
-ON t.objid = dr.objid;
-commit tran';
+INNER JOIN dbo.MFObjectChangeHistory  AS t
+ON t.[objid] = dr.[objid] AND t.class_ID = @ClassID AND t.MFVersion = dr.MFVersion;
+commit tran
+
             SET @DebugText = @LogStatusDetail;
             SET @DebugText = @DefaultDebugText + @DebugText;
             SET @DebugText = N'';

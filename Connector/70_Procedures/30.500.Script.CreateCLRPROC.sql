@@ -424,7 +424,8 @@ CREATE PROCEDURE [dbo].[spMFGetObjectVersInternal]
 	@ClassID [int],
 	@dtModifieDateTime [datetime],
 	@MFIDs [nvarchar](4000),
-	@ObjverXML [nvarchar](max) OUTPUT
+	@ObjverXML [nvarchar](max) OUTPUT,
+    @DelObjverXML [nvarchar](max) OUTPUT
 WITH EXECUTE AS CALLER
 AS
 EXTERNAL NAME [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetOnlyObjectVersions]
@@ -2234,7 +2235,7 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',     @ObjectName = N'spm
   =====
 
 
------------------------------------------------------------------------------------------------*/
+-- ---------------------------------------------------------------------------------------------*/
 IF EXISTS ( SELECT  1
             FROM    INFORMATION_SCHEMA.ROUTINES
             WHERE   ROUTINE_NAME = 'spmfGetLocalMFilesVersionInternal'--name of procedure
@@ -2257,7 +2258,107 @@ AS EXTERNAL NAME
     [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetLocalMFilesVersion];
 ');
   
+ 
+ 
+-- -------------------------------------------------------- 
+-- sp.spMFConnectionTest.sql 
+-- -------------------------------------------------------- 
+PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
+    + '.[dbo].[spMFConnectionTest]';
+
+
+
+SET NOCOUNT ON 
+EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',     @ObjectName = N'spMFConnectionTest', -- nvarchar(100)
+    @Object_Release = '4.7.20.60', -- varchar(50)
+    @UpdateFlag = 2 -- smallint
+
+
+/*------------------------------------------------------------------------------------------------
+	Author: LC, Laminin Solutions
+	Create date: 2020-02
+	Database: 
+	Description: CLR procedure to test a connection to the vault
+------------------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------------------
+  MODIFICATION HISTORY
+  ====================
+ 	DATE			NAME		DESCRIPTION
+	YYYY-MM-DD		{Author}	{Comment}
+	2
+------------------------------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------------------------
+  USAGE:
+  =====
+
+
+-- ---------------------------------------------------------------------------------------------*/
+IF EXISTS ( SELECT  1
+            FROM    INFORMATION_SCHEMA.ROUTINES
+            WHERE   ROUTINE_NAME = 'spMFConnectionTestInternal'--name of procedure
+                    AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
+                    AND ROUTINE_SCHEMA = 'dbo' )
+    BEGIN
+        PRINT SPACE(10) + '...Drop CLR Procedure';
+        DROP PROCEDURE [dbo].spMFConnectionTestInternal;
+		
+    END;
+	
+    
+PRINT SPACE(10) + '...Stored Procedure: create spMFConnectionTestInternal';
+	 
+     
+EXEC (N'
+CREATE PROCEDURE [dbo].[spMFConnectionTestInternal]
+    @VaultSetting NVARCHAR(400), @TestResult int OUTPUT
+AS EXTERNAL NAME
+    [LSConnectMFilesAPIWrapper].[MFilesWrapper].[ConnectionTest];
+');
   
+  /*------------------------------------------------------------------------------------------------
+	Author: LC, Laminin Solutions
+	Create date: 2020-02
+	Database: 
+	Description: CLR procedure to delete list of ojects
+------------------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------------------
+  MODIFICATION HISTORY
+  ====================
+ 	DATE			NAME		DESCRIPTION
+	YYYY-MM-DD		{Author}	{Comment}
+	2
+------------------------------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------------------------
+  USAGE:
+  =====
+
+
+-- ---------------------------------------------------------------------------------------------*/
+  
+IF EXISTS ( SELECT  1
+            FROM    INFORMATION_SCHEMA.ROUTINES
+            WHERE   ROUTINE_NAME = 'spMFDeleteObjectListInternal'--name of procedure
+                    AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
+                    AND ROUTINE_SCHEMA = 'dbo' )
+    BEGIN
+        PRINT SPACE(10) + '...Drop CLR Procedure';
+        DROP PROCEDURE [dbo].[spMFDeleteObjectInternal];
+		
+    END;
+	
+    
+PRINT SPACE(10) + '...Stored Procedure: create';
+	 
+     
+EXEC (N'
+CREATE PROCEDURE [dbo].[spMFDeleteObjectListInternal]
+    @VaultSettings NVARCHAR(4000) ,
+    @XML nvarchar(max),    
+    @XMLOut NVARCHAR(max) OUTPUT
+AS EXTERNAL NAME
+    [LSConnectMFilesAPIWrapper].[MFilesWrapper].[DeleteObjectList];
+')
+ 
 
 
 

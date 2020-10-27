@@ -6,7 +6,7 @@ SET NOCOUNT ON;
 EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFDeleteAdhocProperty'
                                     -- nvarchar(100)
-                                    ,@Object_Release = '4.3.09.48'
+                                    ,@Object_Release = '4.8.22.62'
                                     -- varchar(50)
                                     ,@UpdateFlag = 2;
                                     -- smallint
@@ -117,6 +117,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-08-22  LC         Update code for deleted column change
 2019-08-30  JC         Added documentation
 2018-04-25  LC         Fix bug to pick up both ID column and label column when deleting columns
 2019-03-10  LC         Fix bug on not deleting the data in column
@@ -234,7 +235,16 @@ BEGIN
         DECLARE @VaultSettings    NVARCHAR(4000)
                ,@ObjectId         INT
                ,@ClassId          INT
-               ,@MFLastUpdateDate SMALLDATETIME;
+               ,@MFLastUpdateDate SMALLDATETIME
+               ,@DeletedColumn      NVARCHAR(100);
+
+-------------------------------------------------------------
+-- Get deleted column
+-------------------------------------------------------------
+
+SELECT @DeletedColumn = columnName FROM dbo.MFProperty AS mp
+WHERE mp.MFID = 27
+
 
         --check if table exists
         IF EXISTS
@@ -286,7 +296,7 @@ BEGIN
 
             SET @SelectQuery
                 = 'SELECT @retvalOUT  = COUNT(ID) FROM [' + @MFTableName + '] WHERE Process_ID = '
-                  + CAST(@process_ID AS NVARCHAR(20)) + ' AND Deleted = 0';
+                  + CAST(@process_ID AS NVARCHAR(20)) + ' AND ' +QUOTENAME(@DeletedColumn)+' is null';
             SET @ParmDefinition = N'@retvalOUT int OUTPUT';
 
             IF @Debug > 0

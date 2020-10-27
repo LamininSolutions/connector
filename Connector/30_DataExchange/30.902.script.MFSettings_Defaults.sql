@@ -9,13 +9,14 @@ MODIFIED
 2019-1-26	LC	Prevent default profile to be created if profile already exists
 2019-11-18  LC  remove setting the profile as default.  Companies may set another email as default
 2020-03-27  LC  add default setting for CreateUniqueClassIndexes
+2020-09-21  LC  reset default for create unique class indexes to 1
 */
 
 SET NOCOUNT ON 
 DECLARE @msg AS VARCHAR(250);
     DECLARE @EDIT_MAILPROFILE_PROP NVARCHAR(100) 
 
-SET @msg = SPACE(5) + DB_NAME() + ': Update Profile';
+SET @msg = SPACE(5) + DB_NAME() + ': Set Default settings';
 RAISERROR('%s', 10, 1, @msg);
 
 -- update mail profile security to include App User to allow for email to be sent using Context Menu
@@ -99,11 +100,9 @@ WHERE Name = 'App_Database';
 
 IF DB_NAME() = @DBName
 BEGIN
-    SET @msg = SPACE(5) + DB_NAME() + ': MFSettings - Set Email Styling ';
-    RAISERROR('%s', 10, 1, @msg);
+--    SET @msg = SPACE(5) + DB_NAME() + ': MFSettings - Set Email Styling ';
+--    RAISERROR('%s', 10, 1, @msg);
 
-    BEGIN
-        SET NOCOUNT ON;
 
         SET @EmailStyle
             = N'
@@ -172,16 +171,12 @@ BEGIN
             (   N'App_Default',                                  -- source_key - nvarchar(20)
                 'CreateUniqueClassIndexes',                         -- Name - varchar(50)
                 'If 1 spmfCreateTable will set unique indexes on class table', -- Description - varchar(500)
-                '0',                               -- Value - sql_variant
+                '1',                               -- Value - sql_variant
                 1                                          -- Enabled - bit
                 );
 
         SET NOCOUNT OFF;
     END;
-
-
-
-END;
 
 ELSE
 BEGIN

@@ -10,86 +10,131 @@ add parameter to set MFVersion
  
 */
 
-
-DECLARE @Msg NVARCHAR(400),
-        @DBName VARCHAR(100) = '{varAppDB}',
-        @FileLocation NVARCHAR(250) ,
-        @MFLocation NVARCHAR(250),
-        @MFInstallPath NVARCHAR(100) ,
-        @Version NVARCHAR(100) ,
-        @DatabaseName NVARCHAR(100),
-        @AlterDBQuery NVARCHAR(500);
+DECLARE @Msg                  NVARCHAR(400),
+    @DBName                   VARCHAR(100) = '{varAppDB}',
+    --@DBName VARCHAR(100) = '[MFSQL_Release_58]',
+    @FileLocation             NVARCHAR(250),
+    @MFLocation               NVARCHAR(250),
+    @FrameworkLocation        NVARCHAR(250),
+    @NewtonSoftJsonDependency NVARCHAR(250),
+    @MFInstallPath            NVARCHAR(100),
+    @Version                  NVARCHAR(100),
+    @DatabaseName             NVARCHAR(100),
+    @AlterDBQuery             NVARCHAR(500);
 DECLARE @Output NVARCHAR(MAX);
 DECLARE @CLRInstallationFlag BIT = 0;
 DECLARE @FileName VARCHAR(255);
 DECLARE @File_Exists INT;
+
 /*
 Test validity of the Assembly locations before proceding with installation
 */
-
-IF EXISTS(
-select name FROM sys.[assemblies] AS [a] WHERE name = 'Interop.MFilesAPI') AND exists(SELECT 1 FROM mfsettings)
-
+IF EXISTS
+(
+    SELECT a.name
+    FROM sys.assemblies AS a
+    WHERE a.name = 'Interop.MFilesAPI'
+)
+   AND EXISTS
+(
+    SELECT 1
+    FROM dbo.MFSettings
+)
 BEGIN
-SELECT @FileLocation = CAST(VALUE AS NVARCHAR(100)) FROM MFSETTINGS WHERE Name = 'AssemblyInstallPath'
-SELECT @MFInstallPath = CAST(VALUE AS NVARCHAR(100)) FROM MFSETTINGS WHERE Name = 'MFInstallPath'
+    SELECT @FileLocation = CAST(Value AS NVARCHAR(100))
+    FROM dbo.MFSettings
+    WHERE Name = 'AssemblyInstallPath';
 
-END
+    SELECT @MFInstallPath = CAST(Value AS NVARCHAR(100))
+    FROM dbo.MFSettings
+    WHERE Name = 'MFInstallPath';
+END;
 
+--validate NewtonSoft Dependency
+SELECT @FrameworkLocation = N'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\';
 
-SELECT @FileName = ISNULL(@FileLocation,'{varCLRPath}') + '\Laminin.Security.dll';
+SELECT @NewtonSoftJsonDependency = @FrameworkLocation + N'System.Runtime.Serialization.dll';
+
+EXEC master.sys.xp_fileexist @NewtonSoftJsonDependency, @File_Exists OUT;
+
+IF @File_Exists <> 1
+BEGIN
+    SET @Output
+        = N'Unable to install get NewtonSoft Json dependencies, check access Framework installation, contact support@lamininsolutions.com.';
+    SET @CLRInstallationFlag = 0;
+
+    RAISERROR(@Output, 16, 1);
+END;
+
+SELECT @FileName = ISNULL(@FileLocation, '{varCLRPath}') + '\Laminin.Security.dll';
+
 EXEC master.sys.xp_fileexist @FileName, @File_Exists OUT;
+
 IF @File_Exists = 1
 BEGIN
-    SET @Output = 'Assembly location Found: '+ ISNULL(@FileLocation,'{varCLRPath}');
-	RAISERROR(@Output, 10,1)
-    SET @CLRInstallationFlag = 1;
+    SET @Output = N'Assembly location Found: ' + ISNULL(@FileLocation, '{varCLRPath}');
 
+    RAISERROR(@Output, 10, 1);
+
+    SET @CLRInstallationFlag = 1;
 END;
 ELSE
 BEGIN
-    SET @Output = 'Unable to install Assemblies, check access to filelocation, run installation on SQL Server.';
-	SET @CLRInstallationFlag = 0;
-	RAISERROR(@Output, 16,1)
+    SET @Output = N'Unable to install Assemblies, check access to filelocation, run installation on SQL Server.';
+    SET @CLRInstallationFlag = 0;
+
+    RAISERROR(@Output, 16, 1);
 END;
+
 /*
 Test validity of M-Files API folder
 */
+DECLARE @IsUpdateAssembly BIT;
 
-DECLARE @IsUpdateAssembly BIT
-
-
-IF ISNULL(@MFilesVersion,'') = ''
-SELECT @Version = CAST(value AS varchar) FROM MFSettings WHERE name = 'MFVersion'
+IF ISNULL(@MFilesVersion, '') = ''
+    SELECT @Version = CAST(Value AS VARCHAR)
+    FROM dbo.MFSettings
+    WHERE Name = 'MFVersion';
 ELSE
-SET @Version = @MFilesVersion;
+BEGIN
 
-SET @MFLocation = ISNULL(@MFInstallPath,'{varMFInstallPath}') + '\' + ISNULL(@Version,'{varMFVersion}') + '\Common';
-SET @DatabaseName = 'dbo.' + @DBName;
+    SET @Version = @MFilesVersion
+    UPDATE dbo.MFSettings
+    SET value = @Version
+    WHERE Name = 'MFVersion'
+    ;
+END
+SET @MFLocation
+    = ISNULL(@MFInstallPath, '{varMFInstallPath}') + N'\' + ISNULL(@Version, '{varMFVersion}') + N'\Common';
+SET @DatabaseName = N'dbo.' + @DBName;
 
 SELECT @FileName = @MFLocation + '\Interop.MFilesAPI.dll';
+
 EXEC master.sys.xp_fileexist @FileName, @File_Exists OUT;
+
 IF @File_Exists = 1
    AND @CLRInstallationFlag = 1
 BEGIN
-    SET @Output = 'M-Files API Found: ' + @FileName;
-	RAISERROR(@Output, 10,1)
+    SET @Output = N'M-Files API Found: ' + @FileName;
+
+    RAISERROR(@Output, 10, 1);
+
     SET @CLRInstallationFlag = 1;
 END;
+
 IF @File_Exists = 0
 BEGIN
-    SET @Output
-        = @Output
-          + '; Unable to find M-Files Client installation, missing M-Files client '+ @FileName;
+    SET @Output = @Output + N'; Unable to find M-Files Client installation, missing M-Files client ' + @FileName;
     SET @CLRInstallationFlag = 0;
-	 RAISERROR('%s', 10, 1, @Output);
+
+    RAISERROR('%s', 10, 1, @Output);
 END;
+
 IF @CLRInstallationFlag = 1
 BEGIN
-
     EXEC sys.sp_changedbowner 'sa';
 
-    RAISERROR('%s', 10, 1, @msg);
+    RAISERROR('%s', 10, 1, @Msg);
 
     IF EXISTS (SELECT * FROM sys.assemblies WHERE name = 'CLRSerializer')
     BEGIN
@@ -97,7 +142,6 @@ BEGIN
 
         DROP ASSEMBLY CLRSerializer;
     END;
-
 
     IF EXISTS
     (
@@ -111,16 +155,12 @@ BEGIN
         DROP ASSEMBLY LSConnectMFilesAPIWrapper;
     END;
 
-
-
     IF EXISTS (SELECT * FROM sys.assemblies WHERE name = 'Laminin.Security')
     BEGIN
         PRINT 'Dropping ASSEMBLY: Laminin.Security ';
 
         DROP ASSEMBLY [Laminin.Security];
     END;
-
-
 
     IF EXISTS (SELECT * FROM sys.assemblies WHERE name = 'Interop.MFilesAPI')
     BEGIN
@@ -129,25 +169,63 @@ BEGIN
         DROP ASSEMBLY [Interop.MFilesAPI];
     END;
 
+	    IF EXISTS (SELECT * FROM sys.assemblies WHERE name = 'Newtonsoft.Json')
+    BEGIN
+        PRINT 'Dropping ASSEMBLY: Newtonsoft.Json';
 
+        DROP ASSEMBLY [Newtonsoft.Json];
+    END;
+
+    IF EXISTS
+    (
+        SELECT *
+        FROM sys.assemblies
+        WHERE name = 'System.Runtime.Serialization'
+    )
+    BEGIN
+        PRINT 'Dropping ASSEMBLY: System.Runtime.Serialization ';
+
+        DROP ASSEMBLY [System.Runtime.Serialization];
+    END;
+
+    IF EXISTS (SELECT * FROM sys.assemblies WHERE name = 'Newtonsoft.Json')
+    BEGIN
+        PRINT 'Dropping ASSEMBLY: Newtonsoft.Json';
+
+        DROP ASSEMBLY [Newtonsoft.Json];
+    END;
+
+    IF EXISTS (SELECT * FROM sys.assemblies WHERE name = 'SMDiagnostics')
+    BEGIN
+        PRINT 'Dropping ASSEMBLY: Newtonsoft.Json';
+
+        DROP ASSEMBLY SMDiagnostics;
+    END;
+
+    IF EXISTS
+    (
+        SELECT *
+        FROM sys.assemblies
+        WHERE name = 'System.ServiceModel.Internals'
+    )
+    BEGIN
+        PRINT 'Dropping ASSEMBLY: System.ServiceModel.Internals';
+
+        DROP ASSEMBLY [System.ServiceModel.Internals];
+    END;
 
     --------------------------------------------------
     --ENABLE CLR
     --------------------------------------------------
     EXEC sys.sp_configure 'clr enabled', 1;
 
-
     RECONFIGURE;
-
 
     EXEC sys.sp_configure 'clr enabled';
 
-
     ALTER DATABASE [{varAppDB}] SET TRUSTWORTHY ON;
 
-
-  --  EXECUTE (@AlterDBQuery);
-
+    --  EXECUTE (@AlterDBQuery);
     CREATE ASSEMBLY [Interop.MFilesAPI]
     FROM @MFLocation + '\Interop.MFilesAPI.dll'
     WITH PERMISSION_SET = UNSAFE;
@@ -156,6 +234,10 @@ BEGIN
     FROM @FileLocation + '\Laminin.Security.dll'
     WITH PERMISSION_SET = SAFE;
 
+    --CREATE ASSEMBLY [System.Runtime.Serialization]
+    --FROM 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Runtime.Serialization.dll'
+    --WITH PERMISSION_SET = UNSAFE;
+
     CREATE ASSEMBLY LSConnectMFilesAPIWrapper
     FROM @FileLocation + '\LSConnectMFilesAPIWrapper.dll'
     WITH PERMISSION_SET = UNSAFE;
@@ -163,8 +245,12 @@ BEGIN
     CREATE ASSEMBLY CLRSerializer
     FROM @FileLocation + '\LSConnectMFilesAPIWrapper.XmlSerializers.dll'
     WITH PERMISSION_SET = UNSAFE;
+
+    --IF NOT EXISTS (SELECT * FROM sys.assemblies WHERE name = 'Newtonsoft.Json')
+    --    CREATE ASSEMBLY [newtonSoft.Json]
+    --    FROM @FileLocation + '\NewtonSoft.JSon.dll'
+    --    WITH PERMISSION_SET = UNSAFE;
 END;
 
 IF @CLRInstallationFlag = 0
-RAISERROR(@Output,16,1)
-
+    RAISERROR(@Output, 16, 1);

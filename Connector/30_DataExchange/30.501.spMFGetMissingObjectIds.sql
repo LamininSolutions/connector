@@ -5,7 +5,7 @@ go
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFGetMissingobjectIds', -- nvarchar(100)
-    @Object_Release = '4.1.5.43', -- varchar(50)
+    @Object_Release = '4.8.22.62', -- varchar(50)
     @UpdateFlag = 2 -- smallint
  
 go
@@ -17,6 +17,7 @@ go
   2017-7-25		LC		remove redundant variables
   2017-10-01	LC		fix bug with parameter sizes
   2018-8-3		LC		Prevent endless loop
+  2020-08-31    LC      prevent null warning
 */
 IF EXISTS ( SELECT  1
             FROM    INFORMATION_SCHEMA.ROUTINES

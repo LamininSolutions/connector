@@ -4,7 +4,7 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].
 GO
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFvwMetadataStructure', -- nvarchar(100)
-    @Object_Release = '4.3.09.48', -- varchar(50)
+    @Object_Release = '4.8.22.62', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
 
@@ -85,6 +85,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-08-22  LC         Deleted column change to localisation
+2020-07-08  LC         Add Valuelist Table name to columns
 2020-03-27  LC         Add documentation for the view
 ==========  =========  ========================================================
 
@@ -97,11 +99,12 @@ Date        Author     Description
             [mp].[ColumnName] ,
             [mp].[PredefinedOrAutomatic] ,
             [mcp].[Required] ,
-            [mvl].[Name] AS Valuelist ,
-            [mvl].[Alias] AS Valuelist_Alias ,
-			mvl.id AS Valuelist_ID,
-            [mvl].[MFID] AS Valuelist_MFID ,
-			mvl.[RealObjectType] AS IsObjectType,
+            CASE WHEN mvl.mfid = 0 THEN NULL ELSE [mvl].[Name] end AS Valuelist ,
+             CASE WHEN mvl.mfid = 0 THEN NULL ELSE [mvl].[Alias] end AS Valuelist_Alias ,
+			 CASE WHEN mvl.mfid = 0 THEN NULL ELSE mvl.id end AS Valuelist_ID,
+             CASE WHEN mvl.mfid = 0 THEN NULL ELSE  [mvl].[MFID] END AS Valuelist_MFID ,
+			CASE WHEN mvl.[RealObjectType] = 1 AND mvl.mfid = 0 THEN null ELSE mvl.[RealObjectType]  end AS IsObjectType,
+            case when mvl.[RealObjectType] = 1 AND mvl.mfid > 0 then  mcmot.TableName else null end  as Valuelist_TableName,
             [ValuelistOwner].[Name] AS Valuelist_Owner ,
             [mvl].[OwnerID] AS Valuelist_Owner_MFID ,
             [ValuelistOwner].[Alias] AS Valuelist_OwnerAlias ,
@@ -125,6 +128,11 @@ Date        Author     Description
             LEFT JOIN [dbo].[MFDataType] AS [mdt] ON mp.[MFDataType_ID] = [mdt].[ID]
             LEFT JOIN [dbo].[MFWorkflow] AS [mw] ON mw.[ID] = [mc].[MFWorkflow_ID]
             LEFT JOIN [dbo].[MFValueList] AS [mvl] ON mp.[MFValueList_ID] = mvl.[ID]
+            left JOIN dbo.MFObjectType AS motmvl
+            ON mvl.mfid = motmvl.mfid and mvl.mfid > 0
+            LEFT JOIN dbo.MFClass AS mcmot
+            ON motmvl.id = mcmot.MFObjectType_ID
+
             LEFT JOIN ( SELECT  [MFValueList].[Name] ,
                                 [MFValueList].[Alias] ,
                                 [MFValueList].[MFID]

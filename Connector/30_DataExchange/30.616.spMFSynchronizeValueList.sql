@@ -134,6 +134,7 @@ AS
 		 on  
 		  MVL.MFID=TMVL.MFID
 
+
 		  drop table #TempValueList
 
 	  End
@@ -146,6 +147,11 @@ AS
         ,@Debug;
 	   End
       
+      
+          UPDATE mvl
+          SET mvl.OwnerID = -1
+         FROM MFvaluelist mvl
+         WHERE mvl.OwnerID = 0
 
 		IF @debug > 10
 		SELECT @Output AS InsertValuelistOutput

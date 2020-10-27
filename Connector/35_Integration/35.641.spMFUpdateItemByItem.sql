@@ -6,18 +6,10 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
 GO
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFUpdateItemByItem', -- nvarchar(100)
-    @Object_Release = '2.1.1.13', -- varchar(50)
+    @Object_Release = '4.8.22.62', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 go
 
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  debug mode
-  DECLARE @Sessionid int
-  EXEC [spMFUpdateItemByItem] 'MFOtherDocument', 1, @SessionIDOut = @SessionID output
-  SELECT @SessionID
------------------------------------------------------------------------------------------------*/
 
 IF EXISTS ( SELECT  1
             FROM    INFORMATION_SCHEMA.ROUTINES
@@ -104,6 +96,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-08-28  LC         Set getobjver to date 2000-01-01
+2020-08-22  LC         Update for new deleted column
 2019-08-30  JC         Added documentation
 ==========  =========  ========================================================
 
@@ -122,7 +116,14 @@ update check by record from objvers list
                 @ProcedureName VARCHAR(100) = 'spMFUpdateItemByItem' ,
                 @Result INT ,
                 @RunTime DATETIME ,
-                @Query NVARCHAR(MAX);
+                @Query NVARCHAR(MAX),
+                @DeletedColumn NVARCHAR(100)
+
+-------------------------------------------------------------
+-- get deleted column name
+-------------------------------------------------------------
+SELECT @DeletedColumn = columnName FROM MFProperty WHERE mfid = 27;
+
 
             SELECT  @ClassName = Name
             FROM    MFClass
@@ -142,7 +143,7 @@ update check by record from objvers list
                 @NewObjectXml VARCHAR(MAX); 
 
             EXEC [dbo].[spMFGetObjectvers] @TableName = @TableName, -- nvarchar(max)
-                @dtModifiedDate = NULL, -- datetime
+                @dtModifiedDate = '2000-01-01', -- datetime
                 @MFIDs = NULL, -- nvarchar(max)
                 @outPutXML = @NewObjectXml OUTPUT;
  -- nvarchar(max)
@@ -310,7 +311,7 @@ END
                     RAISERROR('Proc: %s Step: %s ',10,1,@ProcedureName, @ProcedureStep );
                            
                 END;
-
+/*
             DECLARE @SessionID INT ,
                 @TranDate DATETIME ,
                 @Params NVARCHAR(MAX);
@@ -393,8 +394,10 @@ END
             SET @ProcedureStep = 'Update Processed';
 							
             COMMIT TRAN [main];
-            DROP TABLE [#ObjVersList];
-           
+  */
+  DROP TABLE [#ObjVersList];
+  
+  
             SET NOCOUNT OFF;
 
         END TRY

@@ -1,25 +1,27 @@
+
 GO
+
 PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFUpdateExplorerFileToMFiles]';
 GO
 
 SET NOCOUNT ON;
 
-EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
-                                    ,@ObjectName = N'spMFUpdateExplorerFileToMFiles'
-                                    -- nvarchar(100)
-                                    ,@Object_Release = '4.3.09.48'
-                                    -- varchar(50)
-                                    ,@UpdateFlag = 2;
+EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
+    @ObjectName = N'spMFUpdateExplorerFileToMFiles',
+    -- nvarchar(100)
+    @Object_Release = '4.7.18.59',
+    -- varchar(50)
+    @UpdateFlag = 2;
 -- smallint
 GO
 
 IF EXISTS
 (
     SELECT 1
-    FROM [INFORMATION_SCHEMA].[ROUTINES]
-    WHERE [ROUTINE_NAME] = 'spMFUpdateExplorerFileToMFiles' --name of procedure
-          AND [ROUTINE_TYPE] = 'PROCEDURE' --for a function --'FUNCTION'
-          AND [ROUTINE_SCHEMA] = 'dbo'
+    FROM INFORMATION_SCHEMA.ROUTINES
+    WHERE ROUTINE_NAME = 'spMFUpdateExplorerFileToMFiles' --name of procedure
+          AND ROUTINE_TYPE = 'PROCEDURE' --for a function --'FUNCTION'
+          AND ROUTINE_SCHEMA = 'dbo'
 )
 BEGIN
     PRINT SPACE(10) + '...Stored Procedure: update';
@@ -31,7 +33,7 @@ ELSE
 GO
 
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE [dbo].[spMFUpdateExplorerFileToMFiles]
+CREATE PROCEDURE dbo.spMFUpdateExplorerFileToMFiles
 AS
 SELECT 'created, but not implemented yet.';
 --just anything will do
@@ -41,14 +43,14 @@ GO
 SET NOEXEC OFF;
 GO
 
-ALTER PROCEDURE [dbo].[spMFUpdateExplorerFileToMFiles]
-    @FileName NVARCHAR(256)
-   ,@FileLocation NVARCHAR(256)
-   ,@MFTableName NVARCHAR(100)
-   ,@SQLID INT
-   ,@IsFileDelete BIT = 0
-   ,@ProcessBatch_id INT = NULL OUTPUT
-   ,@Debug INT = 0
+ALTER PROCEDURE dbo.spMFUpdateExplorerFileToMFiles
+    @FileName NVARCHAR(1000),
+    @FileLocation NVARCHAR(1000),
+    @MFTableName NVARCHAR(100),
+    @SQLID INT,
+    @IsFileDelete BIT = 0,
+    @ProcessBatch_id INT = NULL OUTPUT,
+    @Debug INT = 0
 AS
 /*rST**************************************************************************
 
@@ -130,7 +132,6 @@ Date        Author     Description
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
-
 BEGIN
     BEGIN TRY
         SET NOCOUNT ON;
@@ -138,18 +139,18 @@ BEGIN
         -----------------------------------------------------
         --DECLARE VARIABLES FOR LOGGING
         -----------------------------------------------------
-        DECLARE @DefaultDebugText AS NVARCHAR(256) = 'Proc: %s Step: %s';
-        DECLARE @DebugText AS NVARCHAR(256) = '';
-        DECLARE @LogTypeDetail AS NVARCHAR(MAX) = '';
-        DECLARE @LogTextDetail AS NVARCHAR(MAX) = '';
-        DECLARE @LogTextAccumulated AS NVARCHAR(MAX) = '';
+        DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s';
+        DECLARE @DebugText AS NVARCHAR(256) = N'';
+        DECLARE @LogTypeDetail AS NVARCHAR(MAX) = N'';
+        DECLARE @LogTextDetail AS NVARCHAR(MAX) = N'';
+        DECLARE @LogTextAccumulated AS NVARCHAR(MAX) = N'';
         DECLARE @LogStatusDetail AS NVARCHAR(50) = NULL;
         DECLARE @LogColumnName AS NVARCHAR(128) = NULL;
         DECLARE @LogColumnValue AS NVARCHAR(256) = NULL;
-        DECLARE @ProcessType NVARCHAR(50) = 'Object History';
-        DECLARE @LogType AS NVARCHAR(50) = 'Status';
-        DECLARE @LogText AS NVARCHAR(4000) = 'Get History Initiated';
-        DECLARE @LogStatus AS NVARCHAR(50) = 'Started';
+        DECLARE @ProcessType NVARCHAR(50) = N'Object History';
+        DECLARE @LogType AS NVARCHAR(50) = N'Status';
+        DECLARE @LogText AS NVARCHAR(4000) = N'Get History Initiated';
+        DECLARE @LogStatus AS NVARCHAR(50) = N'Started';
         DECLARE @Status AS NVARCHAR(128) = NULL;
         DECLARE @Validation_ID INT = NULL;
         DECLARE @StartTime AS DATETIME = GETUTCDATE();
@@ -170,15 +171,15 @@ BEGIN
         DECLARE @VaultName NVARCHAR(2000);
 
         SELECT TOP 1
-               @Username  = [Username]
-              ,@VaultName = [VaultName]
-        FROM [dbo].[MFVaultSettings];
+            @Username  = Username,
+            @VaultName = VaultName
+        FROM dbo.MFVaultSettings;
 
-        INSERT INTO [dbo].[MFUpdateHistory]
+        INSERT INTO dbo.MFUpdateHistory
         (
-            [Username]
-           ,[VaultName]
-           ,[UpdateMethod]
+            Username,
+            VaultName,
+            UpdateMethod
         )
         VALUES
         (@Username, @VaultName, -1);
@@ -187,35 +188,35 @@ BEGIN
 
         SELECT @Update_IDOut = @Update_ID;
 
-        SET @ProcessType = 'Import File';
-        SET @LogText = ' Started ';
-        SET @LogStatus = 'Initiate';
+        SET @ProcessType = N'Import File';
+        SET @LogText = N' Started ';
+        SET @LogStatus = N'Initiate';
         SET @StartTime = GETUTCDATE();
-        SET @LogTypeDetail = 'Debug';
-        SET @LogStatusDetail = 'In Progress';
+        SET @LogTypeDetail = N'Debug';
+        SET @LogStatusDetail = N'In Progress';
 
-        EXECUTE @RC = [dbo].[spMFProcessBatch_Upsert] @ProcessBatch_ID = @ProcessBatch_id OUTPUT
-                                                     ,@ProcessType = @ProcessType
-                                                     ,@LogType = @LogType
-                                                     ,@LogText = @LogText
-                                                     ,@LogStatus = @LogStatus
-                                                     ,@debug = 0;
+        EXECUTE @RC = dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_id OUTPUT,
+            @ProcessType = @ProcessType,
+            @LogType = @LogType,
+            @LogText = @LogText,
+            @LogStatus = @LogStatus,
+            @debug = 0;
 
-        EXECUTE @return_value = [dbo].[spMFProcessBatchDetail_Insert] @ProcessBatch_ID = @ProcessBatch_id
-                                                                     ,@LogType = @LogTypeDetail
-                                                                     ,@LogText = @LogTextDetail
-                                                                     ,@LogStatus = @LogStatusDetail
-                                                                     ,@StartTime = @StartTime
-                                                                     ,@MFTableName = @MFTableName
-                                                                     ,@Validation_ID = @Validation_ID
-                                                                     ,@ColumnName = @LogColumnName
-                                                                     ,@ColumnValue = @LogColumnValue
-                                                                     ,@Update_ID = @Update_ID
-                                                                     ,@LogProcedureName = @ProcedureName
-                                                                     ,@LogProcedureStep = @ProcedureStep
-                                                                     ,@debug = 0;
+        EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_id,
+            @LogType = @LogTypeDetail,
+            @LogText = @LogTextDetail,
+            @LogStatus = @LogStatusDetail,
+            @StartTime = @StartTime,
+            @MFTableName = @MFTableName,
+            @Validation_ID = @Validation_ID,
+            @ColumnName = @LogColumnName,
+            @ColumnValue = @LogColumnValue,
+            @Update_ID = @Update_ID,
+            @LogProcedureName = @ProcedureName,
+            @LogProcedureStep = @ProcedureStep,
+            @debug = 0;
 
-        SET @DebugText = '';
+        SET @DebugText = N'';
         SET @DebugText = @DefaultDebugText + @DebugText;
 
         IF @Debug > 0
@@ -238,15 +239,15 @@ BEGIN
         DECLARE @Params NVARCHAR(MAX);
         DECLARE @FileID NVARCHAR(250);
         DECLARE @ParmDefinition NVARCHAR(500);
-        DECLARE @XMLOut        XML
-               ,@ObjectVersion INT;
+        DECLARE @XMLOut    XML,
+            @ObjectVersion INT;
         DECLARE @Start INT;
         DECLARE @End INT;
         DECLARE @length INT;
-        DECLARE @SearchTerm NVARCHAR(50) = 'System.';
+        DECLARE @SearchTerm NVARCHAR(50) = N'System.';
 
         SET @ProcedureStep = 'Checking Target class ';
-        SET @DebugText = '';
+        SET @DebugText = N'';
         SET @DebugText = @DefaultDebugText + @DebugText;
 
         IF @Debug > 0
@@ -254,41 +255,35 @@ BEGIN
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
-        IF EXISTS
-        (
-            SELECT TOP 1
-                   *
-            FROM [dbo].[MFClass]
-            WHERE [TableName] = @MFTableName
-        )
+        IF EXISTS (SELECT TOP 1 * FROM dbo.MFClass WHERE TableName = @MFTableName)
         BEGIN
-            SET @LogTextDetail = @MFTableName + ' is valid MFClass table';
+            SET @LogTextDetail = @MFTableName + N' is valid MFClass table';
 
-            EXECUTE @return_value = [dbo].[spMFProcessBatchDetail_Insert] @ProcessBatch_ID = @ProcessBatch_id
-                                                                         ,@LogType = @LogTypeDetail
-                                                                         ,@LogText = @LogTextDetail
-                                                                         ,@LogStatus = @LogStatusDetail
-                                                                         ,@StartTime = @StartTime
-                                                                         ,@MFTableName = @MFTableName
-                                                                         ,@Validation_ID = @Validation_ID
-                                                                         ,@ColumnName = @LogColumnName
-                                                                         ,@ColumnValue = @LogColumnValue
-                                                                         ,@Update_ID = @Update_ID
-                                                                         ,@LogProcedureName = @ProcedureName
-                                                                         ,@LogProcedureStep = @ProcedureStep
-                                                                         ,@debug = 0;
+            EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_id,
+                @LogType = @LogTypeDetail,
+                @LogText = @LogTextDetail,
+                @LogStatus = @LogStatusDetail,
+                @StartTime = @StartTime,
+                @MFTableName = @MFTableName,
+                @Validation_ID = @Validation_ID,
+                @ColumnName = @LogColumnName,
+                @ColumnValue = @LogColumnValue,
+                @Update_ID = @Update_ID,
+                @LogProcedureName = @ProcedureName,
+                @LogProcedureStep = @ProcedureStep,
+                @debug = 0;
 
-            SELECT @TargetClassMFID = [MC].[MFID]
-                  ,@ObjectTypeID    = [OT].[MFID]
-            FROM [dbo].[MFClass]                [MC]
-                INNER JOIN [dbo].[MFObjectType] [OT]
-                    ON [MC].[MFObjectType_ID] = [OT].[ID]
-            WHERE [MC].[TableName] = @MFTableName;
+            SELECT @TargetClassMFID = MC.MFID,
+                @ObjectTypeID       = OT.MFID
+            FROM dbo.MFClass                MC
+                INNER JOIN dbo.MFObjectType OT
+                    ON MC.MFObjectType_ID = OT.ID
+            WHERE MC.TableName = @MFTableName;
 
             ------------------------------------------------
             --Getting Vault Settings
             ------------------------------------------------
-            SET @DebugText = '';
+            SET @DebugText = N'';
             SET @DebugText = @DefaultDebugText + @DebugText;
             SET @ProcedureStep = 'Getting Vault credentials ';
 
@@ -297,7 +292,7 @@ BEGIN
                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
             END;
 
-            SELECT @VaultSettings = [dbo].[FnMFVaultSettings]();
+            SELECT @VaultSettings = dbo.FnMFVaultSettings();
 
             DECLARE @TempFile VARCHAR(100);
 
@@ -315,18 +310,18 @@ BEGIN
                 SET @ProcedureStep = 'Get latest version';
                 SET @Params = N'@ObjID INT output, @SQLID int';
                 SET @Sql
-                    = N'Select @ObjID = Objid FROM ' + QUOTENAME(@MFTableName) + ' WHERE ID = '
+                    = N'Select @ObjID = Objid FROM ' + QUOTENAME(@MFTableName) + N' WHERE ID = '
                       + CAST(@SQLID AS VARCHAR(10));
 
-                PRINT @Sql;
+      --          PRINT @Sql;
 
-                EXEC [sys].[sp_executesql] @Sql, @Params, @Objid OUTPUT, @SQLID;
+                EXEC sys.sp_executesql @Sql, @Params, @Objid OUTPUT, @SQLID;
 
                 SELECT @ObjIDs = CAST(@Objid AS VARCHAR(4000));
 
-                SELECT @Objid AS '@ObjId';
+          --      SELECT @Objid AS '@ObjId';
 
-                SET @DebugText = ' Objids %s';
+                SET @DebugText = N' Objids %s';
                 SET @DebugText = @DefaultDebugText + @DebugText;
                 SET @ProcedureStep = 'Get Objids for update';
 
@@ -340,54 +335,72 @@ BEGIN
                 -------------------------------------------------------------	
                 IF @Objid IS NOT NULL
                 BEGIN
+                    SET @ProcedureStep = 'Update from MF';
                     SET @Params = N'@Objid int';
-                    SET @Sql = N'UPDATE ' + QUOTENAME(@MFTableName) + ' SET [Process_ID] = 0 WHERE objid = @Objid';
+                    SET @Sql = N'UPDATE ' + QUOTENAME(@MFTableName) + N' SET [Process_ID] = 0 WHERE objid = @Objid';
 
-                    EXEC [sys].[sp_executesql] @Sql, @Params, @Objid;
+                    EXEC sys.sp_executesql @Sql, @Params, @Objid;
 
-                    EXEC [dbo].[spMFUpdateTable] @MFTableName = @MFTableName          -- nvarchar(200)
-                                                ,@UpdateMethod = 1                    -- int                          
-                                                ,@ObjIDs = @ObjIDs                    -- nvarchar(max)
-                                                ,@Update_IDOut = @Update_IDOut OUTPUT -- int
-                                                ,@ProcessBatch_ID = @ProcessBatch_id;
-
-                    -- int
-                    SET @Params = N'@ObjectVersion int output,@Objid int';
-                    SET @Sql
-                        = N' SELECT @ObjectVersion=MFVersion from ' + QUOTENAME(@MFTableName)
-                          + ' where objid = 
-                          @ObjID;';
-
-                    --            PRINT @Sql;
-                    EXEC [sys].[sp_executesql] @Sql, @Params, @ObjectVersion OUTPUT, @Objid;
+                    EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName, -- nvarchar(200)
+                        @UpdateMethod = 1,                                -- int                          
+                        @ObjIDs = @ObjIDs,                                -- nvarchar(max)
+                        @Update_IDOut = @Update_IDOut OUTPUT,             -- int
+                        @ProcessBatch_ID = @ProcessBatch_id;
                 END;
 
                 IF @Objid IS NULL
                 BEGIN
+                    SET @ProcedureStep = 'Create new object into MF';
                     SET @Params = N'@Objid int';
-                    SET @Sql = N'UPDATE ' + QUOTENAME(@MFTableName) + ' SET [Process_ID] = 1 WHERE objid = @Objid';
+                    SET @Sql = N'UPDATE ' + QUOTENAME(@MFTableName) + N' SET [Process_ID] = 1 WHERE objid = @Objid';
 
-                    EXEC [sys].[sp_executesql] @Sql, @Params, @Objid;
+                    EXEC sys.sp_executesql @Sql, @Params, @Objid;
 
-                    EXEC [dbo].[spMFUpdateTable] @MFTableName = @MFTableName          -- nvarchar(200)
-                                                ,@UpdateMethod = 0                    -- int                          
-                                                ,@ObjIDs = @ObjIDs                    -- nvarchar(max)
-                                                ,@Update_IDOut = @Update_IDOut OUTPUT -- int
-                                                ,@ProcessBatch_ID = @ProcessBatch_id; -- int
-
-                    SET @Params = N'@ObjectVersion int output,@Objid int';
-                    SET @Sql
-                        = N' SELECT @ObjectVersion=MFVersion from ' + QUOTENAME(@MFTableName)
-                          + ' where objid = @ObjID;';
-
-                    --           PRINT @Sql;
-                    EXEC [sys].[sp_executesql] @Sql, @Params, @ObjectVersion OUTPUT, @Objid;
+                    EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName, -- nvarchar(200)
+                        @UpdateMethod = 0,                                -- int                          
+                        @ObjIDs = @ObjIDs,                                -- nvarchar(max)
+                        @Update_IDOut = @Update_IDOut OUTPUT,             -- int
+                        @ProcessBatch_ID = @ProcessBatch_id;              -- int
                 END;
 
+                SET @ProcedureStep = 'Get Objid details';
+
+                DECLARE @CreateColumn   NVARCHAR(100),
+                    @LastModifiedColumn NVARCHAR(100),
+                    @CreateDate         DATETIME,
+                    @lastModified       DATETIME;
+
+                SELECT @CreateColumn = ColumnName
+                FROM dbo.MFProperty
+                WHERE MFID = 20;
+
+                SELECT @LastModifiedColumn = ColumnName
+                FROM dbo.MFProperty
+                WHERE MFID = 21;
+
+                -- int
+                SET @Params
+                    = N'@Objid int,@ObjectVersion int output, @CreateDate datetime output, @lastModified datetime output';
+                SET @Sql
+                    = N' SELECT @ObjectVersion = MFVersion, @CreateDate = ' + QUOTENAME(@CreateColumn)
+                      + N'
+                        , @lastModified = ' + QUOTENAME(@LastModifiedColumn) + N' from ' + QUOTENAME(@MFTableName)
+                      + N' where objid = @Objid;';
+
+                --                            PRINT @Sql;
+                EXEC sys.sp_executesql @Sql,
+                    @Params,
+                    @Objid,
+                    @ObjectVersion OUTPUT,
+                    @CreateDate OUTPUT,
+                    @lastModified OUTPUT;
+
                 IF @Debug > 0
-                    SELECT @Objid         AS [Objid]
-                          ,@ObjIDs        AS [Objids]
-                          ,@ObjectVersion AS [Version];
+                    SELECT @Objid      AS Objid,
+                        @ObjIDs        AS Objids,
+                        @ObjectVersion AS Version,
+                        @CreateDate    AS CreateDate,
+                        @lastModified  AS LastModified;
 
                 -----------------------------------------------------
                 --Creating the xml 
@@ -398,14 +411,14 @@ BEGIN
 
                 DECLARE @ColumnValuePair TABLE
                 (
-                    [ColunmName] NVARCHAR(200)
-                   ,[ColumnValue] NVARCHAR(4000)
-                   ,[Required] BIT ---Added for checking Required property for table
+                    ColunmName NVARCHAR(200),
+                    ColumnValue NVARCHAR(4000),
+                    Required BIT ---Added for checking Required property for table
                 );
 
-                DECLARE @TableWhereClause VARCHAR(1000)
-                       ,@tempTableName    VARCHAR(1000)
-                       ,@XMLFile          XML;
+                DECLARE @TableWhereClause VARCHAR(1000),
+                    @tempTableName        VARCHAR(1000),
+                    @XMLFile              XML;
 
                 SET @TableWhereClause = 'y.ID = ' + CAST(@SQLID AS VARCHAR(20));
                 --+'  
@@ -421,21 +434,21 @@ BEGIN
                 SELECT @Query
                     = STUFF(
                       (
-                          SELECT ' UNION ' + 'SELECT ''' + [COLUMN_NAME] + ''' as name, CONVERT(VARCHAR(max),['
-                                 + [COLUMN_NAME] + ']) as value, 0  as Required FROM [' + @MFTableName + '] y'
+                          SELECT ' UNION ' + 'SELECT ''' + COLUMN_NAME + ''' as name, CONVERT(VARCHAR(max),['
+                                 + COLUMN_NAME + ']) as value, 0  as Required FROM [' + @MFTableName + '] y'
                                  + ISNULL('  WHERE ' + @TableWhereClause, '')
-                          FROM [INFORMATION_SCHEMA].[COLUMNS]
-                          WHERE [TABLE_NAME] = @MFTableName
+                          FROM INFORMATION_SCHEMA.COLUMNS
+                          WHERE TABLE_NAME = @MFTableName
                           FOR XML PATH('')
-                      )
-                     ,1
-                     ,7
-                     ,''
+                      ),
+                               1,
+                               7,
+                               ''
                            );
 
                 --IF @Debug > 0
                 --    PRINT @Query;
-                SET @DebugText = '';
+                SET @DebugText = N'';
                 SET @DebugText = @DefaultDebugText + @DebugText;
 
                 IF @Debug > 0
@@ -450,16 +463,16 @@ BEGIN
 
                 DECLARE @ExcludeList AS TABLE
                 (
-                    [ColumnName] VARCHAR(100)
+                    ColumnName VARCHAR(100)
                 );
 
                 INSERT INTO @ExcludeList
                 (
-                    [ColumnName]
+                    ColumnName
                 )
-                SELECT [mp].[ColumnName]
-                FROM [dbo].[MFProperty] AS [mp]
-                WHERE [mp].[MFID] IN ( 20, 21, 23, 25 );
+                SELECT mp.ColumnName
+                FROM dbo.MFProperty AS mp
+                WHERE mp.MFID IN ( 21, 23, 25, 27 );
 
                 -----------------------------------------------------
                 --Insert to values INTo temp table
@@ -474,7 +487,7 @@ BEGIN
                 INSERT INTO @ColumnValuePair
                 EXEC (@Query);
 
-                SET @DebugText = '';
+                SET @DebugText = N'';
                 SET @DebugText = @DefaultDebugText + @DebugText;
 
                 IF @Debug > 0
@@ -482,17 +495,18 @@ BEGIN
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
 
                     SELECT *
-                    FROM @ColumnValuePair AS [cvp];
+                    FROM @ColumnValuePair AS cvp;
                 END;
 
                 SET @ProcedureStep = 'Remove exclusions';
 
                 DELETE FROM @ColumnValuePair
-                WHERE [ColunmName] IN (
-                                          SELECT [el].[ColumnName] FROM @ExcludeList AS [el]
-                                      );
+                WHERE ColunmName IN
+                      (
+                          SELECT el.ColumnName FROM @ExcludeList AS el
+                      );
 
-                SET @DebugText = '';
+                SET @DebugText = N'';
                 SET @DebugText = @DefaultDebugText + @DebugText;
 
                 IF @Debug > 0
@@ -500,50 +514,51 @@ BEGIN
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
-                --SELECT *
-                --FROM @ColumnValuePair;
-
                 ----------------------	 Add for checking Required property--------------------------------------------
                 SET @ProcedureStep = 'Check for required properties';
 
-                UPDATE [CVP]
-                SET [CVP].[Required] = [CP].[Required]
-                FROM @ColumnValuePair                  [CVP]
-                    INNER JOIN [dbo].[MFProperty]      [P]
-                        ON [CVP].[ColunmName] = [P].[ColumnName]
-                    INNER JOIN [dbo].[MFClassProperty] [CP]
-                        ON [P].[ID] = [CP].[MFProperty_ID]
-                    INNER JOIN [dbo].[MFClass]         [C]
-                        ON [CP].[MFClass_ID] = [C].[ID]
-                WHERE [C].[TableName] = @MFTableName;
+                UPDATE CVP
+                SET CVP.Required = CP.Required
+                FROM @ColumnValuePair              CVP
+                    INNER JOIN dbo.MFProperty      P
+                        ON CVP.ColunmName = P.ColumnName
+                    INNER JOIN dbo.MFClassProperty CP
+                        ON P.ID = CP.MFProperty_ID
+                    INNER JOIN dbo.MFClass         C
+                        ON CP.MFClass_ID = C.ID
+                WHERE C.TableName = @MFTableName;
 
                 UPDATE @ColumnValuePair
-                SET [ColumnValue] = 'ZZZ'
-                WHERE [Required] = 1
-                      AND [ColumnValue] IS NULL;
+                SET ColumnValue = 'ZZZ'
+                WHERE Required = 1
+                      AND ColumnValue IS NULL;
 
-                SET @DebugText = '';
+                SET @DebugText = N'';
                 SET @DebugText = @DefaultDebugText + @DebugText;
 
                 IF @Debug > 0
                 BEGIN
+                    SELECT *
+                    FROM @ColumnValuePair AS cvp;
+
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
                 ------------------	 Add for checking Required property------------------------------------
                 SET @ProcedureStep = 'Convert datatime';
 
-                --DELETE FROM @ColumnValuePair
-                --WHERE  ColumnValue IS NULL
-                UPDATE [cp]
-                SET [cp].[ColumnValue] = CONVERT(DATE, CAST([cp].[ColumnValue] AS NVARCHAR(100)))
-                FROM @ColumnValuePair                         AS [cp]
-                    INNER JOIN [INFORMATION_SCHEMA].[COLUMNS] AS [c]
-                        ON [c].[COLUMN_NAME] = [cp].[ColunmName]
-                WHERE [c].[DATA_TYPE] = 'datetime'
-                      AND [cp].[ColumnValue] IS NOT NULL;
+                DELETE FROM @ColumnValuePair
+                WHERE ColumnValue IS NULL;
 
-                SET @DebugText = '';
+                UPDATE cp
+                SET cp.ColumnValue = CONVERT(DATETIME, CAST(cp.ColumnValue AS NVARCHAR(100)))
+                FROM @ColumnValuePair                     AS cp
+                    INNER JOIN INFORMATION_SCHEMA.COLUMNS AS c
+                        ON c.COLUMN_NAME = cp.ColunmName
+                WHERE c.DATA_TYPE = 'datetime'
+                      AND cp.ColumnValue IS NOT NULL;
+
+                SET @DebugText = N'';
                 SET @DebugText = @DefaultDebugText + @DebugText;
 
                 --           SELECT @Objid AS [ObjID];
@@ -560,61 +575,59 @@ BEGIN
                 --FROM @ColumnValuePair;
                 SET @XMLFile =
                 (
-                    SELECT @ObjectTypeID  AS [Object/@id]
-                          ,@SQLID         AS [Object/@sqlID]
-                          ,@Objid         AS [Object/@objID]
-                          ,@ObjectVersion AS [Object/@objVesrion]
-                          ,0              AS [Object/@DisplayID]
-                          ,(
-                               SELECT
-                                   (
-                                       SELECT TOP 1
-                                              [tmp].[ColumnValue]
-                                       FROM @ColumnValuePair             AS [tmp]
-                                           INNER JOIN [dbo].[MFProperty] AS [mfp]
-                                               ON [mfp].[ColumnName] = [tmp].[ColunmName]
-                                       WHERE [mfp].[MFID] = 100
-                                   ) AS [class/@id]
-                                  ,(
-                                       SELECT [mfp].[MFID] AS [property/@id]
-                                             ,(
-                                                  SELECT [MFTypeID]
-                                                  FROM [dbo].[MFDataType]
-                                                  WHERE [ID] = [mfp].[MFDataType_ID]
-                                              )            AS [property/@dataType]
-                                             ,CASE
-                                                  WHEN [tmp].[ColumnValue] = 'ZZZ' THEN
-                                                      NULL
-                                                  ELSE
-                                                      [tmp].[ColumnValue]
-                                              END          AS 'property' ----Added case statement for checking Required property
-                                       FROM @ColumnValuePair             AS [tmp]
-                                           INNER JOIN [dbo].[MFProperty] AS [mfp]
-                                               ON [mfp].[ColumnName] = [tmp].[ColunmName]
-                                       WHERE [mfp].[MFID] <> 100
-                                             AND [tmp].[ColumnValue] IS NOT NULL --- excluding duplicate class and [tmp].[ColumnValue] is not null added for task 1103
-                                       FOR XML PATH(''), TYPE
-                                   ) AS [class]
-                               FOR XML PATH(''), TYPE
-                           )              AS [Object]
+                    SELECT @ObjectTypeID AS [Object/@id],
+                        @SQLID           AS [Object/@sqlID],
+                        @Objid           AS [Object/@objID],
+                        @ObjectVersion   AS [Object/@objVesrion],
+                        0                AS [Object/@DisplayID],
+                        (
+                            SELECT
+                                (
+                                    SELECT TOP 1
+                                        tmp.ColumnValue
+                                    FROM @ColumnValuePair         AS tmp
+                                        INNER JOIN dbo.MFProperty AS mfp
+                                            ON mfp.ColumnName = tmp.ColunmName
+                                    WHERE mfp.MFID = 100
+                                ) AS [class/@id],
+                                (
+                                    SELECT mfp.MFID AS [property/@id],
+                                        (
+                                            SELECT MFTypeID FROM dbo.MFDataType WHERE ID = mfp.MFDataType_ID
+                                        )           AS [property/@dataType],
+                                        CASE
+                                            WHEN tmp.ColumnValue = 'ZZZ' THEN
+                                                NULL
+                                            ELSE
+                                                tmp.ColumnValue
+                                        END         AS 'property' ----Added case statement for checking Required property
+                                    FROM @ColumnValuePair         AS tmp
+                                        INNER JOIN dbo.MFProperty AS mfp
+                                            ON mfp.ColumnName = tmp.ColunmName
+                                    WHERE mfp.MFID <> 100
+                                          AND tmp.ColumnValue IS NOT NULL --- excluding duplicate class and [tmp].[ColumnValue] is not null added for task 1103
+                                    FOR XML PATH(''), TYPE
+                                ) AS class
+                            FOR XML PATH(''), TYPE
+                        )                AS Object
                     FOR XML PATH(''), ROOT('form')
                 );
                 SET @XMLFile =
                 (
-                    SELECT @XMLFile.[query]('/form/*')
+                    SELECT @XMLFile.query('/form/*')
                 );
-                SET @DebugText = '';
+                SET @DebugText = N'';
                 SET @DebugText = @DefaultDebugText + @DebugText;
 
                 IF @Debug > 0
                 BEGIN
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
 
-                    SELECT @XMLFile AS [XMLFile];
+                    SELECT @XMLFile AS XMLFile;
                 END;
 
                 SET @ProcedureStep = 'Prepare XML out';
-                SET @Sql = '';
+                SET @Sql = N'';
                 ;
                 /*
                 --SELECT @XML = CAST(@XMLOut AS NVARCHAR(MAX));
@@ -628,63 +641,67 @@ BEGIN
 
                 -- PRINT @XML;
 				*/
-                -------------------------------------------------------------
-                -- Set filedata for CLR to null - this is an explorer inpu routine
-                -------------------------------------------------------------
-                --           DECLARE @Data VARBINARY(MAX);
-
-                --          SELECT @Data = NULL;
 
                 -------------------------------------------------------------------
                 --Importing File into M-Files using Connector
                 -------------------------------------------------------------------
                 SET @ProcedureStep = 'Importing file';
 
-                DECLARE @XMLStr   NVARCHAR(MAX)
-                       ,@Result   NVARCHAR(MAX)
-                       ,@ErrorMsg NVARCHAR(MAX);
+                DECLARE @XMLStr NVARCHAR(MAX),
+                    @Result     NVARCHAR(MAX),
+                    @ErrorMsg   NVARCHAR(MAX);
 
-                SET @XMLStr = '<form>' + CAST(@XMLFile AS NVARCHAR(MAX)) + '</form>';
-                SET @DebugText = '';
+                SET @XMLStr = N'<form>' + CAST(@XMLFile AS NVARCHAR(MAX)) + N'</form>';
+                SET @DebugText = N'';
                 SET @DebugText = @DefaultDebugText + @DebugText;
 
                 IF @Debug > 0
                 BEGIN
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
 
-                    SELECT @FileName AS [filename];
+                    SELECT @FileName AS filename;
 
                     --              SELECT CAST(@XML AS XML) AS '@XML Length';
                     SELECT @XMLStr AS '@XMLStr';
 
-                    SELECT @FileLocation AS [filelocation];
+                    SELECT @FileLocation AS filelocation;
                 END;
 
-                EXEC [dbo].[spMFSynchronizeFileToMFilesInternal] @VaultSettings
-                                                                ,@FileName
-                                                                ,@XMLStr
-                                                                ,@FileLocation
-                                                                ,@Result OUT
-                                                                ,@ErrorMsg OUT
-                                                                ,@IsFileDelete;
+                EXEC dbo.spMFSynchronizeFileToMFilesInternal @VaultSettings,
+                    @FileName,
+                    @XMLStr,
+                    @FileLocation,
+                    @Result OUT,
+                    @ErrorMsg OUT,
+                    @IsFileDelete;
 
                 IF @Debug > 0
                 BEGIN
-                    SELECT CAST(@Result AS XML) AS [Result];
+                    SELECT CAST(@Result AS XML) AS Result;
 
-                    SELECT @ErrorMsg AS [errormsg];
+                    SELECT LEN(@ErrorMsg) AS errorlength,
+                        @ErrorMsg         AS errormsg;
                 END;
 
                 -------------------------------------------------------------
                 -- Set error message
                 -------------------------------------------------------------
-                IF @ErrorMsg <> ''
                 BEGIN
-                    SELECT @Start = CHARINDEX(@SearchTerm, @ErrorMsg, 1) + LEN(@SearchTerm);
+                    SELECT @Start = CASE
+                                        WHEN CHARINDEX(@SearchTerm, @ErrorMsg, 1) > 0 THEN
+                                            CHARINDEX(@SearchTerm, @ErrorMsg, 1) + LEN(@SearchTerm)
+                                        ELSE
+                                            1
+                                    END;
 
-                    SELECT @End = CHARINDEX(@SearchTerm, @ErrorMsg, @Start);
+                    SELECT @End = CASE
+                                      WHEN CHARINDEX(@SearchTerm, @ErrorMsg, @Start) < 50 THEN
+                                          50
+                                      ELSE
+                                          CHARINDEX(@SearchTerm, @ErrorMsg, @Start)
+                                  END;
 
-                    SELECT @length = @End - @Start;
+                    SELECT @length = ISNULL(@End, 50) - ISNULL(@Start, 1);
 
                     SELECT @ErrorMsg = SUBSTRING(@ErrorMsg, @Start, @length);
                 END;
@@ -692,7 +709,7 @@ BEGIN
                 -------------------------------------------------------------
                 -- update log
                 -------------------------------------------------------------
-                SET @DebugText = '';
+                SET @DebugText = N'';
                 SET @DebugText = @DefaultDebugText + @DebugText;
                 SET @ProcedureStep = 'Insert result in MFFileImport table';
 
@@ -705,114 +722,137 @@ BEGIN
 
                 SET @ResultXml = CAST(@Result AS XML);
 
-                CREATE TABLE [#TempFileDetails]
+                CREATE TABLE #TempFileDetails
                 (
-                    [FileName] NVARCHAR(200)
-                   ,[FileUniqueRef] VARCHAR(100)
-                   ,[MFCreated] DATETIME
-                   ,[MFLastModified] DATETIME
-                   ,[ObjID] INT
-                   ,[ObjVer] INT
-                   ,[FileObjectID] INT
-                   ,[FileCheckSum] NVARCHAR(MAX)
-                   ,[ImportError] NVARCHAR(4000)
+                    FileName NVARCHAR(200),
+                    FileUniqueRef VARCHAR(100),
+                    MFCreated VARCHAR(100),
+                    MFLastModified VARCHAR(100),
+                    ObjID INT,
+                    ObjVer INT,
+                    FileObjectID INT,
+                    FileCheckSum NVARCHAR(MAX),
+                    ImportError NVARCHAR(4000)
                 );
 
-                INSERT INTO [#TempFileDetails]
+                INSERT INTO #TempFileDetails
                 (
-                    [FileName]
-                   ,[FileUniqueRef]
-                   ,[MFCreated]
-                   ,[MFLastModified]
-                   ,[ObjID]
-                   ,[ObjVer]
-                   ,[FileObjectID]
-                   ,[FileCheckSum]
-                   ,[ImportError]
+                    FileName,
+                    FileUniqueRef,
+                    MFCreated,
+                    MFLastModified,
+                    ObjID,
+                    ObjVer,
+                    FileObjectID,
+                    FileCheckSum,
+                    ImportError
                 )
-                SELECT [t].[c].[value]('(@FileName)[1]', 'NVARCHAR(200)')     AS [FileName]
-                      ,COALESCE(@FileLocation, NULL)
-                      --          ,[t].[c].[value]('(@FileUniqueRef)[1]', 'VARCHAR(100)') AS [FileUniqueRef]
-                      ,[t].[c].[value]('(@MFCreated)[1]', 'DATETIME')         AS [MFCreated]
-                      ,[t].[c].[value]('(@MFLastModified)[1]', 'DATETIME')    AS [MFLastModified]
-                      ,[t].[c].[value]('(@ObjID)[1]', 'INT')                  AS [ObjID]
-                      ,[t].[c].[value]('(@ObjVer)[1]', 'INT')                 AS [ObjVer]
-                      ,[t].[c].[value]('(@FileObjectID)[1]', 'INT')           AS [FileObjectID]
-                      ,[t].[c].[value]('(@FileCheckSum)[1]', 'NVARCHAR(MAX)') AS [FileCheckSum]
-                      ,CASE
-                           WHEN @ErrorMsg = '' THEN
-                               'Success'
-                           ELSE
-                               @ErrorMsg
-                       END                                                    AS [ImportError]
-                FROM @ResultXml.[nodes]('/form/Object') AS [t]([c]);
+                SELECT t.c.value('(@FileName)[1]', 'NVARCHAR(200)')   AS FileName,
+                    COALESCE(@FileLocation, NULL),
+                    --          ,[t].[c].[value]('(@FileUniqueRef)[1]', 'VARCHAR(100)') AS [FileUniqueRef]
+                    t.c.value('(@MFCreated)[1]', 'VARCHAR(100)')      AS MFCreated,
+                    t.c.value('(@MFLastModified)[1]', 'VARCHAR(100)') AS MFLastModified,
+                    t.c.value('(@ObjID)[1]', 'INT')                   AS ObjID,
+                    t.c.value('(@ObjVer)[1]', 'INT')                  AS ObjVer,
+                    t.c.value('(@FileObjectID)[1]', 'INT')            AS FileObjectID,
+                    t.c.value('(@FileCheckSum)[1]', 'NVARCHAR(MAX)')  AS FileCheckSum,
+                    CASE
+                        WHEN LEN(@ErrorMsg) = 0 THEN
+                            'Success'
+                        ELSE
+                            @ErrorMsg
+                    END                                               AS ImportError
+                FROM @ResultXml.nodes('/form/Object') AS t(c);
 
-			
+                -------------------------------------------------------------
+                -- when file already exist, get column details from input XML
+                -------------------------------------------------------------
+                SET @ProcedureStep = 'Set details if file exist';
 
-				Update #TempFileDetails set ImportError='File Already Exists' where ObjID=0
+                UPDATE #TempFileDetails
+                SET ObjID = @Objid,
+                    ObjVer = @ObjectVersion,
+                    MFCreated = @CreateDate,
+                    MFLastModified = @lastModified,
+                    ImportError = 'Filename Already Exists in object'
+                WHERE ObjID = 0;
 
                 IF @Debug > 0
                     SELECT *
-                    FROM [#TempFileDetails] AS [tfd]
-                    WHERE [tfd].[ObjID] = @Objid;
+                    FROM #TempFileDetails AS tfd
+                    WHERE tfd.ObjID = @Objid;
+
+                SET @ProcedureStep = 'Update / insert record in MFFileImport';
 
                 IF EXISTS
                 (
                     SELECT TOP 1
-                           *
-                    FROM [dbo].[MFFileImport]
-                    WHERE [ObjID] = @Objid
-                          AND [TargetClassID] = @TargetClassMFID
-                          AND [FileName] = @FileName
-                          AND [FileUniqueRef] = @FileLocation
+                        *
+                    FROM dbo.MFFileImport
+                    WHERE ObjID = @Objid
+                          AND TargetClassID = @TargetClassMFID
+                          AND FileName = @FileName
+                          AND FileUniqueRef = @FileLocation
                 )
                 BEGIN
-                    UPDATE [FI]
-                    SET [FI].[MFCreated] =case when [FD].[MFCreated] ='1900-01-01 00:00:00.000' then Null else [FD].[MFCreated] end  
-                       ,[FI].[MFLastModified] = case when [FD].[MFLastModified] ='1900-01-01 00:00:00.000' then Null else [FD].[MFLastModified] end
-                       ,[FI].[ObjID] = [FD].[ObjID]
-                       ,[FI].[Version] = [FD].[ObjVer]
-                       ,[FI].[FileObjectID] = [FD].[FileObjectID]
-                       ,[FI].[FileCheckSum] = [FD].[FileCheckSum]
-                       ,[FI].[ImportError] = [FD].[ImportError]
-                    FROM [dbo].[MFFileImport]         [FI]
-                        INNER JOIN [#TempFileDetails] [FD]
-                            ON [FI].[FileUniqueRef] = [FD].[FileUniqueRef]
-                               AND [FD].[FileName] = [FI].[FileName];
-                END;
-                ELSE
-                BEGIN
-                    INSERT INTO [dbo].[MFFileImport]
-                    (
-                        [FileName]
-                       ,[FileUniqueRef]
-                       ,[CreatedOn]
-                       ,[SourceName]
-                       ,[TargetClassID]
-                       ,[MFCreated]
-                       ,[MFLastModified]
-                       ,[ObjID]
-                       ,[Version]
-                       ,[FileObjectID]
-                       ,[FileCheckSum]
-                       ,[ImportError]
-                    )
-                    SELECT [FileName]
-                          ,[FileUniqueRef]
-                          ,GETDATE()
-                          ,@MFTableName
-                          ,@TargetClassMFID
-                          ,case when [MFCreated] ='1900-01-01 00:00:00.000' then Null else [MFCreated] end 
-                          ,case when [MFLastModified] ='1900-01-01 00:00:00.000' then Null else [MFLastModified] end 
-                          ,[ObjID]
-                          ,[ObjVer]
-                          ,[FileObjectID]
-                          ,[FileCheckSum]
-                          ,[ImportError]
-                    FROM [#TempFileDetails];
+                    UPDATE FI
+                    SET FI.MFCreated = CONVERT(DATETIME, FD.MFCreated, 105),
+                        FI.MFLastModified = CONVERT(DATETIME, FD.MFLastModified, 105),
+                        FI.ObjID = FD.ObjID,
+                        FI.Version = FD.ObjVer,
+                        FI.FileObjectID = FD.FileObjectID,
+                        FI.FileCheckSum = FD.FileCheckSum,
+                        FI.ImportError = FD.ImportError
+                    FROM dbo.MFFileImport           FI
+                        INNER JOIN #TempFileDetails FD
+                            ON FI.FileUniqueRef = FD.FileUniqueRef
+                               AND FD.FileName = FI.FileName;
                 END;
 
-                DROP TABLE [#TempFileDetails];
+                
+                ELSE
+                BEGIN
+                    INSERT INTO dbo.MFFileImport
+                    (
+                        FileName,
+                        FileUniqueRef,
+                        CreatedOn,
+                        SourceName,
+                        TargetClassID,
+                        MFCreated,
+                        MFLastModified,
+                        ObjID,
+                        Version,
+                        FileObjectID,
+                        FileCheckSum,
+                        ImportError
+                    )
+                    SELECT FileName,
+                        FileUniqueRef,
+                        GETDATE(),
+                        @MFTableName,
+                        @TargetClassMFID,
+                        CASE
+                            WHEN MFCreated = '1900-01-01 00:00:00.000' THEN
+                                NULL
+                            ELSE
+                                CONVERT(DATETIME, MFCreated, 105)
+                        END,
+                        CASE
+                            WHEN MFLastModified = '1900-01-01 00:00:00.000' THEN
+                                NULL
+                            ELSE
+                                CONVERT(DATETIME, MFLastModified, 105)
+                        END,
+                        ObjID,
+                        ObjVer,
+                        FileObjectID,
+                        FileCheckSum,
+                        ImportError
+                    FROM #TempFileDetails;
+                END;
+                
+                DROP TABLE #TempFileDetails;
 
                 IF
                 (
@@ -820,26 +860,27 @@ BEGIN
                 ) IS NOT NULL
                     EXEC ('Drop table ' + @TempFile);
 
-                SET @Sql = ' Synchronizing records  from M-files to the target ' + @MFTableName;
+                SET @ProcedureStep = 'update from M-Files';
+                SET @Sql = N' Synchronizing records  from M-files to the target ' + @MFTableName;
 
-                EXECUTE @return_value = [dbo].[spMFProcessBatchDetail_Insert] @ProcessBatch_ID = @ProcessBatch_id
-                                                                             ,@LogType = @LogTypeDetail
-                                                                             ,@LogText = @LogTextDetail
-                                                                             ,@LogStatus = @LogStatusDetail
-                                                                             ,@StartTime = @StartTime
-                                                                             ,@MFTableName = @MFTableName
-                                                                             ,@Validation_ID = @Validation_ID
-                                                                             ,@ColumnName = @LogColumnName
-                                                                             ,@ColumnValue = @LogColumnValue
-                                                                             ,@Update_ID = @Update_ID
-                                                                             ,@LogProcedureName = @ProcedureName
-                                                                             ,@LogProcedureStep = @ProcedureStep
-                                                                             ,@debug = 0;
+                EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_id,
+                    @LogType = @LogTypeDetail,
+                    @LogText = @LogTextDetail,
+                    @LogStatus = @LogStatusDetail,
+                    @StartTime = @StartTime,
+                    @MFTableName = @MFTableName,
+                    @Validation_ID = @Validation_ID,
+                    @ColumnName = @LogColumnName,
+                    @ColumnValue = @LogColumnValue,
+                    @Update_ID = @Update_ID,
+                    @LogProcedureName = @ProcedureName,
+                    @LogProcedureStep = @ProcedureStep,
+                    @debug = 0;
 
                 -------------------------------------------------------------------
                 --Synchronizing target table from M-Files
                 -------------------------------------------------------------------
-                SET @DebugText = '';
+                SET @DebugText = N'';
                 SET @DebugText = @DefaultDebugText + @DebugText;
                 SET @ProcedureStep = 'Synchronizing target table from M-Files';
 
@@ -854,25 +895,16 @@ BEGIN
 
                 ----           PRINT @Sql;
                 --EXEC (@Sql);
-                DECLARE @Return_LastModified DATETIME;
-
-            DECLARE @MFLastUpdateDate SMALLDATETIME
-                 
-            EXEC dbo.spMFUpdateMFilesToMFSQL @MFTableName = @MFTableName,                           -- nvarchar(128)
-                                             @MFLastUpdateDate = @MFLastUpdateDate OUTPUT, -- smalldatetime
-                                             @UpdateTypeID = 1,                            -- tinyint
-                                             @MaxObjects = 0,                              -- int
-                                             @Update_IDOut = @Update_IDOut OUTPUT,         -- int
-                                             @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,   -- int
-                                             @debug = 0                                    -- tinyint
-            
-
-
+                EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName,
+                    @UpdateMethod = 1,
+                    @ObjIDs = @ObjIDs,
+                    @Update_IDOut = @Update_IDOut OUTPUT,
+                    @ProcessBatch_ID = @ProcessBatch_id OUTPUT;
             END;
         END;
         ELSE
         BEGIN
-            SET @DebugText = 'Target Table ' + @MFTableName + ' does not belong to MFClass table';
+            SET @DebugText = N'Target Table ' + @MFTableName + N' does not belong to MFClass table';
             SET @DebugText = @DefaultDebugText + @DebugText;
 
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
@@ -880,23 +912,32 @@ BEGIN
     END TRY
     BEGIN CATCH
         SET @StartTime = GETUTCDATE();
-        SET @LogStatus = 'Failed w/SQL Error';
+        SET @LogStatus = N'Failed w/SQL Error';
         SET @LogTextDetail = ERROR_MESSAGE();
-		SET @ErrorMsg = ERROR_MESSAGE();
+        SET @ErrorMsg = ERROR_MESSAGE();
 
-		         -------------------------------------------------------------
-                -- Set error message
-                -------------------------------------------------------------
-                IF @ErrorMsg <> ''
-                BEGIN
-                    SELECT @Start = CHARINDEX(@SearchTerm, @ErrorMsg, 1) + LEN(@SearchTerm);
+        -------------------------------------------------------------
+        -- Set error message
+        -------------------------------------------------------------
+        BEGIN
+            SELECT @Start = CASE
+                                WHEN CHARINDEX(@SearchTerm, @ErrorMsg, 1) > 0 THEN
+                                    CHARINDEX(@SearchTerm, @ErrorMsg, 1) + LEN(@SearchTerm)
+                                ELSE
+                                    1
+                            END;
 
-                    SELECT @End = CHARINDEX(@SearchTerm, @ErrorMsg, @Start);
+            SELECT @End = CASE
+                              WHEN CHARINDEX(@SearchTerm, @ErrorMsg, @Start) < 50 THEN
+                                  50
+                              ELSE
+                                  CHARINDEX(@SearchTerm, @ErrorMsg, @Start)
+                          END;
 
-                    SELECT @length = @End - @Start;
+            SELECT @length = @End - @Start;
 
-                    SELECT @ErrorMsg = SUBSTRING(@ErrorMsg, ISNULL(@Start,1), ISNULL(@length,1));
-                END;
+            SELECT @ErrorMsg = SUBSTRING(@ErrorMsg, ISNULL(@Start, 1), ISNULL(@length, 1));
+        END;
 
         -------------------------------------------------------------
         -- update error in table
@@ -904,96 +945,94 @@ BEGIN
         IF EXISTS
         (
             SELECT TOP 1
-                   *
-            FROM [dbo].[MFFileImport]
-            WHERE [FileUniqueRef] = @FileID
-                  AND [TargetClassID] = @TargetClassMFID
+                *
+            FROM dbo.MFFileImport
+            WHERE FileUniqueRef = @FileID
+                  AND TargetClassID = @TargetClassMFID
         )
         BEGIN
-            UPDATE [FI]
-            SET [FI].[FileName] = @FileName
-               ,[FI].[FileUniqueRef] = @FileLocation
-               ,[FI].[MFCreated] = [FI].[MFCreated]
-               ,[FI].[MFLastModified] = GETDATE()
-               ,[FI].[ObjID] = @Objid
-               ,[FI].[Version] = @ObjectVersion
-               ,[FI].[FileObjectID] = NULL
-               ,[FI].[FileCheckSum] = NULL
-               ,[FI].[ImportError] =  @ErrorMsg
-            FROM [dbo].[MFFileImport] [FI]
-            WHERE [FI].[ObjID] = @Objid
-                  AND [FI].[FileName] = @FileName
-				  AND [FI].[FileUniqueRef] = @FileLocation;
+            UPDATE FI
+            SET FI.FileName = @FileName,
+                FI.FileUniqueRef = @FileLocation,
+                FI.MFCreated = FI.MFCreated,
+                FI.MFLastModified = GETDATE(),
+                FI.ObjID = @Objid,
+                FI.Version = @ObjectVersion,
+                FI.FileObjectID = NULL,
+                FI.FileCheckSum = NULL,
+                FI.ImportError = @ErrorMsg
+            FROM dbo.MFFileImport FI
+            WHERE FI.ObjID = @Objid
+                  AND FI.FileName = @FileName
+                  AND FI.FileUniqueRef = @FileLocation;
         --INNER JOIN [#TempFileDetails] [FD]
         --    ON [FI].[FileUniqueRef] = [FD].[FileUniqueRef];
         END;
         ELSE
         BEGIN
-            INSERT INTO [dbo].[MFFileImport]
+            INSERT INTO dbo.MFFileImport
             (
-                [FileName]
-               ,[FileUniqueRef]
-               ,[CreatedOn]
-               ,[SourceName]
-               ,[TargetClassID]
-               ,[MFCreated]
-               ,[MFLastModified]
-               ,[ObjID]
-               ,[ImportError]
+                FileName,
+                FileUniqueRef,
+                CreatedOn,
+                SourceName,
+                TargetClassID,
+                MFCreated,
+                MFLastModified,
+                ObjID,
+                ImportError
             )
             VALUES
-            (@FileName, @FileLocation, GETDATE(), @MFTableName, @TargetClassMFID, NULL, NULL, @Objid
-            ,@ErrorMsg);
+            (@FileName, @FileLocation, GETDATE(), @MFTableName, @TargetClassMFID, NULL, NULL, @Objid, @ErrorMsg);
         END;
-/*
+
         --------------------------------------------------
         -- INSERTING ERROR DETAILS INTO LOG TABLE
         --------------------------------------------------
-        INSERT INTO [dbo].[MFLog]
+        INSERT INTO dbo.MFLog
         (
-            [SPName]
-           ,[ErrorNumber]
-           ,[ErrorMessage]
-           ,[ErrorProcedure]
-           ,[ErrorState]
-           ,[ErrorSeverity]
-           ,[ErrorLine]
-           ,[ProcedureStep]
+            SPName,
+            ErrorNumber,
+            ErrorMessage,
+            ErrorProcedure,
+            ErrorState,
+            ErrorSeverity,
+            ErrorLine,
+            ProcedureStep
         )
         VALUES
-        (@ProcedureName, ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), ERROR_STATE(), ERROR_SEVERITY()
-        ,ERROR_LINE(), @ProcedureStep);
+        (@ProcedureName, ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), ERROR_STATE(), ERROR_SEVERITY(),
+            ERROR_LINE(), @ProcedureStep);
 
         SET @ProcedureStep = 'Catch Error';
 
         -------------------------------------------------------------
         -- Log Error
         -------------------------------------------------------------   
-        EXEC [dbo].[spMFProcessBatch_Upsert] @ProcessBatch_ID = @ProcessBatch_id OUTPUT
-                                            ,@ProcessType = @ProcessType
-                                            ,@LogType = N'Error'
-                                            ,@LogText = @LogTextDetail
-                                            ,@LogStatus = @LogStatus
-                                            ,@debug = 0;
+        EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_id OUTPUT,
+            @ProcessType = @ProcessType,
+            @LogType = N'Error',
+            @LogText = @LogTextDetail,
+            @LogStatus = @LogStatus,
+            @debug = 0;
 
         SET @StartTime = GETUTCDATE();
 
-        EXEC [dbo].[spMFProcessBatchDetail_Insert] @ProcessBatch_ID = @ProcessBatch_id
-                                                  ,@LogType = N'Error'
-                                                  ,@LogText = @LogTextDetail
-                                                  ,@LogStatus = @LogStatus
-                                                  ,@StartTime = @StartTime
-                                                  ,@MFTableName = @MFTableName
-                                                  ,@Validation_ID = @Validation_ID
-                                                  ,@ColumnName = NULL
-                                                  ,@ColumnValue = NULL
-                                                  ,@Update_ID = @Update_ID
-                                                  ,@LogProcedureName = @ProcedureName
-                                                  ,@LogProcedureStep = @ProcedureStep
-                                                  ,@debug = 0;
-*/
+        EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_id,
+            @LogType = N'Error',
+            @LogText = @LogTextDetail,
+            @LogStatus = @LogStatus,
+            @StartTime = @StartTime,
+            @MFTableName = @MFTableName,
+            @Validation_ID = @Validation_ID,
+            @ColumnName = NULL,
+            @ColumnValue = NULL,
+            @Update_ID = @Update_ID,
+            @LogProcedureName = @ProcedureName,
+            @LogProcedureStep = @ProcedureStep,
+            @debug = 0;
+
         RETURN -1;
     END CATCH;
 END;
-
 GO

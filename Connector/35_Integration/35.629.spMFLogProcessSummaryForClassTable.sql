@@ -6,7 +6,7 @@ go
 SET NOCOUNT ON; 
 EXEC Setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
     @ObjectName = N'spMFLogProcessSummaryForClassTable', -- nvarchar(100)
-    @Object_Release = '3.1.4.41', -- varchar(50)
+    @Object_Release = '4.8.22.62', -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
 go
@@ -161,6 +161,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-08-22  LC         Update to include new deleted column
+2020-08-02  LC         Update spmfclasstablestats column name
 2019-08-30  JC         Added documentation
 ==========  =========  ========================================================
 
@@ -237,7 +239,14 @@ Date        Author     Description
     @SQLErrorCount_Process_ID_4  INT,
     @MFLogError_Count            INT,
     @ProcessType                 NVARCHAR(50),
-    @ClassName                   NVARCHAR(100);
+    @ClassName                   NVARCHAR(100),
+    @DeletedColumn              NVARCHAR(100);
+
+    -------------------------------------------------------------
+    -- get deleted column name
+    -------------------------------------------------------------
+    SELECT @DeletedColumn = ColumnName FROM mfproperty WHERE mfid = 27;
+
 
 		SELECT @LogStatusDetail = 'Completed'
 			,  @ProcessType = [ProcessType]	
@@ -266,7 +275,7 @@ Date        Author     Description
 		SET @sql = N'SELECT @Count = COUNT(*)
 						FROM   [dbo].' + QUOTENAME(@MFTableName) + '
 						WHERE  [Mfsql_Process_Batch] = @ProcessBatch_ID
-						AND [Deleted] = 1'
+						AND '+QUOTENAME(@DeletedColumn)+'is not null'
 
 		SET @sqlParam = '@ProcessBatch_ID INT,@Count INT OUTPUT'
 
@@ -280,7 +289,7 @@ Date        Author     Description
 						FROM   [dbo].' + QUOTENAME(@MFTableName) + '
 						WHERE  [Mfsql_Process_Batch] = @ProcessBatch_ID
 						AND [Process_ID] = 2
-						AND [Deleted] = 0'
+						AND '+QUOTENAME(@DeletedColumn)+'is null'
 
 		SET @sqlParam = '@ProcessBatch_ID INT,@Count INT OUTPUT'
 
@@ -295,7 +304,7 @@ Date        Author     Description
 						FROM   [dbo].' + QUOTENAME(@MFTableName) + '
 						WHERE  [Mfsql_Process_Batch] = @ProcessBatch_ID
 						AND [Process_ID] = 3
-						AND [Deleted] = 0'
+						AND '+QUOTENAME(@DeletedColumn)+'is null'
 
 		SET @sqlParam = '@ProcessBatch_ID INT,@Count INT OUTPUT'
 
@@ -309,7 +318,7 @@ Date        Author     Description
 						FROM   [dbo].' + QUOTENAME(@MFTableName) + '
 						WHERE  [Mfsql_Process_Batch] = @ProcessBatch_ID
 						AND [Process_ID] = 4
-						AND [Deleted] = 0'
+						AND '+QUOTENAME(@DeletedColumn)+'is null'
 
 		SET @sqlParam = '@ProcessBatch_ID INT,@Count INT OUTPUT'
 
@@ -324,7 +333,7 @@ Date        Author     Description
 						FROM   [dbo].' + QUOTENAME(@MFTableName) + ' [cl]
 						INNER JOIN [dbo].[MFLog] ON [cl].[Update_ID] = [MFLog].[Update_ID]
 						WHERE  [cl].[Mfsql_Process_Batch] = @ProcessBatch_ID
-						AND [cl].[Deleted] = 0'
+						AND cl.'+QUOTENAME(@DeletedColumn)+'is null'
 
 		SET @sqlParam = '@ProcessBatch_ID INT,@Count INT OUTPUT'
 
@@ -407,7 +416,7 @@ Date        Author     Description
 					  @SQLRecordCount = [s].[SQLRecordCount]
 					 , @MFRecordCount  = [s].[MFRecordCount]
 					 , @SyncError	   = [s].[SyncError]
-					 , @Process_ID_1   = [s].[Process_ID_1]
+					 , @Process_ID_1   = [s].[Process_ID_not_0]
 					 , @MFError		   = [s].[MFError]
 					 , @SQLError	   = [s].[SQLError]
 					 , @MFLastModified = [s].[MFLastModified]

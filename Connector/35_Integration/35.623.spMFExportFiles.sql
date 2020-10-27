@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo',
                                      @ObjectName = N'spMFExportFiles',
                                      -- nvarchar(100)
-                                     @Object_Release = '4.2.7.47',
+                                     @Object_Release = '4.8.22.62',
                                      -- varchar(50)
                                      @UpdateFlag = 2;
 -- smallint
@@ -148,6 +148,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-08-22  LC         Update code for deleted column change
+2020-05-26  LC         Update fileid into table
 2019-08-30  JC         Added documentation
 2018-12-03  LC         Bug 'String or binary data truncated' in file name
 2018-06-28  LC         Set return success = 1
@@ -218,6 +220,7 @@ BEGIN
         DECLARE @IsValidProperty_L2 BIT;
         DECLARE @IsValidProperty_L3 BIT;
         DECLARE @MultiDocFolder NVARCHAR(100);
+        DECLARE @DeletedColumn NVARCHAR(100);
 
         ----------------------------------------------------------------------
         --GET Vault LOGIN CREDENTIALS
@@ -238,6 +241,11 @@ BEGIN
 
         SELECT @VaultSettings = [dbo].[FnMFVaultSettings]();
 		
+-------------------------------------------------------------
+-- Get deleted column name
+-------------------------------------------------------------
+SELECT @DeletedColumn = ColumnName FROM MFProperty WHERE mfid = 27;
+
 
         SELECT @Rootfolder = CAST([Value] AS NVARCHAR(100))
         FROM [dbo].[MFSettings]
@@ -453,7 +461,7 @@ BEGIN
 
                 SET @vquery
                     = @vquery + ' from [' + @TableName + '] WHERE Process_ID = ' + @process_ID_text
-                      + '    AND Deleted = 0';
+                      + ' AND ' +QUOTENAME(@DeletedColumn)+' is null';
 
                 IF @Debug > 0
                     PRINT @vquery;
@@ -467,7 +475,7 @@ BEGIN
                     = 'SELECT ID,ObjID,MFVersion,isnull(Single_File,0) as Single_File,isnull('
                       + @Name_Or_Title_PropName
                       + ','''') as Name_Or_Title,'''' as PathProperty_L1, '''' as  PathProperty_L2, '''' as PathProperty_L3  from ['
-                      + @TableName + '] WHERE Process_ID = ' + @process_ID_text + '    AND Deleted = 0';
+                      + @TableName + '] WHERE Process_ID = ' + @process_ID_text + ' AND ' +QUOTENAME(@DeletedColumn)+' is null';
                 IF @Debug > 0
                     PRINT @vquery;
             END;
@@ -688,8 +696,11 @@ BEGIN
                        [t].[c].[value]('(@Version)[1]', 'INT') AS [Version],
                        [t].[c].[value]('(@FileCheckSum)[1]', 'nvarchar(1000)') AS [FileCheckSum],
                        [t].[c].[value]('(@FileCount)[1]', 'INT') AS [FileCount],
-					   [t].[c].[value]('(@FileObjecID)[1]','INT') as [FileObjectID]
+					   [t].[c].[value]('(@FileObjectID)[1]','INT') as [FileObjectID]
                 FROM @XmlOut.[nodes]('/Files/FileItem') AS [t]([c]);
+
+               IF @Debug > 0
+               SELECT * FROM #temp AS t;
 
 			
                 MERGE INTO [dbo].[MFExportFileHistory] [t]

@@ -206,13 +206,12 @@ BEGIN
         SET @ProcessStep = 'Insert existing Properties in temp table';
 
         UPDATE mp
-        SET mp.MFValueList_ID = mvl.ID
-        --SELECT mp.[MFValueList_ID] , mvl.[ID] , *
-        FROM dbo.MFValueList          AS mvl
-            INNER JOIN dbo.MFProperty AS mp
-                ON mp.Name = mvl.Name
-                   AND mp.MFDataType_ID IN ( 8, 9 )
-        WHERE mp.Name = mvl.Name;
+        SET mp.MFValueList_ID = CASE WHEN mp.MFDataType_ID IN ( 8, 9 ) then mvl.ID ELSE NULL end
+      --  SELECT mp.name, mvl.name , mp.*, mvl.*
+        FROM dbo.MFProperty AS mp   
+            left JOIN  dbo.MFValueList AS mvl
+                ON mp.MFValueList_ID = mvl.id
+                WHERE mp.MFValueList_ID = mvl.id
 
         IF @Debug > 0
             RAISERROR('%s : Step %s @Result_Value %i', 10, 1, @ProcedureName, @ProcessStep, @Result_Value);

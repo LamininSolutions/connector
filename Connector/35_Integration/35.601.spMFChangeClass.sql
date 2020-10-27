@@ -10,7 +10,7 @@ EXEC [Setup].[spMFSQLObjectsControl]
     @SchemaName = N'dbo'
   , @ObjectName = N'spMFChangeClass'
   ,-- nvarchar(100)
-    @Object_Release = '2.1.0.0'
+    @Object_Release = '4.8.22.62'
   ,-- varchar(50)
     @UpdateFlag = 2;
 	-- smallint
@@ -53,6 +53,8 @@ AS /****************************************************************************
 
    ** Date:  06-01-2017
 
+   2020-08-22 LC  Deleted column change
+
    ******************************************************************************/
       Begin
 	   
@@ -71,12 +73,15 @@ AS /****************************************************************************
 					   ,@DestClass_Name NVARCHAR(128)
 					   ,@ProcedureStep sysname = 'Start'
 					   ,@ObjID NVARCHAR(4000)
+                       ,@DeletedColumn NVARCHAR(100);
+
+                SELECT @DeletedColumn = ColumnName FROM MFProperty WHERE MFID = 27;
 					 
 
                 SET @ProcedureStep = 'Inserting Source table ObjID with Class_ID into Temp table';
 
 				SET @SqlQuery='insert into #TempChangeClass(ObjID,Class_ID)
-							   Select ObjID ,Class_ID from '+@MFTableName+' where Process_ID=1 and Deleted=0'
+							   Select ObjID ,Class_ID from '+@MFTableName+' where Process_ID=1 and '+QUOTENAME(@DeletedColumn)+' is null'
 
 				EXEC [sys].[sp_executesql] 
 				           @SqlQuery
@@ -133,7 +138,7 @@ AS /****************************************************************************
 
 				SET @SqlQuery ='Select @ObjID= COALESCE(@ObjID + '', '', '''') + cast(ObjID as nvarchar(20))from '
 				                + @MFTableName +
-							   ' where Process_ID=1 and deleted=0'
+							   ' where Process_ID=1 and '+QUOTENAME(@DeletedColumn)+' is null'
 
 				EXEC [sys].[sp_executesql] 
 				            @SqlQuery
@@ -142,7 +147,7 @@ AS /****************************************************************************
 
 
 				
-				SET @ProcedureStep = 'Marking moved records as Deleted=1 from in Souce table'+@MFTableName+' ;'
+				SET @ProcedureStep = 'remove deleted in Souce table'+@MFTableName+' ;'
 
 				Declare @ObjIDs Nvarchar(4000)
 				select @ObjIDs=@ObjID

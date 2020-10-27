@@ -3,19 +3,19 @@ GO
 
 SET NOCOUNT ON;
 
-EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
-                                    ,@ObjectName = N'spMFGetObjectvers' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.14.56'      -- varchar(50)
-                                    ,@UpdateFlag = 2;                   -- smallint
+EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
+    @ObjectName = N'spMFGetObjectvers', -- nvarchar(100)
+    @Object_Release = '4.8.22.62',      -- varchar(50)
+    @UpdateFlag = 2;                    -- smallint
 GO
 
 IF EXISTS
 (
     SELECT 1
-    FROM [INFORMATION_SCHEMA].[ROUTINES]
-    WHERE [ROUTINE_NAME] = 'spMFGetObjectvers' --name of procedure
-          AND [ROUTINE_TYPE] = 'PROCEDURE' --for a function --'FUNCTION'
-          AND [ROUTINE_SCHEMA] = 'dbo'
+    FROM INFORMATION_SCHEMA.ROUTINES
+    WHERE ROUTINE_NAME = 'spMFGetObjectvers' --name of procedure
+          AND ROUTINE_TYPE = 'PROCEDURE' --for a function --'FUNCTION'
+          AND ROUTINE_SCHEMA = 'dbo'
 )
 BEGIN
     PRINT SPACE(10) + '...Stored Procedure: update';
@@ -27,7 +27,7 @@ ELSE
 GO
 
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE [dbo].[spMFGetObjectvers]
+CREATE PROCEDURE dbo.spMFGetObjectvers
 AS
 SELECT 'created, but not implemented yet.'; --just anything will do
 GO
@@ -36,14 +36,14 @@ GO
 SET NOEXEC OFF;
 GO
 
-ALTER PROCEDURE [dbo].[spMFGetObjectvers]
+ALTER PROCEDURE dbo.spMFGetObjectvers
 (
-    @TableName NVARCHAR(100)
-   ,@dtModifiedDate DATETIME
-   ,@MFIDs NVARCHAR(4000)
-   ,@outPutXML NVARCHAR(MAX) OUTPUT
-   ,@ProcessBatch_ID INT = NULL OUTPUT
-   ,@Debug SMALLINT = 0
+    @TableName NVARCHAR(100),
+    @dtModifiedDate DATETIME,
+    @MFIDs NVARCHAR(4000),
+    @outPutXML NVARCHAR(MAX) OUTPUT,
+    @ProcessBatch_ID INT = NULL OUTPUT,
+    @Debug SMALLINT = 0
 )
 AS
 /*rST**************************************************************************
@@ -57,19 +57,18 @@ Return
   - -1 = Error
 Parameters
   @TableName nvarchar(100)
-    fixme description
+    Class table name
   @dtModifiedDate datetime
-    fixme description
+    Date from for object versions and deletions
   @MFIDs nvarchar(4000)
-    fixme description
+    comma delimited string of objids 
   @outPutXML nvarchar(max) (output)
-    fixme description
+    object versions of filtered objects
   @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
 
 
 Purpose
@@ -77,24 +76,40 @@ Purpose
 
 To get all the object versions of the class table as XML.
 
-Additional Info
-===============
+Deleted objects and current objects are combined in the @OutputXML if MFIDs are used as a parameter
+When Last modified date are used then the @outputXML will include the objects changed later than the date specified 
+and the @DeletedOutputXML will include the objects that was deleted since the date lastmodified date.
 
-Prerequisites
-=============
+Warning
+=======
 
-Warnings
-========
+Either objids or lastmodified date must be specified. The procedure cannot be used with both filters as null.
 
 Examples
 ========
 
+.. code:: sql
+
+    DECLARE @outPutXML    NVARCHAR(MAX),
+    @DeletedoutPutXML    NVARCHAR(MAX),
+    @ProcessBatch_ID3 INT;
+
+    EXEC dbo.spMFGetObjectvers @TableName = MFLarge_volume,
+    @dtModifiedDate = '2020-08-01',
+    @MFIDs = null,
+    @outPutXML = @outPutXML OUTPUT,
+    @ProcessBatch_ID = @ProcessBatch_ID3 OUTPUT,
+    @Debug = 101
+
+    SELECT CAST(@outPutXML AS XML)
+    
 Changelog
 =========
 
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-08-25  LC         Add return XML for deleted records
 2019-12-12  LC         Improve text in MFProcessBatchDetail
 2019-09-04  LC         Add connection test
 2019-08-30  JC         Added documentation
@@ -108,14 +123,13 @@ Date        Author     Description
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
-
 BEGIN
     SET NOCOUNT ON;
 
     -------------------------------------------------------------
     -- CONSTANTS: MFSQL Class Table Specific
     -------------------------------------------------------------
-    DECLARE @MFTableName AS NVARCHAR(128) = '';
+    DECLARE @MFTableName AS NVARCHAR(128) = N'';
     DECLARE @ProcessType AS NVARCHAR(50);
 
     SET @ProcessType = ISNULL(@ProcessType, 'Get Objver');
@@ -151,11 +165,11 @@ BEGIN
     -------------------------------------------------------------
     -- VARIABLES: DEBUGGING
     -------------------------------------------------------------
-    DECLARE @ProcedureName AS NVARCHAR(128) = 'dbo.spMFGetObjectvers';
-    DECLARE @ProcedureStep AS NVARCHAR(128) = 'Start';
-    DECLARE @DefaultDebugText AS NVARCHAR(256) = 'Proc: %s Step: %s';
-    DECLARE @DebugText AS NVARCHAR(256) = '';
-    DECLARE @Msg AS NVARCHAR(256) = '';
+    DECLARE @ProcedureName AS NVARCHAR(128) = N'dbo.spMFGetObjectvers';
+    DECLARE @ProcedureStep AS NVARCHAR(128) = N'Start';
+    DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s';
+    DECLARE @DebugText AS NVARCHAR(256) = N'';
+    DECLARE @Msg AS NVARCHAR(256) = N'';
     DECLARE @MsgSeverityInfo AS TINYINT = 10;
     DECLARE @MsgSeverityObjectDoesNotExist AS TINYINT = 11;
     DECLARE @MsgSeverityGeneralError AS TINYINT = 16;
@@ -163,12 +177,12 @@ BEGIN
     -------------------------------------------------------------
     -- VARIABLES: LOGGING
     -------------------------------------------------------------
-    DECLARE @LogType AS NVARCHAR(50) = 'Status';
-    DECLARE @LogText AS NVARCHAR(4000) = '';
-    DECLARE @LogStatus AS NVARCHAR(50) = 'Started';
-    DECLARE @LogTypeDetail AS NVARCHAR(50) = 'System';
-    DECLARE @LogTextDetail AS NVARCHAR(4000) = '';
-    DECLARE @LogStatusDetail AS NVARCHAR(50) = 'In Progress';
+    DECLARE @LogType AS NVARCHAR(50) = N'Status';
+    DECLARE @LogText AS NVARCHAR(4000) = N'';
+    DECLARE @LogStatus AS NVARCHAR(50) = N'Started';
+    DECLARE @LogTypeDetail AS NVARCHAR(50) = N'System';
+    DECLARE @LogTextDetail AS NVARCHAR(4000) = N'';
+    DECLARE @LogStatusDetail AS NVARCHAR(50) = N'In Progress';
     DECLARE @ProcessBatchDetail_IDOUT AS INT = NULL;
     DECLARE @LogColumnName AS NVARCHAR(128) = NULL;
     DECLARE @LogColumnValue AS NVARCHAR(256) = NULL;
@@ -187,36 +201,36 @@ BEGIN
     -------------------------------------------------------------
     -- INTIALIZE PROCESS BATCH
     -------------------------------------------------------------
-    SET @ProcedureStep = 'Start Logging';
-    SET @LogText = 'Processing ' + @ProcedureName;
+    SET @ProcedureStep = N'Start Logging';
+    SET @LogText = N'Processing ' + @ProcedureName;
 
-    EXEC [dbo].[spMFProcessBatch_Upsert] @ProcessBatch_ID = @ProcessBatch_ID OUTPUT
-                                        ,@ProcessType = @ProcessType
-                                        ,@LogType = N'Status'
-                                        ,@LogText = @LogText
-                                        ,@LogStatus = N'In Progress'
-                                        ,@debug = @Debug;
+    EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
+        @ProcessType = @ProcessType,
+        @LogType = N'Status',
+        @LogText = @LogText,
+        @LogStatus = N'In Progress',
+        @debug = @Debug;
 
-    EXEC [dbo].[spMFProcessBatchDetail_Insert] @ProcessBatch_ID = @ProcessBatch_ID
-                                              ,@LogType = N'Debug'
-                                              ,@LogText = @ProcessType
-                                              ,@LogStatus = N'Started'
-                                              ,@StartTime = @StartTime
-                                              ,@MFTableName = @MFTableName
-                                              ,@Validation_ID = @Validation_ID
-                                              ,@ColumnName = NULL
-                                              ,@ColumnValue = NULL
-                                              ,@Update_ID = @Update_ID
-                                              ,@LogProcedureName = @ProcedureName
-                                              ,@LogProcedureStep = @ProcedureStep
-                                              ,@ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT
-                                              ,@debug = 0;
+    EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+        @LogType = N'Debug',
+        @LogText = @ProcessType,
+        @LogStatus = N'Started',
+        @StartTime = @StartTime,
+        @MFTableName = @MFTableName,
+        @Validation_ID = @Validation_ID,
+        @ColumnName = NULL,
+        @ColumnValue = NULL,
+        @Update_ID = @Update_ID,
+        @LogProcedureName = @ProcedureName,
+        @LogProcedureStep = @ProcedureStep,
+        @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT,
+        @debug = 0;
 
     BEGIN TRY
         -------------------------------------------------------------
         -- BEGIN PROCESS
         -------------------------------------------------------------
-        SET @DebugText = '';
+        SET @DebugText = N'';
         SET @DebugText = @DefaultDebugText + @DebugText;
 
         IF @Debug > 0
@@ -228,201 +242,249 @@ BEGIN
         DECLARE @ClassId INT;
         DECLARE @Idoc INT;
 
-        SELECT @ClassId = [MFID]
-        FROM [dbo].[MFClass]
-        WHERE [TableName] = @TableName;
+        SELECT @ClassId = MFID
+        FROM dbo.MFClass
+        WHERE TableName = @TableName;
 
         IF ISNULL(@ClassId, -1) = -1
         BEGIN
-            SET @DebugText = ' Unable to find class table - check name: ' + @TableName;
+            SET @DebugText = N' Unable to find class table - check name: ' + @TableName;
             SET @DebugText = @DefaultDebugText + @DebugText;
-            SET @ProcedureStep = 'Get class id';
+            SET @ProcedureStep = N'Get class id';
 
             RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
         END;
 
-        SELECT @VaultSettings = [dbo].[FnMFVaultSettings]();
+        SELECT @VaultSettings = dbo.FnMFVaultSettings();
 
-		        -------------------------------------------------------------
+        -------------------------------------------------------------
         -- Check connection to vault
         -------------------------------------------------------------
-        --DECLARE @IsUpToDate INT;
+        DECLARE @IsUpToDate INT;
 
-        --SET @ProcedureStep = 'Connection test: ';
+        SET @ProcedureStep = N'Connection test: ';
 
-        --EXEC @return_value = [dbo].[spMFGetMetadataStructureVersionID] @IsUpToDate = @IsUpToDate OUTPUT; -- bit
+        DECLARE @TestResult INT;
 
-        --IF @return_value < 0
-        --BEGIN
-        --    SET @DebugText = 'Connection failed %i';
-        --    SET @DebugText = @DefaultDebugText + @DebugText;
+        EXEC @return_value = dbo.spMFConnectionTest 
+        IF @return_value <> 1
+        BEGIN
+            SET @DebugText = N'Connection failed ';
+            SET @DebugText = @DefaultDebugText + @DebugText;
 
-        --    RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep, @return_value);
-        --END;
+            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+        END;
 
         ---------------------------------------------------------------
         -- Checking module access for CLR procdure  spMFGetObjectType
         ------------------------------------------------------------------
-        SET @ProcedureStep = 'Check license';
+        SET @ProcedureStep = N'Check license';
 
-        EXEC [dbo].[spMFCheckLicenseStatus] 'spMFGetObjectVersInternal'
-                                           ,@ProcedureName
-                                           ,@ProcedureStep;
+        EXEC dbo.spMFCheckLicenseStatus 'spMFGetObjectVersInternal',
+            @ProcedureName,
+            @ProcedureStep;
 
-        SET @DebugText = 'Filters: Class %i , ;Date ' + CAST(@dtModifiedDate AS VARCHAR(30)) + ' ;Count objids %s ';
+        SET @DebugText
+            = N'Filters: Class %i :Date ' + CAST(ISNULL(@dtModifiedDate, '') AS VARCHAR(30))
         SET @DebugText = @DefaultDebugText + @DebugText;
-        SET @ProcedureStep = 'Wrapper - spMFGetObjectVersInternal';
+        SET @ProcedureStep = N'Wrapper - spMFGetObjectVersInternal';
 
         IF @Debug > 0
         BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ClassId, @MFIDs);
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ClassId);
         END;
 
-        EXECUTE @return_value = [dbo].[spMFGetObjectVersInternal] @VaultSettings
-                                                                 ,@ClassId
-                                                                 ,@dtModifiedDate
-                                                                 ,@MFIDs
-                                                                 ,@outPutXML OUTPUT;
+        IF @dtModifiedDate IS NULL
+           AND @MFIDs IS NULL
+        BEGIN
+            SET @DebugText = N' lastModified date and MFIDs cannot both be null ';
+            SET @DebugText = @DefaultDebugText + @DebugText;
+
+            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+        END;
+
+			IF @MFIDs IS NOT NULL
+            Begin
+            DECLARE @From INT,
+                @To       INT;
+
+            SELECT @From = MIN(fmss.Item),
+                @To      = MAX(fmss.Item)
+            FROM dbo.fnMFSplitString(@MFIDs, ',') AS fmss;
+
+			END
+
+        DECLARE @outPutDeletedXML NVARCHAR(MAX);
+
+        EXECUTE @return_value = dbo.spMFGetObjectVersInternal @VaultSettings,
+            @ClassId,
+            @dtModifiedDate,
+            @MFIDs,
+            @outPutXML OUTPUT,
+            @outPutDeletedXML OUTPUT;
 
         IF @Debug > 0
-            SELECT CAST(@outPutXML AS XML) AS [ObjVerOutput];
+        BEGIN
+            SELECT @outPutXML     AS ObjVerOutput,
+                @outPutDeletedXML AS DeletedObject;
+        END;
 
-        EXEC [sys].[sp_xml_preparedocument] @Idoc OUTPUT, @outPutXML;
+        SELECT @outPutXML = CASE
+                                WHEN @outPutXML = '' THEN
+                                    '<form>'
+                                WHEN @outPutXML = '<form />' THEN
+                                    '<form>'
+                                ELSE
+                                    REPLACE(@outPutXML, '</form>', '')
+                            END + CASE
+                                      WHEN @outPutDeletedXML = '' THEN
+                                          '</form>'
+                                      WHEN @outPutDeletedXML = '<form />' THEN
+                                          '</form>'
+                                      ELSE
+                                          REPLACE(@outPutDeletedXML, '<form>', '')
+                                  END;
 
-		Set @DebugText = ' wrapper return value: %i'
-		Set @DebugText = @DefaultDebugText + @DebugText
-		Set @Procedurestep = ''
-		
-		IF @debug > 0
-			Begin
-				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep, @return_value );
-			END
-		
-		DECLARE @From INT, @To INT
+        IF (@outPutXML <> '<form /><form />' OR isnull(@outPutXML,'<form />') <> '<form />' )
+        BEGIN
+            EXEC sys.sp_xml_preparedocument @Idoc OUTPUT, @outPutXML;
 
-		SELECT @From = MIN(item), @To = MAX(item) FROM dbo.fnMFSplitString(@MFIDs,',') AS fmss
+            SET @DebugText = N' wrapper returned result';
+            SET @DebugText = @DefaultDebugText + @DebugText;
+            SET @ProcedureStep = 'Procesing result ';
 
-		
-        SELECT @rowcount = COUNT([xmlfile].[objId])
-        FROM
-            OPENXML(@Idoc, '/form/objVers', 1)
-            WITH
-            (
-                [objId] INT './@objectID'
-            ) [xmlfile];
+            IF @Debug > 0
+            BEGIN
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            END;
 
-        SET @StartTime = GETUTCDATE();
-        SET @ProcedureStep = 'Result of Getobjver';
-        SET @LogTypeDetail = 'Status';
-        SET @LogStatusDetail = 'In Progress';
-        SET @LogTextDetail
-            = 'Objver with filters: Date: ' + CAST(ISNULL(@dtModifiedDate, '2000-01-01') AS NVARCHAR(30)) + ' Objids: From  '
-              + CAST(@From AS NVARCHAR(10)) + ' to ' + CAST(@To AS NVARCHAR(10))
-        SET @LogColumnName = 'Get Objectvers';
-        SET @LogColumnValue = CAST(@rowcount AS NVARCHAR(10));
+            SELECT @rowcount = COUNT(xmlfile.objId)
+            FROM
+                OPENXML(@Idoc, '/form/objVers', 1) WITH (objId INT './@objectID') xmlfile;
 
-        EXECUTE @return_value = [dbo].[spMFProcessBatchDetail_Insert] @ProcessBatch_ID = @ProcessBatch_ID
-                                                                     ,@LogType = @LogTypeDetail
-                                                                     ,@LogText = @LogTextDetail
-                                                                     ,@LogStatus = @LogStatusDetail
-                                                                     ,@StartTime = @StartTime
-                                                                     ,@MFTableName = @MFTableName
-                                                                     ,@Validation_ID = @Validation_ID
-                                                                     ,@ColumnName = @LogColumnName
-                                                                     ,@ColumnValue = @LogColumnValue
-                                                                     ,@Update_ID = @Update_ID
-                                                                     ,@LogProcedureName = @ProcedureName
-                                                                     ,@LogProcedureStep = @ProcedureStep
-                                                                     ,@debug = @Debug;
+Set @DebugText = ' Records returned ' + CAST(@rowcount AS NVARCHAR(10))
+Set @DebugText = @DefaultDebugText + @DebugText
+Set @Procedurestep = ' XML Return'
 
-        EXEC [sys].[sp_xml_removedocument] @Idoc;
+IF @debug > 0
+	Begin
+		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+	END
+
+            SET @StartTime = GETUTCDATE();
+            SET @ProcedureStep = N'Result of Getobjver';
+            SET @LogTypeDetail = N'Status';
+            SET @LogStatusDetail = N'In Progress';
+            SET @LogTextDetail
+                = N'Objver with filters: Date: ' + CAST(ISNULL(@dtModifiedDate, '2000-01-01') AS NVARCHAR(30))
+                  + N' Objids: From  ' + CAST(ISNULL(@From,0) AS NVARCHAR(10)) + N' to ' + CAST(ISNULL(@To,0) AS NVARCHAR(10));
+            SET @LogColumnName = N'Get Objectvers';
+            SET @LogColumnValue = CAST(@rowcount AS NVARCHAR(10));
+
+            EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+                @LogType = @LogTypeDetail,
+                @LogText = @LogTextDetail,
+                @LogStatus = @LogStatusDetail,
+                @StartTime = @StartTime,
+                @MFTableName = @MFTableName,
+                @Validation_ID = @Validation_ID,
+                @ColumnName = @LogColumnName,
+                @ColumnValue = @LogColumnValue,
+                @Update_ID = @Update_ID,
+                @LogProcedureName = @ProcedureName,
+                @LogProcedureStep = @ProcedureStep,
+                @debug = @Debug;
+
+            IF @Idoc IS NOT null
+			EXEC sys.sp_xml_removedocument @Idoc;
+        END;
 
         -------------------------------------------------------------
         --END PROCESS
         -------------------------------------------------------------
         END_RUN:
-        SET @ProcedureStep = 'End';
-        SET @LogStatus = 'Completed';
-		SET @LogText = 'Object versions updated'
+        SET @ProcedureStep = N'End';
+        SET @LogStatus = N'Completed';
+        SET @LogText = N'Object versions updated';
 
         -------------------------------------------------------------
         -- Log End of Process
         -------------------------------------------------------------   
-        EXEC [dbo].[spMFProcessBatch_Upsert] @ProcessBatch_ID = @ProcessBatch_ID
-                                            ,@ProcessType = @ProcessType
-                                            ,@LogType = N'Debug'
-                                            ,@LogText = @LogText
-                                            ,@LogStatus = @LogStatus
-                                            ,@debug = @Debug;
+        EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID,
+            @ProcessType = @ProcessType,
+            @LogType = N'Debug',
+            @LogText = @LogText,
+            @LogStatus = @LogStatus,
+            @debug = @Debug;
 
         SET @StartTime = GETUTCDATE();
 
-        EXEC [dbo].[spMFProcessBatchDetail_Insert] @ProcessBatch_ID = @ProcessBatch_ID
-                                                  ,@LogType = N'Debug'
-                                                  ,@LogText = @LogText
-                                                  ,@LogStatus = @LogStatus
-                                                  ,@StartTime = @StartTime
-                                                  ,@MFTableName = @MFTableName
-                                                  ,@Validation_ID = @Validation_ID
-                                                  ,@ColumnName = NULL
-                                                  ,@ColumnValue = NULL
-                                                  ,@Update_ID = @Update_ID
-                                                  ,@LogProcedureName = @ProcedureName
-                                                  ,@LogProcedureStep = @ProcedureStep
-                                                  ,@debug = 0;
+        EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+            @LogType = N'Debug',
+            @LogText = @LogText,
+            @LogStatus = @LogStatus,
+            @StartTime = @StartTime,
+            @MFTableName = @MFTableName,
+            @Validation_ID = @Validation_ID,
+            @ColumnName = NULL,
+            @ColumnValue = NULL,
+            @Update_ID = @Update_ID,
+            @LogProcedureName = @ProcedureName,
+            @LogProcedureStep = @ProcedureStep,
+            @debug = 0;
 
         RETURN 1;
     END TRY
     BEGIN CATCH
         SET @StartTime = GETUTCDATE();
-        SET @LogStatus = 'Failed w/SQL Error';
+        SET @LogStatus = N'Failed w/SQL Error';
         SET @LogTextDetail = ERROR_MESSAGE();
 
         --------------------------------------------------
         -- INSERTING ERROR DETAILS INTO LOG TABLE
         --------------------------------------------------
-        INSERT INTO [dbo].[MFLog]
+        INSERT INTO dbo.MFLog
         (
-            [SPName]
-           ,[ErrorNumber]
-           ,[ErrorMessage]
-           ,[ErrorProcedure]
-           ,[ErrorState]
-           ,[ErrorSeverity]
-           ,[ErrorLine]
-           ,[ProcedureStep]
+            SPName,
+            ErrorNumber,
+            ErrorMessage,
+            ErrorProcedure,
+            ErrorState,
+            ErrorSeverity,
+            ErrorLine,
+            ProcedureStep
         )
         VALUES
-        (@ProcedureName, ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), ERROR_STATE(), ERROR_SEVERITY()
-        ,ERROR_LINE(), @ProcedureStep);
+        (@ProcedureName, ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), ERROR_STATE(), ERROR_SEVERITY(),
+            ERROR_LINE(), @ProcedureStep);
 
-        SET @ProcedureStep = 'Catch Error';
+        SET @ProcedureStep = N'Catch Error';
 
         -------------------------------------------------------------
         -- Log Error
         -------------------------------------------------------------   
-        EXEC [dbo].[spMFProcessBatch_Upsert] @ProcessBatch_ID = @ProcessBatch_ID OUTPUT
-                                            ,@ProcessType = @ProcessType
-                                            ,@LogType = N'Error'
-                                            ,@LogText = @LogTextDetail
-                                            ,@LogStatus = @LogStatus
-                                            ,@debug = @Debug;
+        EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
+            @ProcessType = @ProcessType,
+            @LogType = N'Error',
+            @LogText = @LogTextDetail,
+            @LogStatus = @LogStatus,
+            @debug = @Debug;
 
         SET @StartTime = GETUTCDATE();
 
-        EXEC [dbo].[spMFProcessBatchDetail_Insert] @ProcessBatch_ID = @ProcessBatch_ID
-                                                  ,@LogType = N'Error'
-                                                  ,@LogText = @LogTextDetail
-                                                  ,@LogStatus = @LogStatus
-                                                  ,@StartTime = @StartTime
-                                                  ,@MFTableName = @MFTableName
-                                                  ,@Validation_ID = @Validation_ID
-                                                  ,@ColumnName = NULL
-                                                  ,@ColumnValue = NULL
-                                                  ,@Update_ID = @Update_ID
-                                                  ,@LogProcedureName = @ProcedureName
-                                                  ,@LogProcedureStep = @ProcedureStep
-                                                  ,@debug = 0;
+        EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+            @LogType = N'Error',
+            @LogText = @LogTextDetail,
+            @LogStatus = @LogStatus,
+            @StartTime = @StartTime,
+            @MFTableName = @MFTableName,
+            @Validation_ID = @Validation_ID,
+            @ColumnName = NULL,
+            @ColumnValue = NULL,
+            @Update_ID = @Update_ID,
+            @LogProcedureName = @ProcedureName,
+            @LogProcedureStep = @ProcedureStep,
+            @debug = 0;
 
         RETURN -1;
     END CATCH;

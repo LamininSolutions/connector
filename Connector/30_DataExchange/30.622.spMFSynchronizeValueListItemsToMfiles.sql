@@ -326,7 +326,7 @@ BEGIN TRY
     (
         ID
     )
-    SELECT MVLI.ID,*
+    SELECT MVLI.ID
     FROM dbo.MFValueListItems MVLI
         INNER JOIN dbo.MFValueList MVL
             ON MVLI.MFValueListID = MVL.ID

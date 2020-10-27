@@ -355,7 +355,8 @@ BEGIN
                ,[Message] NVARCHAR(100) './@Message'
             ) [xmlfile];
 
-        EXEC [sys].[sp_xml_removedocument] @Idoc;
+        IF @idoc IS NOT null
+		EXEC [sys].[sp_xml_removedocument] @Idoc;
 
         SET @DebugText = 'Statuscode %i; Message %s';
         SET @DebugText = @DefaultDebugText + @DebugText;

@@ -6,7 +6,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFImportBlobFilesToMFiles',
     -- nvarchar(100)
-    @Object_Release = '4.7.18.59',
+    @Object_Release = '4.8.22.62',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -143,6 +143,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-08-22  LC         Update code to include handling of new deleted column
 2020-05-13  LC         Reset the procedure and issue as new
 ==========  =========  ========================================================
 
@@ -532,11 +533,11 @@ GROUP BY ' +    QUOTENAME(@TargetFileUniqueKeycolumnName) + N' HAVING COUNT(*) >
                     )
                     SELECT mp.ColumnName
                     FROM dbo.MFProperty AS mp
-                    WHERE mp.MFID IN ( 20, 21, 23, 25 )
+                    WHERE mp.MFID IN (  21, 23, 25 )
                     UNION 
                     SELECT 'Process_ID' 
-                    UNION 
-                    SELECT 'Deleted';
+      --              UNION 
+      --              SELECT 'Deleted';
 
                     --Last Modified, Last Modified by, Created, Created by
 
@@ -767,11 +768,11 @@ GROUP BY ' +    QUOTENAME(@TargetFileUniqueKeycolumnName) + N' HAVING COUNT(*) >
 
                     IF @debug > 0
                     Begin
-                    SELECT LEN(@XML) AS '@XML Length';
+                    SELECT @XML AS '@XML Length';
 
-                    SELECT LEN(@Data) AS '@data length';
+                    SELECT @Data AS '@data length';
 
-                    SELECT LEN(@XMLStr) AS '@XMLStr';
+                    SELECT @XMLStr AS '@XMLStr';
                     END
 
                     EXEC dbo.spMFImportBlobFileToMFilesInternal @VaultSettings,
@@ -800,14 +801,15 @@ GROUP BY ' +    QUOTENAME(@TargetFileUniqueKeycolumnName) + N' HAVING COUNT(*) >
                     SET @DebugText = @DefaultDebugText + @DebugText;
                     SET @ProcedureStep = 'Insert result in MFFileImport ';
 
-                    IF @Debug > 0
-                    BEGIN
-                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-                    END;
-
                     DECLARE @ResultXml XML;
 
                     SET @ResultXml = CAST(@Result AS XML);
+
+                    IF @Debug > 0
+                    BEGIN
+                    SELECT @ResultXML AS Result
+                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                    END;
 
                     CREATE TABLE #TempFileDetails
                     (
@@ -852,12 +854,14 @@ GROUP BY ' +    QUOTENAME(@TargetFileUniqueKeycolumnName) + N' HAVING COUNT(*) >
                     )
                     BEGIN
                         UPDATE FI
-                        SET FI.MFCreated = CONVERT(DATETIME, FD.MFCreated),
-                            FI.MFLastModified = CONVERT(DATETIME, FD.MFLastModified),
+                        SET FI.MFCreated = CASE WHEN fd.MFCreated = '' THEN NULL ELSE  CONVERT(DATETIME, FD.MFCreated,105) end,
+                            FI.MFLastModified = CASE WHEN fd.MFLastModified = '' THEN NULL ELSE CONVERT(DATETIME, FD.MFLastModified,105) end,
                             FI.ObjID = FD.ObjID,
                             FI.Version = FD.ObjVer,
-                            FI.FileObjectID = FD.FileObjectID,
-                            FI.FileCheckSum = FD.FileCheckSum
+                            FI.FileObjectID = CASE WHEN  FD.FileObjectID = 0 THEN FI.FileObjectID ELSE FD.FileObjectID end,
+                            FI.FileCheckSum = FD.FileCheckSum,
+                            fi.ImportError = CASE WHEN fd.FileObjectID = 0 AND fd.FileCheckSum = fi.FileCheckSum THEN 'File already in exist in object' 
+                            ELSE @ErrorMsg end
                         FROM dbo.MFFileImport           FI
                             INNER JOIN #TempFileDetails FD
                                 ON FI.FileUniqueRef = FD.FileUniqueRef;
@@ -876,19 +880,21 @@ GROUP BY ' +    QUOTENAME(@TargetFileUniqueKeycolumnName) + N' HAVING COUNT(*) >
                             ObjID,
                             Version,
                             FileObjectID,
-                            FileCheckSum
+                            FileCheckSum,
+                            ImportError
                         )
                         SELECT FileName,
                             FileUniqueRef,
                             GETDATE(),
                             @SourceTableName,
                             @TargetClassMFID,
-                            CONVERT(DATETIME, MFCreated),
-                            CONVERT(DATETIME, MFLastModified),
+                            CONVERT(DATETIME, MFCreated,105),
+                            CONVERT(DATETIME, MFLastModified,105),
                             ObjID,
                             ObjVer,
                             FileObjectID,
-                            FileCheckSum
+                            FileCheckSum,
+                            CASE WHEN @ErrorMsg ='' THEN 'Success' ELSE @ErrorMsg end
                         FROM #TempFileDetails;
                     END;
 

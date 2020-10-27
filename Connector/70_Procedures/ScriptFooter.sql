@@ -1,5 +1,6 @@
 
-Exec spMFDeploymentDetails
+
+EXEC dbo.spMFDeploymentDetails 
 
 SET NOCOUNT OFF;
 RETURN 0;
@@ -40,6 +41,4 @@ END CATCH
 
 GO
 
-EXEC [dbo].[spMFUpdateAssemblies]
 
-GO

@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFClassTableColumns'
                                     -- nvarchar(100)
-                                    ,@Object_Release = '4.5.14.56'
+                                    ,@Object_Release = '4.8.23.64'
                                     -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
@@ -121,6 +121,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-09-08  LC         Set single lookup column to error when not int
 2020-01-24  LC         Fix multitext column showing false error
 2019-11-18  LC         Fix bug on column width for multi lookup properties
 2019-08-30  JC         Added documentation
@@ -227,6 +228,7 @@ BEGIN
     --		WHERE mc2.name = 'Customer';
     ;
 
+
     MERGE INTO [##spMFClassTableColumns] [t]
     USING
     (
@@ -244,6 +246,7 @@ BEGIN
                 ON [mc].[TableName] = [st].[name]
             INNER JOIN [sys].[types]   AS [t]
                 ON [sc].[user_type_id] = [t].[user_type_id]
+  --              WHERE sc.name = 'Mfiles_Edition_ID'
     ) [s]
     ON [s].[ColumnName] = [t].[ColumnName]
        AND [s].[TableName] = [t].[TableName]
@@ -394,6 +397,18 @@ WHERE [c].[property_mfid] IS NULL;
     WHERE [pc].[MFdataType_ID] in (13)
           AND [pc].[length] <> -1
           AND [pc].[IncludedInApp] IS NOT NULL;
+
+    UPDATE [##spMFClassTableColumns]
+    SET [ColumnDataTypeError] = 1
+   -- SELECT *
+    FROM [##spMFClassTableColumns] AS [pc]
+    WHERE [pc].[MFdataType_ID] in (9)
+          AND [pc].[Column_DataType] <> 'int'
+          AND [pc].[IncludedInApp] IS NOT NULL
+          AND pc.ColumnType <> 'Lookup Lable Column';
+
+
+
 
 --SELECT *
 --FROM [##spMFClassTableColumns] AS [pc]

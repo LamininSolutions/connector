@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFGetHistory',
     -- nvarchar(100)
-    @Object_Release = '4.6.15.57',
+    @Object_Release = '4.7.20.60',
     -- varchar(50)
     @UpdateFlag = 2;
 GO
@@ -103,7 +103,7 @@ Process_id is reset to 0 after completion of the processing.
 
 Use Cases(s)
 
-- Show coimments made on object
+- Show comments made on object
 - Show a state was entered and exited
 - Show when a property was changed
 - Discovery reports for changes to certain properties
@@ -185,6 +185,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-06-25  LC         added exception if invalid column is used
 2020-03-12  LC         Revise datetime formatting
 2019-09-25  LC         Include fnMFTextToDate to set datetime - dealing with localisation
 2019-09-19  LC         Resolve dropping of temp table
@@ -628,6 +629,8 @@ WITH cte AS
 
             IF @Debug > 0
             BEGIN
+            SELECT @ObjectType AS objecttype, @objids AS objids, @propertyIDs AS propertyids, @IsFullHistory AS IsfullHistory, @startdate AS Startdate;
+
                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
             END;
 
@@ -657,7 +660,7 @@ WITH cte AS
 
             SET @DebugText = N'';
             SET @DebugText = @DefaultDebugText + @DebugText;
-            SET @ProcedureStep = 'Get history in wrapper performed';
+            SET @ProcedureStep = 'Wrapper performed';
 
             IF @Debug > 0
             BEGIN
@@ -705,8 +708,8 @@ SELECT @rowcount = COUNT(*), @MaxRowID = MAX(list.item) FROM
                 Class_ID INT,
                 ObjID INT,
                 MFVersion INT,
-              --  LastModifiedUTC NVARCHAR(100),
-              LastModifiedUTC DATETIME,
+                LastModifiedUTC NVARCHAR(100),
+             -- LastModifiedUTC DATETIME,
                 MFLastModifiedBy_ID INT,
                 Property_ID INT,
                 Property_Value NVARCHAR(300),
@@ -743,8 +746,8 @@ SELECT @rowcount = COUNT(*), @MaxRowID = MAX(list.item) FROM
                     ObjID INT '../@ObjID',
                     Version INT '../@Version',
                     --      , [LastModifiedUTC] NVARCHAR(30) '../@LastModifiedUTC'
-                   -- LastModifiedUTC NVARCHAR(100) '../@CheckInTimeStamp',
-                   LastModifiedUTC Datetime '../@CheckInTimeStamp',
+                    LastModifiedUTC NVARCHAR(100) '../@CheckInTimeStamp',
+           --        LastModifiedUTC Datetime '../@CheckInTimeStamp',
                     LastModifiedBy_ID INT '../@LastModifiedBy_ID',
                     Property_ID INT '@Property_ID',
                     Property_Value NVARCHAR(300) '@Property_Value'
@@ -754,7 +757,8 @@ SELECT @rowcount = COUNT(*), @MaxRowID = MAX(list.item) FROM
                 SELECT *
                 FROM #Temp_ObjectHistory AS toh;
 
-            EXEC sys.sp_xml_removedocument @Idoc;
+            IF @Idoc IS NOT null
+			EXEC sys.sp_xml_removedocument @Idoc;
 
             ----------------------------------------------------------------------------------
             --Merge/Inserting records into the MFObjectChangeHistory from Temp_ObjectHistory
@@ -776,8 +780,9 @@ SELECT @rowcount = COUNT(*), @MaxRowID = MAX(list.item) FROM
                AND t.Property_ID = s.Property_ID
             WHEN MATCHED THEN
                UPDATE SET 
-               --t.LastModifiedUtc = dbo.fnMFTextToDate(s.LastModifiedUTC, '/'),
-               t.LastModifiedUtc =s.LastModifiedUTC,
+           --    t.LastModifiedUtc = dbo.fnMFTextToDate(s.LastModifiedUTC, '/'),
+          t.LastModifiedUtc = convert(DATETIME,s.LastModifiedUTC),
+          --     t.LastModifiedUtc =s.LastModifiedUTC,
                     t.Property_Value = s.Property_Value
             WHEN NOT MATCHED BY TARGET THEN
                 INSERT
@@ -794,8 +799,9 @@ SELECT @rowcount = COUNT(*), @MaxRowID = MAX(list.item) FROM
                 )
                 VALUES
                 (s.ObjectType_ID, s.Class_ID, s.ObjID, s.MFVersion,
+                convert(DATETIME,s.LastModifiedUTC),
                 --dbo.fnMFTextToDate(s.LastModifiedUTC, '/'),
-                s.LastModifiedUTC,
+          --      s.LastModifiedUTC,
                     s.MFLastModifiedBy_ID, s.Property_ID, s.Property_Value, s.CreatedOn);
 
             -------------------------------------------------------------
@@ -827,7 +833,8 @@ SELECT @rowcount = COUNT(*), @MaxRowID = MAX(list.item) FROM
             -- Reset process_ID
             -------------------------------------------------------------
             SET @Params = N'@objids nvarchar(max)';
-            SET @VQuery
+      SET @ProcedureStep = 'Reset process_id'
+      SET @VQuery
                 = N'
 					UPDATE t
                     SET Process_ID = 0 
@@ -837,8 +844,8 @@ SELECT @rowcount = COUNT(*), @MaxRowID = MAX(list.item) FROM
                     on fmss.item = t.objid
 					WHERE process_ID = ' + CAST(@Process_id AS VARCHAR(5)) + N'';
 
-                    IF @debug > 0
-                    PRINT @VQuery;
+  --                  IF @debug > 0
+  --                  PRINT @VQuery;
 
             EXEC sys.sp_executesql @VQuery, @Params, @ObjIDs;
 
@@ -890,6 +897,8 @@ SELECT @rowcount = COUNT(*), @MaxRowID = MAX(list.item) FROM
             @LogProcedureName = @ProcedureName,
             @LogProcedureStep = @ProcedureStep,
             @debug = @Debug;
+
+            RETURN 1
     END TRY
     BEGIN CATCH
         SET @StartTime = GETUTCDATE();
@@ -899,7 +908,10 @@ SELECT @rowcount = COUNT(*), @MaxRowID = MAX(list.item) FROM
         --------------------------------------------------
         -- INSERTING ERROR DETAILS INTO LOG TABLE
         --------------------------------------------------
-        INSERT INTO dbo.MFLog
+       IF @Idoc IS NOT null
+        EXEC sys.sp_xml_removedocument @Idoc;
+
+       INSERT INTO dbo.MFLog
         (
             SPName,
             ErrorNumber,

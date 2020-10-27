@@ -4,7 +4,7 @@ EXEC [Setup].[spMFSQLObjectsControl]
     @SchemaName = N'dbo'
   , @ObjectName = N'spMFCreatePublicSharedLink'
   , -- nvarchar(100)
-    @Object_Release = '3.1.5.41'
+    @Object_Release = '4.8.22.62'
   , -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
@@ -102,6 +102,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-08-22  LC         update for new deleted column
 2019-08-30  JC         Added documentation
 2018-04-04  DEV2       Added Licensing module validation code
 ==========  =========  ========================================================
@@ -122,6 +123,7 @@ Date        Author     Description
 		,@XmlOut XML
 		,@ServerUrl nvarchar(500)
 		,@VaultGUID nvarchar(150)
+        ,@DeletedColumn NVARCHAR(100)
 
 
 
@@ -135,8 +137,14 @@ Date        Author     Description
 
 	  ------------------------------------------
 
-       
+      -------------------------------------------------------------
+      -- get deleted column name
+      -------------------------------------------------------------
+      
+      SELECT @DeletedColumn = columnName FROM dbo.MFProperty AS mp 
+      WHERE MFID = 27
 	  --------- classID is null the getting classID by using @TableName------------------
+
 	   if @ClassID is Null          
 	      Begin
 		      Select @ClassID=MFID from MFClass where TableName=@TableName
@@ -165,14 +173,14 @@ Date        Author     Description
 		  Begin
 
 		    --If object ID is passed as parameter then only link of that object is only created
-		    set @FilterCondition =' Deleted=0 and  Single_File=1 and  ObjID=' + Cast(@ObjectID as nvarchar(20))
+		    set @FilterCondition ='' +QUOTENAME(@DeletedColumn)+' is null and  Single_File=1 and  ObjID=' + Cast(@ObjectID as nvarchar(20))
 
 		  End
 		  Else
 		   Begin
 
 		       --If object ID is not passed as parameter then links are created for objects which are of type single file and has Process_ID=1
-		       set @FilterCondition =' Deleted=0 and  Single_File=1 and Process_ID=' + cast(@ProcessID as varchar(20))
+		       set @FilterCondition =' ' +QUOTENAME(@DeletedColumn)+' is null and  Single_File=1 and Process_ID=' + cast(@ProcessID as varchar(20))
 
 		   End
 		  
@@ -284,8 +292,9 @@ Date        Author     Description
 		End
 
  End try
- begin Catch
-       DROP TABLE [#TmpLink]
+ begin CATCH
+    IF (SELECT OBJECT_ID('tempdb..#tmpLink')) IS NOT null
+       DROP TABLE [#TmpLink];
 
 	      
            exec ('Update ' + @TableName + ' set Process_ID=0 where Process_ID=3 and Single_File=1 ' )

@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFClassTableStats' -- nvarchar(100)
-                                    ,@Object_Release = '4.6.15.57'         -- varchar(50)
+                                    ,@Object_Release = '4.8.23.63'         -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
 GO
@@ -141,6 +141,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-09-04  LC         rebase MFObjectTotal to include checkedout
+2020-08-22  LC         Update code for new deleted column
 2020-04-16  LC         Add with nolock option
 2020-03-06  LC         Remove statusflag 6 from notinSQL
 2020-03-06  LC         Change deleted to include deleted from audit table
@@ -224,10 +226,16 @@ DECLARE @lastModifiedColumn NVARCHAR(100);
 DECLARE @MFCount INT = 0;
 DECLARE @NotINSQL INT = 0;
 DECLARE @IncludeInApp INT;
+DECLARE @DeletedColumn NVARCHAR(100);
 
 SELECT @lastModifiedColumn = [mp].[ColumnName]
 FROM [dbo].[MFProperty] AS [mp]
 WHERE [mp].[MFID] = 21; --'Last Modified'
+
+SELECT @DeletedColumn = [mp].[ColumnName]
+FROM [dbo].[MFProperty] AS [mp]
+WHERE [mp].[MFID] = 27; --'Deleted'
+
 
 INSERT INTO [##spMFClassTableStats]
 (
@@ -298,7 +306,7 @@ SELECT @SQLcount = COUNT(*), @LastModified = max(LastModified), @MFLastModified 
           + QUOTENAME(@lastModifiedColumn) + ') FROM ' + QUOTENAME(@TableName)
           + '
 --Select @MFLastModified = dateadd(hour,DATEDIFF(hour,GETUTCDATE(),GETDATE()),@MFLastModified)
-Select @Deleted = count(*) FROM ' + QUOTENAME(@TableName) + ' where deleted <> 0;
+Select @Deleted = count(*) FROM ' + QUOTENAME(@TableName) + ' where '+QUOTENAME(@DeletedColumn)+' is not null;
 Select @SyncError = count(*) FROM ' + QUOTENAME(@TableName)
           + ' where Process_id = 2;
 Select @ProcessID_not_0 = count(*) FROM ' + QUOTENAME(@TableName)
@@ -319,6 +327,7 @@ If @Debug > 0
 print ''' + @TableName + ' has not been created'';
  '  ;
 
+
     IF @Debug > 10
         PRINT @SQL;
 
@@ -333,19 +342,30 @@ print ''' + @TableName + ' has not been created'';
 
     SELECT @ToObjid = @SQLCount + 5000;
 
-    
+DECLARE @SessionIDOut INT,
+    @NewObjectXml     NVARCHAR(MAX),
+    @DeletedInSQL     INT,
+    @UpdateRequired   BIT,
+    @OutofSync        INT,
+    @ProcessErrors    INT,
+    @ProcessBatch_ID  INT;
 
-        EXEC [dbo].[spMFTableAuditinBatches] @MFTableName = @TableName -- nvarchar(100)
-                                            ,@FromObjid = 1            -- int
-                                            ,@ToObjid = @ToObjid       -- int
-                                            ,@WithStats = 0            -- bit
-                                            ,@Debug = 0;
-
+EXEC dbo.spMFTableAudit @MFTableName = @TableName,
+    @MFModifiedDate = '2000-01-01',
+  --  @ObjIDs = ?,
+    @SessionIDOut = @SessionIDOut OUTPUT,
+    @NewObjectXml = @NewObjectXml OUTPUT,
+    @DeletedInSQL = @DeletedInSQL OUTPUT,
+    @UpdateRequired = @UpdateRequired OUTPUT,
+    @OutofSync = @OutofSync OUTPUT,
+    @ProcessErrors = @ProcessErrors OUTPUT,
+    @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
+    @Debug = 0
  
         SELECT @MFCount = COUNT(*)
         FROM [dbo].[MFAuditHistory] AS [mah] WITH(NOLOCK)
         WHERE [mah].[Class] = @ID
-              AND [mah].[StatusFlag] NOT IN ( 3, 4 ); --not in MF
+              AND [mah].[StatusFlag] NOT IN ( 4 ); --not in MF
 
         SELECT @NotINSQL = COUNT(*)
         FROM [dbo].[MFAuditHistory] AS [mah] WITH(NOLOCK)
@@ -356,7 +376,7 @@ print ''' + @TableName + ' has not been created'';
                       SELECT @Deleted = COUNT(*)
         FROM [dbo].[MFAuditHistory] AS [mah] WITH(NOLOCK)
         WHERE [mah].[Class] = @ID
-              AND [mah].[StatusFlag] = 6; -- templates and other records not in SQL
+              AND [mah].[StatusFlag] = 4; -- templates and other records not in SQL
 
         UPDATE [smcts]
         SET [smcts].[MFRecordCount] = @MFCount
@@ -375,7 +395,7 @@ print ''' + @TableName + ' has not been created'';
         BEGIN
             SET @SQL
                 = N'delete from ' + QUOTENAME(@TableName) 
-                  + ' where deleted = 1
+                  + ' where '+QUOTENAME(@DeletedColumn)+' is not null
 		update ##spMFClassTableStats set Deleted = 0 where TableName = ''' + @TableName + '''
 		'   ;
 

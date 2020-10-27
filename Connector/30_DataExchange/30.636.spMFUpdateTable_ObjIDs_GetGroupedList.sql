@@ -6,7 +6,7 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
 
 EXEC Setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTable_ObjIds_GetGroupedList', -- nvarchar(100)
-    @Object_Release = '4.6.15.57', -- varchar(50)
+    @Object_Release = '4.8.23.64', -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
 
@@ -40,7 +40,7 @@ GO
 
 ALTER PROCEDURE [dbo].[spMFUpdateTable_ObjIds_GetGroupedList]
     (
-       @ObjIds_FieldLenth SMALLINT = 2000
+       @ObjIds_FieldLenth SMALLINT = 4000
 	  ,@Debug SMALLINT = 0
 	)
 AS
@@ -86,6 +86,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-09-08  Lc         resolve number of objids in batch
 2020-04-08  LC         Resolve issue with #objidlist not exist 
 2019-08-30  JC         Added documentation
 2017-06-08  AC         Change default size of @ObjIds_FieldLenth 
@@ -126,7 +127,7 @@ CREATE TABLE #ObjIdList ( [ObjId] INT )
 
  --   IF (SELECT OBJECT_ID('tempdb..#objidlist')) IS NOT NULL
  --   Begin
-    SELECT  @NumberofGroups = ( SELECT  COUNT(*)
+    SELECT  @NumberofGroups = ( SELECT  COUNT(ISNULL(objid,0))
                                 FROM    #ObjIdList
                               ) / ( @ObjIds_FieldLenth --ObjIds fieldlenth
                                     / ( SELECT  MAX(LEN([ObjId])) + 2

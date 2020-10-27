@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFCheckLicenseStatus' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.13.54'           -- varchar(50)
+                                    ,@Object_Release = '4.7.20.60'           -- varchar(50)
                                     ,@UpdateFlag = 2;                        -- smallint
 GO
 
@@ -113,6 +113,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-06-19  LC         Set module to 1 when null or 0
 2019-10-25  LC         Improve messaging, resolve license check bug
 2019-09-21  LC         Parameterise overide to check license on new license install
 2019-09-20  LC         Parameterise email notification, send only 1 email a day
@@ -210,7 +211,10 @@ SELECT @ModuleID = [moc].[Module]
 FROM [setup].[MFSQLObjectsControl] AS [moc]
 WHERE [moc].[Name] = @InternalProcedureName;
 
-SELECT @ModuleID = ISNULL(@ModuleID, '1');
+SELECT @ModuleID = CASE WHEN @ModuleID IS NULL THEN '1'
+WHEN @ModuleID = 0 THEN '1'
+ELSE @ModuleID end;
+
 
 -------------------------------------------------------------
 -- Create license
@@ -245,8 +249,8 @@ DECLARE @DecryptedPassword NVARCHAR(2000);
 DECLARE @EcryptedPassword NVARCHAR(2000);
 DECLARE @ErrorCode  NVARCHAR(5)
        ,@ExpiryDate NVARCHAR(10);
-DECLARE @LicenseExpiry DATETIME;
-DECLARE @LastValidate DATETIME;
+DECLARE @LicenseExpiry DATE;
+DECLARE @LastValidate DATE;
 DECLARE @LicenseExpiryTXT NVARCHAR(10);
 
 SET @DebugText = ' Module %s';
@@ -263,6 +267,7 @@ END;
 -------------------------------------------------------------
 --pre-check
 -------------------------------------------------------------
+
 SET @ProcedureStep = 'Pre-checks ';
 
 DECLARE @Checkstatus INT = 0;

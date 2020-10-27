@@ -59,9 +59,31 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFilesEvents', -- nvarchar(100)
-    @Object_Release = '4.7.18.58', -- varchar(50)
+    @Object_Release = '4.7.19.59', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 go
+
+DECLARE @nullable VARCHAR(10)
+SELECT @nullable = c.IS_NULLABLE  FROM INFORMATION_SCHEMA.COLUMNS AS c WHERE c.TABLE_NAME = 'MFilesEvents' AND c.COLUMN_NAME = 'ID'
+IF @nullable = 'YES'
+BEGIN
+ PRINT SPACE(10)+ 'Table Altered';
+
+ALTER TABLE dbo.MFilesEvents 
+ALTER COLUMN id Int NOT NULL
+
+END
+GO
+
+IF (SELECT c.IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS AS c WHERE c.TABLE_NAME = 'MFilesEvents' AND c.COLUMN_NAME = 'ID') = 'NO' AND NOT EXISTS(SELECT * from sys.objects AS o WHERE type = 'PK' AND o.[parent_object_id] = OBJECT_ID('MFilesEvents'))
+Begin
+
+ALTER TABLE [dbo].[MFilesEvents] ADD  CONSTRAINT [PK__MFilesEvents_ID] PRIMARY KEY CLUSTERED 
+(
+	[ID] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF,  IGNORE_DUP_KEY = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+END
+
 
 IF NOT EXISTS ( SELECT  name
                 FROM    sys.tables
@@ -73,22 +95,23 @@ IF NOT EXISTS ( SELECT  name
  PRINT SPACE(10)+ 'Table created';
 
  
-IF NOT EXISTS ( SELECT  name
-                FROM    sys.tables
-                WHERE   name = 'MFilesEvents'
-                        AND SCHEMA_NAME(schema_id) = 'dbo' )
-
 CREATE table MFilesEvents ( ID        INT NOT null
 ,                         [Type]       NVARCHAR(100)
 ,                         [Category]   NVARCHAR(100)
 ,                         [TimeStamp]  NVARCHAR(100)
 ,                         CausedByUser NVARCHAR(100)
-,                         loaddate     DATETIME
+,                         LoadDate     DATETIME
 ,                         [Events]       xml )
 
 ALTER TABLE [dbo].MFilesEvents ADD CONSTRAINT [PK__MFilesEvents_ID] PRIMARY KEY CLUSTERED  ([Id])
 
 END
+
+IF EXISTS ( SELECT  name
+                FROM    sys.tables
+                WHERE   name = 'MFilesEvents'
+                        AND SCHEMA_NAME(schema_id) = 'dbo' )
+
 
 
 BEGIN
@@ -110,6 +133,7 @@ CREATE INDEX idx_MFilesEvents_Category ON MFilesEvents(Category);
 
 
 END
+
 
 GO
 

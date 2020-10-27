@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFUpdateClassAndProperties' -- nvarchar(100)
-                                    ,@Object_Release = '3.1.4.41'                  -- varchar(50)
+                                    ,@Object_Release = '4.8.22.62'                  -- varchar(50)
                                     ,@UpdateFlag = 2;                              -- smallint
 GO
 
@@ -121,6 +121,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-08-22  LC         Update to taken account of deleted column
 2019-08-30  JC         Added documentation
 2018-04-22  AC         Resolve issue with failed conversion
 2018-04-04  DEV2       Added License module validation code.
@@ -799,7 +800,7 @@ EXEC [dbo].[spMFUpdateTable] @MFTableName = @MFTableName
 					,['            + @MFTableName
                       + '].GUID = #ObjVer.GUID
 					,Process_ID = 0
-					,Deleted = 0
+			--		,Deleted = 0
 					,LastModified = GETDATE()
 					FROM #ObjVer
 					WHERE ['       + @MFTableName + '].ID = #ObjVer.ID';
@@ -971,7 +972,7 @@ EXEC [dbo].[spMFUpdateTable] @MFTableName = @MFTableName
                 END;
 
                 DROP TABLE [#ErrorInfo];
-
+/*
                 SET @ProcedureStep = 'Updating MFTable with deleted = 1,if object is deleted from MFiles';
 
                 -------------------------------------------------------------------------------------
@@ -1044,7 +1045,7 @@ EXEC [dbo].[spMFUpdateTable] @MFTableName = @MFTableName
 
                     EXEC [sp_executesql] @DeleteQuery;
                 END;
-
+                */
                 --------------------------------
                 -- INSERTING RECORD INTO MFTABLE
                 --------------------------------
