@@ -79,24 +79,37 @@ Used by other procedures.
 Warnings
 ========
 
-This procedure returns to M-Files Version on the SQL Server
+This procedure returns the M-Files Version on the SQL Server
 When the procedure to update the assemblies fail, the CLR will have been deleted with reinstatement. When this happens the MFiles version must be updated manually in MFSettings table.
 
 Examples
 ========
 
+Get installed version of M-Files in SQL Server
+
 .. code:: sql
 
-    Declare @rt int, @MFilesVersion nvarchar(25)
-    Exec @rt = spMFGetMFilesAssemblyVersion @MFilesVersion = @MFilesVersion output
-    Select @rt, @MFilesVersion
+    Declare @IsUpdateAssembly int, @MFilesVersion nvarchar(25)
+    Exec spMFGetMFilesAssemblyVersion @IsUpdateAssembly = @IsUpdateAssembly output, @MFilesVersion = @MFilesVersion output
+    Select @IsUpdateAssembly as IsUpdateRequired, @MFilesVersion as InstalledVersion
 
-    Select * from MFsettings where name = 'MFVersion'
+------
 
-    UPDATE [dbo].[MFSettings]
-    SET value = '19.8.8114.8' WHERE name = 'MFVersion'
+Get M-files version installed in Connector
 
-    Exec spMFUpdateAssemblies
+.. code:: sql
+
+   Select *
+   from MFsettings
+   where name = 'MFVersion'
+
+------
+
+Manually update the version in the Connector. Set the parameter to current installed version on the SQL server.
+
+.. code:: sql
+
+    Exec spMFUpdateAssemblies @MFilesVersion = '20.9.9430.4'
 
 Changelog
 =========
@@ -104,7 +117,9 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2020-06-29  LC         Review logic the check and update MFVersion
+2020-10-27  LC         Show error when CLR is not found
+2020-10-27  LC         Improve error messages
+2020-06-29  LC         Review logic to check and update MFVersion
 2020-02-10  LC         New CLR procedure to get MFVersion from local machine
 2019-09-17  LC         Update documentation
 2019-09-17  LC         Improve error trapping, add MFlog msg
@@ -166,47 +181,28 @@ Date        Author     Description
 
             IF @debug > 0
             BEGIN
-            RAISERROR('Matched %s',10,1,@MFilesVersion)
-            END
+            RAISERROR('Matched %s',10,1,@MFilesVersion);
+            END;
         --			print 'Match'
         END; --if version match
         ELSE       
         BEGIN
             IF @debug > 0
             BEGIN
-            RAISERROR('Not Matched MF version %s SQL Version %s',10,1,@LsMFilesVersion, @DbMFileVersion)
-            END
+            RAISERROR('Not Matched MF version %s SQL Version %s',10,1,@LsMFilesVersion, @DbMFileVersion);
+            END;
 
          SET @IsUpdateAssembly = 1;
-         SET @MFilesVersion = @DbMFileVersion
-            --SELECT @MFilesVersion = CAST([ms].[Value] AS VARCHAR(100) )
-            --FROM [dbo].[MFSettings] AS [ms]
-            --WHERE [ms].[Name] = 'MFVersion';
+         SET @MFilesVersion = @DbMFileVersion;
        
        UPDATE s
        SET value = @LsMFilesVersion
-     from  dbo.MFSettings s WHERE name = 'MFVersion'
-
-/*
-        INSERT INTO [dbo].[MFLog]
-        (
-            [SPName]
-           ,[ErrorNumber]
-           ,[ErrorMessage]
-           ,[ErrorProcedure]
-           ,[ProcedureStep]
-           ,[ErrorState]
-           ,[ErrorSeverity]
-           ,[Update_ID]
-           ,[ErrorLine]
-        )
-        VALUES
-        ('spMFCheckAndUpdateAssemblyVersion', ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), @ProcedureStep
-        ,ERROR_STATE(), ERROR_SEVERITY(), null, ERROR_LINE());
-
-            RAISERROR(@Msg,10,1);
-*/
+     from  dbo.MFSettings s WHERE name = 'MFVersion';
 
     END; -- end else
     END; --proc exists
+    ELSE 
+    BEGIN
+    RAISERROR('CLR procedure is removed, manually reset assemblies',16,1);
+    END; 
 GO

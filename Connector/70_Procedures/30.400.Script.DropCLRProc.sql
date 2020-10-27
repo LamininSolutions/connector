@@ -11,9 +11,13 @@ MODIFICAITONS TO SCRIPT
 version 3.1.2.38	LC	add spMFGetFilesInternal
 version 3.1.2.38 ADD spMFGetHistory
 test that all the clr procedures have been dropped
-
+version 4.8.24.65  prevent assemblies to be deleted if
 
 */
+
+IF (SELECT OBJECT_ID('dbo.spMFConnectionTestInternal')) IS null
+--EXEC spmfupdateassemblies @MfilesVersion = @MFilesVersion;
+RAISERROR('CLR assemblies are not available',10,1);
 
 SET NOCOUNT ON;
 

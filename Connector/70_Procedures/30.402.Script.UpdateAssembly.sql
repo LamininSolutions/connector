@@ -132,9 +132,17 @@ END;
 
 IF @CLRInstallationFlag = 1
 BEGIN
-    EXEC sys.sp_changedbowner 'sa';
 
+IF(SELECT SUSER_SNAME(owner_sid) 
+FROM sys.databases WHERE name = @DBName ) <> 'sa'
+ Begin
+ SET @Msg = 'Change database owner to sa'
+    EXEC sys.sp_changedbowner 'sa';
     RAISERROR('%s', 10, 1, @Msg);
+    END
+
+SET @Msg = 'Drop assemblies'
+RAISERROR('%s', 10, 1, @Msg);
 
     IF EXISTS (SELECT * FROM sys.assemblies WHERE name = 'CLRSerializer')
     BEGIN
@@ -224,6 +232,9 @@ BEGIN
     EXEC sys.sp_configure 'clr enabled';
 
     ALTER DATABASE [{varAppDB}] SET TRUSTWORTHY ON;
+
+    SET @Msg = 'Create assemblies'
+RAISERROR('%s', 10, 1, @Msg);
 
     --  EXECUTE (@AlterDBQuery);
     CREATE ASSEMBLY [Interop.MFilesAPI]
