@@ -10,9 +10,9 @@ Columns
 ID int (primarykey, not null)
   SQL primary key
 Name varchar(100)
-  Name of the property
+  Name of the property from M-Files
 Alias varchar(100) (not null)
-  fixme description
+  Alias of the property
 MFID int (not null)
   M-Files ID of the property
 ColumnName varchar(100)
@@ -22,13 +22,29 @@ MFDataType\_ID int
 PredefinedOrAutomatic bit
   If the property is automatically calculated
 ModifiedOn datetime (not null)
-  fixme description
+  date when the MFProperty table was last modified
 CreatedOn datetime (not null)
-  fixme description
+  date when the MFProperty table was created
 Deleted bit
-  Has the property been deleted
+  Has the property been deleted in M-Files
 MFValueList\_ID int
   Primary key of the MFValueList table
+
+Additional Info
+===============
+
+The MFProperty table contains a reference to all the properties in vault.
+
+The columns of the Class Tables is automatically assigned on creation using the rules defined in the property table. The datatype defined by the column **MFDataType** will be applied to the column. The name of the column is defined in the MFProperty Table in the column **ColumnName**. A default ColumnName will be created for
+each property when the MFproperty Table is created. These names can be edited.  The custom changes of the columnname is preserved when metadata is refreshed.
+
+Refer to :doc:`/introduction/requirements/index` for a list of reserved words. These should not be used as property names.
+
+The datatype_ID references the primary key on the MFDataType table.  It is not the same as the datatype ID in the MFilesAPI.
+
+The **PredefinedOrAutomatic** column indicates if the property is automatically calculated. These columns will follow the rules set by M-Files.
+
+The MFValuelist_ID references the primary key on the MFValuelist table.  It is not the same as the M-Files internal ID for the valuelist.
 
 Indexes
 =======
@@ -41,50 +57,7 @@ TUC\_MFProperty\_MFID
 Foreign Keys
 ============
 
-+-------------------------------+--------------------------------------------------------------------+
-| Name                          | Columns                                                            |
-+===============================+====================================================================+
-| FK\_MFProperty\_MFValueList   | MFValueList\_ID->\ `[dbo].[MFValueList].[ID] <MFValueList.md>`__   |
-+-------------------------------+--------------------------------------------------------------------+
-
-Uses
-====
-
-- MFValueList
-
-Used By
-=======
-
-- MFvwClassTableColumns
-- MFvwMetadataStructure
-- spMFAddCommentForObjects
-- spMFClassTableColumns
-- spMFClassTableStats
-- spMFClassTableSynchronize
-- spMFCreateAllLookups
-- spMFCreateTable
-- spMFDeleteAdhocProperty
-- spMFDropAndUpdateMetadata
-- spMFExportFiles
-- spMFGetHistory
-- spMFInsertClassProperty
-- spMFInsertProperty
-- spMFInsertUserMessage
-- spMFObjectTypeUpdateClassIndex
-- spMFSearchForObject
-- spMFSearchForObjectbyPropertyValues
-- spMFSynchronizeFilesToMFiles
-- spmfSynchronizeLookupColumnChange
-- spMFSynchronizeProperties
-- spMFSynchronizeUnManagedObject
-- spMFUpdateClassAndProperties
-- spMFUpdateExplorerFileToMFiles
-- spMFUpdateHistoryShow
-- spMFUpdateMFilesToMFSQL
-- spMFUpdateTable
-- spMFUpdateTableinBatches
-- spMFUpdateTableInternal
-- spMFUpdateTableWithLastModifiedDate
+The MFProperty tables is referenced by the Valuelist table and the MFClassProperty Table.
 
 Changelog
 =========

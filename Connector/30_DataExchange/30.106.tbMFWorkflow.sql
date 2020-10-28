@@ -10,22 +10,17 @@ Columns
 ID int (primarykey, not null)
   SQL primary key
 Name varchar(100) (not null)
-  fixme description
+  Name of Workflow from M-Files
 Alias nvarchar(100)
-  fixme description
+  Alias in M-Files
 MFID int (not null)
-  fixme description
+  MFID of workflow 
 ModifiedOn datetime (not null)
-  fixme description
+  Date last changed in SQL
 CreatedOn datetime (not null)
-  fixme description
+  Date Created in SQL
 Deleted bit (not null)
-  fixme description
-
-Additional Info
-===============
-
-Workflow MFiles metadata.
+  set to 1 if deleted in M-Files
 
 Indexes
 =======
@@ -34,25 +29,6 @@ idx\_MFWorkflow\_MFID
   - MFID
 TUC\_MFWorkflow\_MFID
   - MFID
-
-Used By
-=======
-
-- MFClass
-- MFWorkflowState
-- MFvwMetadataStructure
-- spMFAliasesUpsert
-- spMFCreateAllLookups
-- spMFCreateWorkflowStateLookupView
-- spMFDropAndUpdateMetadata
-- spMFInsertClass
-- spMFInsertUserMessage
-- spMFInsertWorkflow
-- spMFInsertWorkflowState
-- spMFSynchronizeWorkflow
-- spmfSynchronizeWorkFlowSateColumnChange
-- spMFSynchronizeWorkflowsStates
-
 
 Changelog
 =========

@@ -44,8 +44,12 @@ The timestamp is shown in Universal Time.
 Used By
 =======
 
-- spMFGetHistory
+Procedures
+- :doc:`/procedures/spMFGetHistory/'
+- :doc:`/procedures/spMFUpdateObjectChangeHistory`
 
+Views
+- :doc:`/views/MFvwObjectChangeHistory`
 
 Changelog
 =========

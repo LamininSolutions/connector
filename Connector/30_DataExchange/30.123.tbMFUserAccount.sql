@@ -25,14 +25,27 @@ Indexes
 idx\_MFUserAccount\_User\_id
   - UserID
 
-Used By
-=======
+Additional Info
+===============
 
-- spMFDropAndUpdateMetadata
-- spMFInsertUserAccount
-- spMFProcessBatch\_EMail
-- spMFResultMessageForUI
+The table include only user accounts that is related to the specific vault. 
 
+Use spMFSynchronizeSpecificMetadata to update the login account or user
+account tables after making changes in M-Files.
+
+Updating is from M-Files to SQL only.  Updating from SQL to M-Files is
+currently not allowed.
+
+Relation
+========
+
+The MFID on the MFLoginAccount is related to UserID on MFUserAccount
+
+.. code:: sql
+
+         SELECT * FROM [dbo].[MFLoginAccount] AS [mla]
+         LEFT JOIN [dbo].[MFUserAccount] AS [mua]
+         ON mla.mfid = mua.[UserID]
 
 Changelog
 =========

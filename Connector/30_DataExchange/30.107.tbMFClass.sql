@@ -45,13 +45,20 @@ IsWorkflowEnforced bit
 Additional Info
 ===============
 
-Update the following columns in the class table for the desired classes:
+Custom settings for the following columns will be retained when
+:doc:`/procedures/spMFDropAndUpdateMetadata/` is used with the correct
+parameters
 
-- IncludedInApp:  Set to 1 for all classes that should be included. Set to 2 if transaction based updates should be triggered.
-- TableName: The name in this column will be used as the Table Name for the class.
-  The default is set to prefix the class name with 'MF' and remove all special characters.
-  This name can be changed and the custom name will be maintained when a metadata synchronization takes place.
-- FilePath: The filepath is used to export the files when spMFExportFiles is executed. The default is set to 'C:\MFSQLConnector_Files'.
+#. The MFClass table is defines the classes included in the connector. The class table names is defined in column **TableName** in the MFClass Table. The Connector will create a default name with prefix **MF** for all the tables. These names can be edited.
+#. The MFClass table column **IncludedInApp** has several functions. If this value is set to 1 then it indicates that the Class Table is specifically used in the application. This indicator is used in procedures to refresh or update all Class tables in the App with a single instruction, and are used in many other procedures to sub select classes included in the app. 
+#. The **FileExportFolder** column defines the root folder to be used when exporting files for the class. Refer to the :doc:`/procedures/spMFExportFiles/` .
+#. The **SynchPrecedence** column defined the precedence for auto fixing of synchronization errors for the class. Refer to the :doc:`/mfsql-integration-connector/using-and-managing-logs/error-tracing/correcting-synchronization-errors/index`_.
+
+The MFObjectType_ID references the primary key on the MFObjectType table. It is not the same as the M-Files internal ObjectType ID 
+
+The MFWorkflow_ID references the primary key from the MFWorkflow table for the default workflow of the class as set in the metadata definition.  This ID is not the same as the Workflow internal ID.
+
+The IsWorkflowEnforced column is set to 1 when the metadata definition is set to workflow enforced.  Updating a class table where the Workflow column is empty for an class that has workflow enforced will throw an error.
 
 Indexes
 =======
@@ -62,66 +69,7 @@ udx\_MFClass\_MFID
 Foreign Keys
 ============
 
-+-------------------------------+-----------------------------------------------------------------------+
-| Name                          | Columns                                                               |
-+===============================+=======================================================================+
-| FK\_MFClass\_MFWorkflow\_ID   | MFWorkflow\_ID->\ `[dbo].[MFWorkflow].[ID] <MFWorkflow.md>`__         |
-+-------------------------------+-----------------------------------------------------------------------+
-| FK\_MFClass\_ObjectType\_ID   | MFObjectType\_ID->\ `[dbo].[MFObjectType].[ID] <MFObjectType.md>`__   |
-+-------------------------------+-----------------------------------------------------------------------+
-
-Uses
-====
-
-- MFObjectType
-- MFWorkflow
-
-Used By
-=======
-
-- MFvwAuditSummary
-- MFvwClassTableColumns
-- MFvwMetadataStructure
-- MFvwObjectTypeSummary
-- spMFAddCommentForObjects
-- spMFChangeClass
-- spMFClassTableColumns
-- spMFClassTableStats
-- spMFCreateAllLookups
-- spMFCreateAllMFTables
-- spMFCreatePublicSharedLink
-- spMFCreateTable
-- spMFDeleteAdhocProperty
-- spMFDeleteObjectList
-- spMFDropAllClassTables
-- spMFDropAndUpdateMetadata
-- spMFExportFiles
-- spMFGetDeletedObjects
-- spMFGetHistory
-- spMFGetObjectvers
-- spMFInsertClass
-- spMFInsertClassProperty
-- spMFLogProcessSummaryForClassTable
-- spMFObjectTypeUpdateClassIndex
-- spMFResultMessageForUI
-- spMFSetup\_Reporting
-- spMFSynchronizeClasses
-- spMFSynchronizeFilesToMFiles
-- spmfSynchronizeLookupColumnChange
-- spmfSynchronizeWorkFlowSateColumnChange
-- spMFTableAudit
-- spMFUpdateAllncludedInAppTables
-- spMFUpdateClassAndProperties
-- spMFUpdateExplorerFileToMFiles
-- spMFUpdateHistoryShow
-- spMFUpdateItemByItem
-- spMFUpdateMFilesToMFSQL
-- spMFUpdateSynchronizeError
-- spMFUpdateTable
-- spMFUpdateTableinBatches
-- spMFUpdateTableInternal
-- fnMFObjectHyperlink
-
+The MFClass table references the MFClassProperty, MFObjectType and Workflow tables
 
 Examples
 ========

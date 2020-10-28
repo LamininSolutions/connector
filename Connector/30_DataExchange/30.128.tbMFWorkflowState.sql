@@ -10,26 +10,26 @@ Columns
 ID int (primarykey, not null)
   SQL Primay key
 Name varchar(100) (not null)
-  fixme description
+  M-Files workflow state name
 Alias varchar(100)
-  fixme description
+  M-Files alias
 MFID int (not null)
-  fixme description
+  MFID from M-Files
 MFWorkflowID int
-  fixme description
+  Primary key of MFWorkflow 
 ModifiedOn datetime (not null)
-  fixme description
+  Date last modified in SQL
 CreatedOn datetime (not null)
-  fixme description
+  Date created in SQL
 Deleted bit (not null)
-  fixme description
+  set to 1 if deleted in M-Files
 IsNameUpdate bit
-  fixme description
+  set to 1 to allow update from SQL to M-Files of name
 
 Additional Info
 ===============
 
-Workflow State MFiles Metadata
+The name and alias can be updated from SQL to M-Files.  New items cannot be created from SQL.
 
 Indexes
 =======
@@ -43,26 +43,7 @@ TUC\_MFWorkflowState\_MFID
 Foreign Keys
 ============
 
-+-----------------------------------+---------------------------------------------------------------+
-| Name                              | Columns                                                       |
-+===================================+===============================================================+
-| FK\_MFWorkflowState\_MFWorkflow   | MFWorkflowID->\ `[dbo].[MFWorkflow].[ID] <MFWorkflow.md>`__   |
-+-----------------------------------+---------------------------------------------------------------+
-
-Uses
-====
-
-- MFWorkflow
-
-Used By
-=======
-
-- spMFAliasesUpsert
-- spMFDropAndUpdateMetadata
-- spMFInsertUserMessage
-- spMFInsertWorkflowState
-- spmfSynchronizeWorkFlowSateColumnChange
-- spMFSynchronizeWorkflowsStates
+Table relates to MFWorkflow
 
 
 Changelog

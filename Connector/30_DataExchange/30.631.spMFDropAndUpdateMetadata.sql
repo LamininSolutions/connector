@@ -87,10 +87,29 @@ Additional Info
 
 This procedure will only run if metadata structure changes were made. It is therefore useful to add this procedure as a scheduled agent, or as part of key procedures to keep the structure aligned.
 
-Use spMFClassTableColumns to review the application and status of properties and columns on class tables.
+Set @ISResetAll = 1 only when custom settings in SQL should be reset to the defaults.  The following custom settings in the metadata tables. 
+================ ====================
+Table            Customisable columns
+================ ====================
+MFClass          IncludedInApp
+                 TableName
+                 FileExportFolder
+                 SynchPresendence
+MFProperty       ColumnName
+MFValuelistItems AppRef
+                 Owner_AppRef
+================ ====================
 
-Prerequisites
-=============
+This procedure can also be used to reset all the metadata, but retain
+the custom settings in the Tables when the default is used or @ISResetAll = 0.
+
+Setting the parameter @WithClassTableReset = 1 will drop and recreate all class tables where IncludeInApp = 1.  This is particularly usefull during testing or development to reset the class tables. This parameter is set to 0 by default.
+
+Setting the parameter @WithColumnReset = 1 will force the synchronisation to add missing properties to class tables.  This is particularly handy when a property is added to multiple classes on the metadata cards and requires pull through to the class tables in SQL.  This parameter is set to 0 by default.
+
+Use :doc:`/procedures/spMFClassTableColumns/` to review the application and status of properties and columns on class tables.
+
+By default this procedure will not be triggered if only valuelist items have been added in M-Files or no metadata changes have taken place.  To force this procedure to run, set the @IsStructureOnly = 0 to force an update in this scenario. 
 
 Warnings
 ========
@@ -99,28 +118,34 @@ Do no run other procedures (such as spmfupdatetable) while any syncrhonisation o
 
 The runtime of this procedure has increased, especially for large complex vaults. This is due to the extended validation checks performed during the procedure.
 
-Not all metadata changes increases the GetMetadataStructureVersionID in M-Files. Changes to valuelist items are not incluced.
-The default options is not appropriate when valuelist items must be included in the update There are several other methods to achieve the update of valuelist items rapidly.
+Not all metadata changes increases the GetMetadataStructureVersionID in M-Files. Changes to valuelist items does not set a version change for metadata changes.
+
+The default options is not appropriate when valuelist items must be included in the update. There are several other methods to achieve the update of valuelist items rapidly, for instance :doc:`/procedures/spMFSynchronizeSpecificMetadata/`
 
 Examples
 ========
+
+Standard use without any parameters. This will retain all custom settings and only run if changes in M-Files have been detected.
+
+.. code:: sql
+
+     EXEC spMFDropAndUpdateMetadata
 
 Running the procedure with default settings and no structure metadata change has taken place will exit very rapidly.
 
 .. code:: sql
 
     DECLARE @ProcessBatch_ID INT;
-    EXEC [dbo].[spMFDropAndUpdateMetadata] @IsResetAll = 0          -- smallint
-                                          ,@WithClassTableReset = 0 -- smallint
-                                          ,@WithColumnReset = 0     -- smallint
-                                          ,@IsStructureOnly = 1     -- smallint
-                                          ,@ProcessBatch_ID = @ProcessBatch_ID OUTPUT -- int
-                                          ,@Debug = 0               -- smallint
+    EXEC [dbo].[spMFDropAndUpdateMetadata] @IsResetAll = 0          
+                                          ,@WithClassTableReset = 0 
+                                          ,@WithColumnReset = 0     
+                                          ,@IsStructureOnly = 1     
+                                          ,@ProcessBatch_ID = @ProcessBatch_ID OUTPUT 
+                                          ,@Debug = 0 
 
 ----
 
-To force an update of metadata when only valuelist items have changed, set the @IsStructureOnly = 0.
-Running the procedure with default settings will automatically add any missing columns on the class tables.
+To force an update of metadata when only valuelist items have changed or no metadata change has taken place, set the @IsStructureOnly = 0.
 
 .. code:: sql
 
@@ -142,9 +167,6 @@ To reset columns when data types have changed, set the @WithColumnReset = 1
 
 .. code:: sql
 
-    EXEC [dbo].[spMFDropAndUpdateMetadata]
-    @IsResetAll = 1
-
     DECLARE @ProcessBatch_ID INT;
     EXEC [dbo].[spMFDropAndUpdateMetadata]
                @IsResetAll = 0
@@ -153,7 +175,6 @@ To reset columns when data types have changed, set the @WithColumnReset = 1
               ,@IsStructureOnly = 0
               ,@ProcessBatch_ID = @ProcessBatch_ID OUTPUT
               ,@Debug = 0
-
 
 Changelog
 =========

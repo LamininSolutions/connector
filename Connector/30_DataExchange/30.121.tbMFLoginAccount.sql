@@ -36,14 +36,20 @@ Additional Info
 
 The MFLoginAccount will only include objects related to the vault. It does not include all the login accounts on the server.
 
-Used By
-=======
+Relation
+========
 
-- spMFDropAndUpdateMetadata
-- spMfGetProcessStatus
-- spMFInsertLoginAccount
-- spMFProcessBatch\_EMail
-- spMFSetup\_Reporting
+MFContextMenu columns Last_excecuted_by and ActionUser_ID  relates to MFID in this table
+
+The MFID on the MFLoginAccount is related to UserID on MFUserAccount
+
+.. code:: sql
+
+         SELECT * FROM [dbo].[MFLoginAccount] AS [mla]
+         LEFT JOIN [dbo].[MFUserAccount] AS [mua]
+         ON mla.mfid = mua.[UserID]
+
+
 
 
 Changelog
