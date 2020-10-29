@@ -55,6 +55,7 @@ spMFSynchronizeSpecificMetadata
 Return
   - 1 = Success
   - -1 = Error
+  
 Parameters
   @Metadata varchar(100)
     type of metadata from list below
@@ -94,14 +95,14 @@ This procedure is particularly useful when a small change was made in the vault 
 When changes are made to classes it is very important to perform all the dependent specific synchronizations before doing the class synchronization.
 
 WHEN using the @Metadata parameter, only partial names can be used. 
-							- use 'Proper' for 'Properties'
-							 - use 'Valuelist' for'Valuelist'
-							 - use 'Item' for'Valuelistitems'
-							 - use 'Workflow' for'Workflow'
-							 - use 'Stat' for'States'
-							 - use 'Object' for'ObjectType'
-							 - use 'Login' for'LoginAccount'
-							 - use 'User' for'UserAccount'
+ - use 'Proper' for 'Properties'
+ - use 'Valuelist' for'Valuelist'
+ - use 'Item' for'Valuelistitems'
+ - use 'Workflow' for'Workflow'
+ - use 'Stat' for'States'
+ - use 'Object' for'ObjectType'
+ - use 'Login' for'LoginAccount'
+ - use 'User' for'UserAccount'
 
 The @Update parameter is used for making a change to the name for the following objects.  A separate routine is used to make a change to valuelist items.  This update only include changing an existing item and cannot add new rows for these objects.
 
@@ -137,7 +138,7 @@ Only update value list items for a specific valuelist
 .. code:: sql
 
     EXEC [dbo].[spMFSynchronizeSpecificMetadata] 
-	@Metadata = 'Valuelist'	-- to set this for Valuelists
+    @Metadata = 'Valuelist'	-- to set this for Valuelists
     ,@ItemName = 'Country'	-- use any valuelist name to update only the valuelist items for the selected item
 
 -----
@@ -146,15 +147,15 @@ Review the tables with the metadata
 
 .. code:: sql
 
-	SELECT TOP 100 * FROM [dbo].[MFProperty] as [mp]
-	SELECT TOP 100 * FROM [dbo].[MFClass] as [mc]
-	SELECT TOP 100 * FROM [dbo].[MFValueList] as [mvl]
-	SELECT TOP 100 * FROM [dbo].[MFValueListItems] as [mvli]
-	SELECT TOP 100 * FROM [dbo].[MFWorkflow] as [mw]
-	SELECT TOP 100 * FROM [dbo].[MFWorkflowState] as [mws]
-	SELECT TOP 100 * FROM [dbo].[MFObjectType] as [mot]
-	SELECT TOP 100 * FROM [dbo].[MFUserAccount] as [mua]
-	SELECT TOP 100 * FROM [dbo].[MFLoginAccount] as [mla]
+    SELECT TOP 100 * FROM [dbo].[MFProperty] as [mp]
+    SELECT TOP 100 * FROM [dbo].[MFClass] as [mc]
+    SELECT TOP 100 * FROM [dbo].[MFValueList] as [mvl]
+    SELECT TOP 100 * FROM [dbo].[MFValueListItems] as [mvli]
+    SELECT TOP 100 * FROM [dbo].[MFWorkflow] as [mw]
+    SELECT TOP 100 * FROM [dbo].[MFWorkflowState] as [mws]
+    SELECT TOP 100 * FROM [dbo].[MFObjectType] as [mot]
+    SELECT TOP 100 * FROM [dbo].[MFUserAccount] as [mua]
+    SELECT TOP 100 * FROM [dbo].[MFLoginAccount] as [mla]
 
 Changelog
 =========

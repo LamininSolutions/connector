@@ -36,9 +36,11 @@ Indexes
 idx\_AuditHistory\_ObjType\_ObjID
   - ObjectType
   - ObjID
+  
 idx\_AuditHistory\_Class\_Objid
   - Class
   - ObjID
+  
 idx\_AuditHistory\_Class\_StatusFlag
   - Class
   - StatusFlag
@@ -47,15 +49,14 @@ Additional Info
 ===============
 
 The status flag indicates:
- - 0 - the record MFversion in M-Files and SQL is identical Flag
- - 1 - the record MFversion in M-Files is higher than SQL. This indicates a need for updating from Mfiles to SQL 
- - 2 - the SQL version is later than the M-Files version (usually signalling a syncronisation error) 
- - 3 - the record in SQL is flagged as deleted in SQL and does not exist in M-Files
- - 4 - the record is not in M-Files and the record flag in SQL is not deleted. This usually indicate that the routine for deleting records have not yet been processed.
- - 5 - when there is no record in SQL for an objver in M-Files. This usually indicate that the records was created in M-Files and that the update routine has not yet been run. This may indicate a need for updating from Mfiles to SQL
-  Note that all templates in M-Files will also show as statusflag 5 as templates are not inserted into SQL. Execute spmfUpdateTable to move the template objects to statusflag 6. 
- - 6- the Record is a template. This status flag is update by spmfUpdateTable.
- - 7 - The record in SQL is marked as deleted but the record exist in M-Files (likely to have been undeleted.
+ - 0 the record MFversion in M-Files and SQL is identical Flag
+ - 1 the record MFversion in M-Files is higher than SQL. This indicates a need for updating from Mfiles to SQL 
+ - 2 the SQL version is later than the M-Files version (usually signalling a syncronisation error) 
+ - 3 the record in SQL is flagged as deleted in SQL and does not exist in M-Files
+ - 4 the record is not in M-Files and the record flag in SQL is not deleted. This usually indicate that the routine for deleting records have not yet been processed.
+ - 5 when there is no record in SQL for an objver in M-Files. This usually indicate that the records was created in M-Files and that the update routine has not yet been run. This may indicate a need for updating from Mfiles to SQL Note that all templates in M-Files will also show as statusflag 5 as templates are not inserted into SQL. Execute spmfUpdateTable to move the template objects to statusflag 6. 
+ - 6 the Record is a template. This status flag is update by spmfUpdateTable.
+ - 7 The record in SQL is marked as deleted but the record exist in M-Files (likely to have been undeleted.
 
 Note that the records in this table is not automatically deleted. It is
 recommended that agent is used to delete old records in the table if

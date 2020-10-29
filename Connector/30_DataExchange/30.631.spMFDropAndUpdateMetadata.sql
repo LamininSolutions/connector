@@ -88,17 +88,18 @@ Additional Info
 This procedure will only run if metadata structure changes were made. It is therefore useful to add this procedure as a scheduled agent, or as part of key procedures to keep the structure aligned.
 
 Set @ISResetAll = 1 only when custom settings in SQL should be reset to the defaults.  The following custom settings in the metadata tables. 
-================ ====================
-Table            Customisable columns
-================ ====================
-MFClass          IncludedInApp
-                 TableName
-                 FileExportFolder
-                 SynchPresendence
-MFProperty       ColumnName
-MFValuelistItems AppRef
-                 Owner_AppRef
-================ ====================
+
+================  ====================
+Table             Customisable columns
+================  ====================
+MFClass           IncludedInApp
+MFClass           TableName
+MFClass           FileExportFolder
+MFClass           SynchPresendence
+MFProperty        ColumnName
+MFValuelistItems  AppRef
+MFValuelistItems  Owner_AppRef
+================  ====================
 
 This procedure can also be used to reset all the metadata, but retain
 the custom settings in the Tables when the default is used or @ISResetAll = 0.

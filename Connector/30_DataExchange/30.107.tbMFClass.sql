@@ -51,8 +51,8 @@ parameters
 
 #. The MFClass table is defines the classes included in the connector. The class table names is defined in column **TableName** in the MFClass Table. The Connector will create a default name with prefix **MF** for all the tables. These names can be edited.
 #. The MFClass table column **IncludedInApp** has several functions. If this value is set to 1 then it indicates that the Class Table is specifically used in the application. This indicator is used in procedures to refresh or update all Class tables in the App with a single instruction, and are used in many other procedures to sub select classes included in the app. 
-#. The **FileExportFolder** column defines the root folder to be used when exporting files for the class. Refer to the :doc:`/procedures/spMFExportFiles/` .
-#. The **SynchPrecedence** column defined the precedence for auto fixing of synchronization errors for the class. Refer to the :doc:`/mfsql-integration-connector/using-and-managing-logs/error-tracing/correcting-synchronization-errors/index`_.
+#. The FileExportFolder column defines the root folder to be used when exporting files for the class. Refer to the :doc:`/procedures/spMFExportFiles/` .
+#. The SynchPrecedence column defined the precedence for auto fixing of synchronization errors for the class. Refer to the :doc:`/mfsql-integration-connector/using-and-managing-logs/error-tracing/correcting-synchronization-errors/index`
 
 The MFObjectType_ID references the primary key on the MFObjectType table. It is not the same as the M-Files internal ObjectType ID 
 
