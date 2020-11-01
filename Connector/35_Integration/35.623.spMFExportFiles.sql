@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo',
                                      @ObjectName = N'spMFExportFiles',
                                      -- nvarchar(100)
-                                     @Object_Release = '4.8.22.62',
+                                     @Object_Release = '4.8.24.65',
                                      -- varchar(50)
                                      @UpdateFlag = 2;
 -- smallint
@@ -148,6 +148,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-11-01  LC         Fix bug with misplaced as in code
 2020-08-22  LC         Update code for deleted column change
 2020-05-26  LC         Update fileid into table
 2019-08-30  JC         Added documentation
@@ -411,8 +412,8 @@ SELECT @DeletedColumn = ColumnName FROM MFProperty WHERE mfid = 27;
             DECLARE @GetDetailsCursor AS CURSOR;
             DECLARE @CursorQuery NVARCHAR(200),
                     @process_ID_text VARCHAR(5),
-                    @vsql AS NVARCHAR(MAX),
-                    @vquery AS NVARCHAR(MAX);
+                    @vsql  NVARCHAR(MAX),
+                    @vquery  NVARCHAR(MAX);
 
             SET @process_ID_text = CAST(@Process_id AS VARCHAR(5));
 
