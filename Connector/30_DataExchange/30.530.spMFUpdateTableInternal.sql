@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTableInternal', -- nvarchar(100)
-    @Object_Release = '4.8.24.65',            -- varchar(250)
+    @Object_Release = '4.8.24.66',            -- varchar(250)
     @UpdateFlag = 2;
 -- smallint
 GO
@@ -91,6 +91,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-11-07  LC         Resolve issue with duplicate columns and multilookup datatype
 2020-10-22  LC         set datetime conversion to 102 (ansi)
 2020-10-22  LC         Required workflow check is only performed on updated objects
 2020-09-23  LC         Remove rows from other classes for table update
@@ -563,13 +564,61 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
 
             IF @Debug > 9
             BEGIN
-                RAISERROR('Proc: %s Step: %s Delete Template', 10, 1, @ProcedureName, @ProcedureStep);
+                RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
             END;
 
             -------------------------------------------------
             --Updating property datatype
             -------------------------------------------------
-            UPDATE #Columns
+
+             		declare @Columnname nvarchar(max)
+
+		if (Select count(*)
+		
+				from #Columns
+				inner join MFProperty mp
+				on mp.ColumnName = #Columns.propertyName
+				inner join MFDataType dt
+				on dt.id = mp.MFDataType_ID
+				where #Columns.propertyName = mp.ColumnName
+				group by ColumnName
+				having count(*) > 1
+				)> 0
+				
+		              RAISERROR('Proc: %s Step: %s Duplicate columns, adhoc column conflict', 16, 1, @ProcedureName, @ProcedureStep);
+  
+
+				update #Columns
+				set dataType = v.SQLdataType 
+
+--Select v.columnName, v.SQLDataType 
+from(
+		Select mp.columnName, SQLDataType
+		
+				from #Columns c
+				inner join MFProperty mp
+				on mp.ColumnName = c.propertyName
+				inner join MFDataType dt
+				on dt.id = mp.MFDataType_ID
+				where c.propertyName = mp.ColumnName
+				union all
+Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
+,SQLdataType = case when mfTypeID = 9 then 'NVARCHAR(100)' ELSE 'NVARCHAR(4000)' END
+	
+				from #Columns c
+				inner join MFProperty mp
+				on mp.ColumnName = c.propertyName
+				inner join MFDataType dt
+				on dt.id = mp.MFDataType_ID
+				where c.propertyName = mp.ColumnName
+				and dt.MFTypeID in (9,10)
+		) v
+		inner join #Columns
+		on #Columns.propertyName = v.ColumnName
+		where #Columns.propertyName = v.ColumnName
+
+
+  /*          UPDATE #Columns
             SET dataType =
                 (
                     SELECT SQLDataType
@@ -587,7 +636,7 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
             -------------------------------------------------------------------------
             UPDATE #Columns
             SET dataType = ISNULL(dataType, 'NVARCHAR(100)');
-
+*/
             SELECT @AlterQuery = N'';
 
             ---------------------------------------------
