@@ -47,7 +47,6 @@ Used By
 - spMFInsertProperty
 - spMFSynchronizeFilesToMFiles
 - spMFSynchronizeUnManagedObject
-- spMFUpdateClassAndProperties
 - spMFUpdateExplorerFileToMFiles
 - spMFUpdateTable
 - spMFUpdateTableInternal

@@ -689,7 +689,7 @@ Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
                 = @ColumnForInsert
                   + CASE
                         WHEN DATA_TYPE = 'DATE' THEN
-                            ' CONVERT(DATETIME, NULLIF(' + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ','''')) AS '
+                            ' CONVERT(DATETIME, NULLIF(' + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),102) AS '
                             + QUOTENAME(COLUMN_NAME) + ','
                         WHEN DATA_TYPE = 'TIME' THEN
                             ' CONVERT(TIME(0), NULLIF(' + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),0) AS '
@@ -751,7 +751,7 @@ Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
                         WHEN DATA_TYPE = 'DATE' THEN
                             '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME)
                             + ' = CONVERT(DATETIME, NULLIF(t.' + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':')
-                            + ','''') ) ,'
+                            + ',''''),102 ) ,'
                         WHEN DATA_TYPE = 'TIME' THEN
                             '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME) + ' = CONVERT(TIME(0), NULLIF(t.'
                             + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),0)  ,'

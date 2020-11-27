@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFCreateTable', -- nvarchar(100)
-    @Object_Release = '4.8.22.62',    -- varchar(2506
+    @Object_Release = '4.8.24.66',    -- varchar(2506
     @UpdateFlag = 2;
 
 IF EXISTS
@@ -196,6 +196,7 @@ Date        Author     Description
 2020-04-22  LC         Improve naming of constraints
 2020-05-12  LC         Add index on Update_ID to improve performance
 2020-08-18  LC         replace deleted column flag with property 27 (deleted)
+2020-11-21  LC         Fix bug with unique index on objid
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -541,7 +542,7 @@ BEGIN
                 ORDER BY ColumnName;
 
                 SELECT @ConstColumn
-                    = N'[LastModified]  DATETIME , ' + N'[Process_ID] INT, ' + N'[ObjID]			INT , '
+                    = N'[LastModified]  DATETIME , ' + N'[Process_ID] INT, ' + N'[ObjID] INT, '
                       + N'[ExternalID]			NVARCHAR(100) , '
                       + N'[MFVersion]		INT,[FileCount] int , [Update_ID] int , '; ---- Added for task 106 [FileCount]
 
@@ -591,6 +592,9 @@ BEGIN
                     = N'ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Class_' + @TableName
                       + N'] DEFAULT(' + CAST(-1 AS VARCHAR(10)) + N') FOR ' + QUOTENAME(@ClassCustomName + '_ID') + N'';
 
+       IF @Debug > 0
+       PRINT @dsql;
+
                 EXEC sys.sp_executesql @Stmt = @dsql,
                     @Param = @Params,
                     @Tablename = @TableName;
@@ -634,6 +638,10 @@ BEGIN
 Alter Table ' +             @TableName + N'
 Add MFSQL_Message nvarchar(max) null;';
 
+     IF @Debug > 0
+       PRINT @dsql;
+
+
                             EXEC (@SQL);
                         END; --columns does not exist on table
 
@@ -647,6 +655,9 @@ Add MFSQL_Message nvarchar(max) null;';
                             SET @SQL = N'
 Alter Table ' +             @TableName + N'
 Add  MFSQL_Process_batch int null;';
+
+     IF @Debug > 0
+       PRINT @dsql;
 
                             EXEC (@SQL);
                         END; --columns does not exist on table
@@ -666,14 +677,17 @@ Add  MFSQL_Process_batch int null;';
 
                 IF @CreateUniqueIndexes = 1
                 BEGIN
-                    SET @SQL
-                        = N'
+--                    SET @SQL
+--                        = N'
 
 
-ALTER TABLE ' +     QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DF_' + @TableName
-                          + N'_ObjID]  DEFAULT (IDENT_CURRENT(''' + @TableName + N''')*(-1)) FOR [ObjID]';
+----ALTER TABLE ' +     QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DF_' + @TableName
+----                          + N'_ObjID]  DEFAULT ((ROW_NUMBER() OVER ( ORDER BY objid))*-1 FOR [ObjID]';
 
-                    EXEC (@SQL);
+--                    IF @debug > 0
+--                    PRINT @SQL;
+                    
+--                    EXEC (@SQL);
 
                     SET @SQL
                         = N'
@@ -682,7 +696,11 @@ FROM sys.indexes
 WHERE name=''IX_' + @TableName + N'_Objid'' AND object_id = OBJECT_ID(''dbo.' + @TableName
                           + N'''))
 CREATE UNIQUE NONCLUSTERED INDEX IX_' + @TableName + N'_Objid
-ON dbo.' +          @TableName + N'(Objid);';
+ON dbo.' +          @TableName + N'(Objid) WHERE Objid is not null;';
+
+
+ IF @debug > 0
+                    PRINT @SQL;
 
                     EXEC (@SQL);
 
@@ -702,6 +720,9 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_' + @TableName + N'_ExternalID
 ON dbo.' +          @TableName + N'(ExternalID)
 WHERE ExternalID IS NOT NULL;';
 
+ IF @debug > 0
+                    PRINT @SQL;
+
                     EXEC (@SQL);
 
                     SET @SQL
@@ -713,6 +734,9 @@ WHERE name=''IX_' + @TableName + N'_Update_ID'' AND object_id = OBJECT_ID(''dbo.
 CREATE NONCLUSTERED INDEX IX_' + @TableName + N'_Update_ID
 ON dbo.' +          @TableName + N'(Update_ID)
 WHERE Update_ID IS NOT NULL;';
+
+ IF @debug > 0
+                    PRINT @SQL;
 
                     EXEC (@SQL);
 

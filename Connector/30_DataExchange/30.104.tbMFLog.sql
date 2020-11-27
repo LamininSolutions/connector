@@ -8,29 +8,29 @@ Columns
 =======
 
 LogID int (primarykey, not null)
-  fixme description
+  Log id
 SPName nvarchar(max)
-  fixme description
+  Store procedure name
 Update\_ID int
-  fixme description
+  Update_ID from MFUpdateHistory
 ExternalID nvarchar(50)
-  fixme description
+  not used
 ErrorNumber int
-  fixme description
+  SQL Error number
 ErrorMessage nvarchar(max)
-  fixme description
+  SQL Error description
 ErrorProcedure nvarchar(max)
-  fixme description
+  Name of procedure with error
 ProcedureStep nvarchar(max)
-  fixme description
+  Procedure step
 ErrorState nvarchar(max)
-  fixme description
+  SQL Error state
 ErrorSeverity int
-  fixme description
+  SQL Error severity
 ErrorLine int
-  fixme description
+  Procedure line reference
 CreateDate datetime
-  fixme description
+  Date of error
 
 Indexes
 =======
@@ -91,7 +91,6 @@ Used By
 - spMFSynchronizeWorkflowsStates
 - spMFTableAudit
 - spMFUpdateAllncludedInAppTables
-- spMFUpdateClassAndProperties
 - spMFUpdateItemByItem
 - spMFUpdateMFilesToMFSQL
 - spMFUpdateTable

@@ -8,31 +8,32 @@ Columns
 =======
 
 Id int (primarykey, not null)
-  fixme description
+  SQL id
 Username nvarchar(250) (not null)
-  fixme description
+  MFSQL User performing update
 VaultName nvarchar(250) (not null)
-  fixme description
+  Name of vault being updated
 UpdateMethod smallint (not null)
-  fixme description
+  1 = From MF to SQL
+  0 = From SQL to MF
 ObjectDetails xml
-  fixme description
+  Details of object being updated in xml form
 ObjectVerDetails xml
-  fixme description
+  Object version detail of object(s)
 NewOrUpdatedObjectVer xml
-  fixme description
+  Detail properties of object(s) being updated
 NewOrUpdatedObjectDetails xml
-  fixme description
+  Results of update
 SynchronizationError xml
   Object version of the record that has error
 MFError xml
   Listing of the records with errors
 DeletedObjectVer xml
-  fixme description
+  objects deleted
 UpdateStatus varchar(25)
-  fixme description
+  Full or partial update
 CreatedAt datetime
-  fixme description
+  Date of update
 
 Additional Info
 ===============
@@ -63,7 +64,6 @@ Used By
 - spmfSynchronizeLookupColumnChange
 - spMFSynchronizeUnManagedObject
 - spmfSynchronizeWorkFlowSateColumnChange
-- spMFUpdateClassAndProperties
 - spMFUpdateExplorerFileToMFiles
 - spMFUpdateHistoryShow
 - spMFUpdateTable

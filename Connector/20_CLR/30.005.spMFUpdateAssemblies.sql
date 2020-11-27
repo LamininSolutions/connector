@@ -227,32 +227,26 @@ IF EXISTS
     FROM dbo.MFSettings
 )
 BEGIN
-    SELECT @FileLocation = CAST(Value AS NVARCHAR(100))
-    FROM dbo.MFSettings
-    WHERE Name = 'AssemblyInstallPath';
 
     SELECT @MFInstallPath = CAST(Value AS NVARCHAR(100))
     FROM dbo.MFSettings
     WHERE Name = 'MFInstallPath';
 END;
 
---validate NewtonSoft Dependency
-SELECT @FrameworkLocation = N'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\';
-
-SELECT @NewtonSoftJsonDependency = @FrameworkLocation + N'System.Runtime.Serialization.dll';
-
-EXEC master.sys.xp_fileexist @NewtonSoftJsonDependency, @File_Exists OUT;
-
-IF @File_Exists <> 1
+IF EXISTS
+(
+    SELECT 1
+    FROM dbo.MFSettings
+)
 BEGIN
-    SET @Output
-        = N'Unable to install get NewtonSoft Json dependencies, check access Framework installation, contact support@lamininsolutions.com.';
-    SET @CLRInstallationFlag = 0;
+    SELECT @FileLocation = CAST(Value AS NVARCHAR(100))
+    FROM dbo.MFSettings
+    WHERE Name = 'AssemblyInstallPath';
+END
+ELSE
+ SELECT @FileLocation = '{varCLRPath}';
 
-    RAISERROR(@Output, 16, 1);
-END;
-
-SELECT @FileName = ISNULL(@FileLocation, '{varCLRPath}') + '\Laminin.Security.dll';
+SELECT @FileName = ISNULL(@FileLocation, '{varCLRPath}') + 'Laminin.Security.dll';
 
 EXEC master.sys.xp_fileexist @FileName, @File_Exists OUT;
 
@@ -422,31 +416,35 @@ RAISERROR('%s', 10, 1, @Msg);
     SET @Msg = 'Create assemblies'
 RAISERROR('%s', 10, 1, @Msg);
 
+ SET @Msg = @MFLocation + '\Interop.MFilesAPI.dll'
+RAISERROR('%s', 10, 1, @Msg);
+
     --  EXECUTE (@AlterDBQuery);
     CREATE ASSEMBLY [Interop.MFilesAPI]
     FROM @MFLocation + '\Interop.MFilesAPI.dll'
     WITH PERMISSION_SET = UNSAFE;
 
+SET @Msg = @FileLocation + 'Laminin.Security.dll'
+RAISERROR('%s', 10, 1, @Msg);
+
     CREATE ASSEMBLY [Laminin.Security]
-    FROM @FileLocation + '\Laminin.Security.dll'
+    FROM @FileLocation + 'Laminin.Security.dll'
     WITH PERMISSION_SET = SAFE;
 
-    --CREATE ASSEMBLY [System.Runtime.Serialization]
-    --FROM 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\System.Runtime.Serialization.dll'
-    --WITH PERMISSION_SET = UNSAFE;
+SET @Msg = @FileLocation + 'LSConnectMFilesAPIWrapper.dll'
+RAISERROR('%s', 10, 1, @Msg);
 
     CREATE ASSEMBLY LSConnectMFilesAPIWrapper
-    FROM @FileLocation + '\LSConnectMFilesAPIWrapper.dll'
+    FROM @FileLocation + 'LSConnectMFilesAPIWrapper.dll'
     WITH PERMISSION_SET = UNSAFE;
+
+SET @Msg = @FileLocation + 'LSConnectMFilesAPIWrapper.XmlSerializers.dll'
+RAISERROR('%s', 10, 1, @Msg);
 
     CREATE ASSEMBLY CLRSerializer
-    FROM @FileLocation + '\LSConnectMFilesAPIWrapper.XmlSerializers.dll'
+    FROM @FileLocation + 'LSConnectMFilesAPIWrapper.XmlSerializers.dll'
     WITH PERMISSION_SET = UNSAFE;
 
-    --IF NOT EXISTS (SELECT * FROM sys.assemblies WHERE name = 'Newtonsoft.Json')
-    --    CREATE ASSEMBLY [newtonSoft.Json]
-    --    FROM @FileLocation + '\NewtonSoft.JSon.dll'
-    --    WITH PERMISSION_SET = UNSAFE;
 END;
 
 IF @CLRInstallationFlag = 0
@@ -2819,8 +2817,7 @@ AS EXTERNAL NAME
 
 
 
-
-EXEC dbo.spMFDeploymentDetails 
+--EXEC dbo.spMFDeploymentDetails 
 
 SET NOCOUNT OFF;
 RETURN 0;

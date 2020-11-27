@@ -7,7 +7,7 @@ GO
 
 DECLARE @RC int
 DECLARE @Username nvarchar(100) = N'{varMFUsername}'
---DECLARE @Password nvarchar(100) = N'{varMFPassword}'
+DECLARE @Password nvarchar(100) = N'{varMFPassword}'
 DECLARE @NetworkAddress nvarchar(100) = N'{varNetworkAddress}'
 DECLARE @Vaultname nvarchar(100) = N'{varVaultName}' 
 DECLARE @MFProtocolType nvarchar(100) = '{varProtocolType}'
@@ -53,7 +53,7 @@ Select  @MFAuthenticationType_ID = id from MFAuthenticationType mat where mat.Au
 
 EXECUTE @RC = [dbo].[spMFSettingsForVaultUpdate] 
    @Username = @username
- --,  @password = @Password
+ ,  @password = @Password
  , @NetworkAddress = @NetworkAddress
   ,@Vaultname = @Vaultname
   ,@MFProtocolType_ID = @MFProtocolType_ID

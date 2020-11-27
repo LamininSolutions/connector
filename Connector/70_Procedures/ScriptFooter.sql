@@ -1,6 +1,5 @@
 
-
-EXEC dbo.spMFDeploymentDetails 
+--EXEC dbo.spMFDeploymentDetails 
 
 SET NOCOUNT OFF;
 RETURN 0;
