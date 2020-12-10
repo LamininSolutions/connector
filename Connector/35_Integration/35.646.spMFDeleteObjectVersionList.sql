@@ -49,9 +49,9 @@ AS
 
 /*rST**************************************************************************
 
-====================
-spMFDeleteObjectList
-====================
+===========================
+spMFDeleteObjectVersionList
+===========================
 
 Return
   - 1 = Success
@@ -84,6 +84,13 @@ Prerequisites
 Set process_id of objects to be deleted in the class table prior to running the delete procedure.
 
 This procedure use the table MFObjectChangeHistory as source.  Explore and determine the versions to be deteled using the spmfGetHistory procedure and then to update the Process_id on MFObjectChangeHistory to 1 for the object versions to be included in the deletion.
+
+Warning
+=======
+
+When the version to be deleted is set to the latest version the process will fail with error status 6.
+
+
 
 Examples
 ========
@@ -323,7 +330,7 @@ BEGIN TRY
 		INSERT INTO #ObjectList
 		        ( ObjectType_ID,
                 [Objid],
-                MFVersion,
+                 MFVersion,
                 Destroy)
 
 SELECT distinct @objectType_ID, t.[ObjID], MFVersion, @DeleteWithDestroy

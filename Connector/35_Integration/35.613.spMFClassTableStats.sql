@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFClassTableStats' -- nvarchar(100)
-                                    ,@Object_Release = '4.8.23.63'         -- varchar(50)
+                                    ,@Object_Release = '4.8.24.66'         -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
 GO
@@ -43,6 +43,7 @@ ALTER PROCEDURE [dbo].[spMFClassTableStats]
     @ClassTableName NVARCHAR(128) = NULL
    ,@Flag INT = NULL
    ,@WithReset INT = 0
+   ,@WithAudit INT = 0
    ,@IncludeOutput INT = 0
    ,@Debug SMALLINT = 0
 )
@@ -65,6 +66,9 @@ Parameters
   @WithReset int (optional)
     - Default = 0
     - 1 = deleted object will be removed, sync error reset to 0, error 3 records deleted.
+  @WithAudit int
+    - Default = 0
+    - 1 = will include running spmftableaudit and updating info from MF
   @IncludeOutput int (optional)
     set to 1 to output result to a table ##spMFClassTableStats
   @Debug smallint (optional)
@@ -135,12 +139,24 @@ To insert the report into a temporary table that can be used in messaging.
         @ClassTableName = N'YourTablename'
        ,@IncludeOutput = 1
 
+----
+
+To include updating object information from M-files.
+
+.. code:: sql
+
+   EXEC [dbo].[spMFClassTableStats]
+        @ClassTableName = N'YourTablename'
+       ,@IncludeOutput = 1
+       ,@WithAudit = 1
+
 Changelog
 =========
 
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-12-10  LC         add new parameter to allow for a quick run without table audit
 2020-09-04  LC         rebase MFObjectTotal to include checkedout
 2020-08-22  LC         Update code for new deleted column
 2020-04-16  LC         Add with nolock option
@@ -162,6 +178,7 @@ Date        Author     Description
 **rST*************************************************************************/
 
 SET NOCOUNT ON;
+SET ANSI_WARNINGS OFF;
 
 DECLARE @ClassIDs AS TABLE
 (
@@ -232,11 +249,6 @@ SELECT @lastModifiedColumn = [mp].[ColumnName]
 FROM [dbo].[MFProperty] AS [mp]
 WHERE [mp].[MFID] = 21; --'Last Modified'
 
-SELECT @DeletedColumn = [mp].[ColumnName]
-FROM [dbo].[MFProperty] AS [mp]
-WHERE [mp].[MFID] = 27; --'Deleted'
-
-
 INSERT INTO [##spMFClassTableStats]
 (
     [ClassID]
@@ -278,7 +290,6 @@ SELECT @ID = MIN([t].[ClassID])
 FROM [##spMFClassTableStats] AS [t];
 
 
-
 WHILE @ID IS NOT NULL
 BEGIN
     SELECT @TableName    = [t].[TableName]
@@ -286,8 +297,14 @@ BEGIN
     FROM [##spMFClassTableStats] AS [t]
     WHERE [t].[ClassID] = @ID;
 
+    SELECT @DeletedColumn = [mp].[ColumnName]
+FROM [dbo].[MFProperty] AS [mp]
+WHERE [mp].[MFID] = 27; --'Deleted'
+
+
+
     IF @Debug > 0
-        SELECT @TableName;
+        SELECT @TableName as Classtable;
 
     IF @IncludeInApp > 0
 	Begin
@@ -333,6 +350,11 @@ print ''' + @TableName + ' has not been created'';
 
     EXEC [sys].[sp_executesql] @Stmt = @SQL, @Param = @params, @Debug = @Debug;
 
+    -------------------------------------------------------------
+    -- Include table audit
+    -------------------------------------------------------------
+ 
+    
     DECLARE @SQLCount INT
            ,@ToObjid  INT;
 
@@ -342,6 +364,9 @@ print ''' + @TableName + ' has not been created'';
 
     SELECT @ToObjid = @SQLCount + 5000;
 
+       IF @withAudit = 1
+    BEGIN
+
 DECLARE @SessionIDOut INT,
     @NewObjectXml     NVARCHAR(MAX),
     @DeletedInSQL     INT,
@@ -349,6 +374,7 @@ DECLARE @SessionIDOut INT,
     @OutofSync        INT,
     @ProcessErrors    INT,
     @ProcessBatch_ID  INT;
+
 
 EXEC dbo.spMFTableAudit @MFTableName = @TableName,
     @MFModifiedDate = '2000-01-01',
@@ -361,6 +387,8 @@ EXEC dbo.spMFTableAudit @MFTableName = @TableName,
     @ProcessErrors = @ProcessErrors OUTPUT,
     @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
     @Debug = 0
+
+    END -- include table audit
  
         SELECT @MFCount = COUNT(*)
         FROM [dbo].[MFAuditHistory] AS [mah] WITH(NOLOCK)

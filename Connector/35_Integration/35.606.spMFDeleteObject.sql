@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFDeleteObject' -- nvarchar(100)
-                                    ,@Object_Release = '4.4.12.52'     -- varchar(50)
+                                    ,@Object_Release = '4.8.25.66'     -- varchar(50)
                                     ,@UpdateFlag = 2;                  -- smallint
 GO
 IF EXISTS
@@ -52,12 +52,14 @@ spMFDeleteObject
 
 Return
   - 1 = Success object deleted
-  - -1 = Error
   - 2 =	Success object version destroyed
-  - 3 =	Success object  destroyed
-  - 4 = Failure object does not exist
-  - 5 =	Failure object version does not exist
-  - 6 =	Failure destroy latest object version not allowed
+  - 3 =	Success object destroyed  
+  - 3 = Successfully destroyed deleted object (when the object is already deleted)
+  - 4 = Failed to destroy, object not found
+  - 5 =	Failed to delete, object not found
+  - 6 = Failed to remove version, version not found
+
+  - -1 = SQL Error
 
 Parameters
   @ObjectTypeId int
@@ -85,16 +87,30 @@ Additional Information
 
 Use this procedure to delete or destroy a single object or object version.  spMFDeleteObjectList can be used to delete a series of objects.
 
+When DeleteWithDestroy = 1 the objectversion specified in ObjectVersion will be ignored and the ObjectVersion will automatically be set to -1.  This will trigger the method to destroy the whole object.  There is no need to manually set the ObjectVersion to -1.  A status code 3 will be returned.
+When DeleteWithDestroy = 1 and the objectversion is set to 0 then the object will be destroyed.
+When DeleteWithDestroy = 1 and the object does not exist an error code of 4 will be returned 
+
+When DeleteWithDestroy = 0 and the ObjectVersion is set to 0 the whole object will be deleted. Status code 1 is returned.
+When DeleteWithDestroy = 0 and an ObjectVersion less that the latest object version is specified the ObjectVersion will be removed.  A status code 2 is returned
+
+When DeleteWithDestroy = 0 and an ObjectVersion that is equal to latest object version is specified the delete will fail with error 6 returned
+When DeletedWithDestroy = 0 and the object does not exist an error code 4 will be returned
+When DeletedWithDestroy = 0 and the object version does not exist, is not 0 and is not the latest version of the object then an error code 5 will be returned
+
+
 Warnings
 ========
 
-Note that when a object is deleted it will not show in M-Files but it will still show in the class table. However, in the class table the deleted flag will be set to 1.
+To delete an object the object version must be set to 0 and DeleteWithDestroy must be set to 0.
 
-To delete a object version, the specified version must exist.  Use spMFGetHistory to first pull all the versions of an object or objects, and then use the FObjectChangeHistory table to determine the object versions to be removed.
+Note that when a object is deleted it will not show in M-Files but it will still show in the class table. However, in the class table the deleted column will have a date.
+
+To delete a object version, the specified version must exist.  Use spMFGetHistory to first pull all the versions of an object or objects, and then use the MFObjectChangeHistory table to determine the object versions to be removed.
 
 Deleting and object version performs a destroy of the version. There is no possibility to undelete a deleted version.
 
-The latest version of the object cannot be specified as the object version to be destroyed.
+The latest version of the object cannot be specified as the object version to be destroyed.  When the latest version of the object is specified the object will be deleted.
 
 Examples
 ========
@@ -165,6 +181,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-12-08  LC         Change status messages and validate different methods
 2020-04-28  LC         Update documentation for Object Versions
 2019-08-30  JC         Added documentation
 2019-08-20  LC         Expand routine to respond to output and remove object from change history
@@ -332,6 +349,8 @@ BEGIN
         -----------------------------------------------------
         -- nvarchar(2000)
         SET @ProcedureStep = 'Wrapper result';
+
+        SELECT @objectVersion = CASE WHEN @DeleteWithDestroy = 1 AND @ObjectVersion <> -1 THEN -1 ELSE @objectVersion END    
 
         EXEC [dbo].[spMFDeleteObjectInternal] @VaultSettings
                                              ,@ObjectTypeId

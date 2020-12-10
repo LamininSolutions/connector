@@ -5,7 +5,7 @@ GO
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFDeleteObjectList', -- nvarchar(100)
-    @Object_Release = '4.8.24.65',         -- varchar(50)
+    @Object_Release = '4.8.25.66',         -- varchar(50)
     @UpdateFlag = 2;                       -- smallint
 GO
 
@@ -119,6 +119,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-12-08  LC         Reset mfversion to -1 when deleting and destroying
+2020-12-03  LC         Fix bug when object is destroyed
 2020-10-06  LC         Modified to process delete operation in batch
 2020-08-22  LC         deleted records in class table will be removed 
 2018-04-9   lc         Delete object from class table after deletion.
@@ -339,10 +341,10 @@ BEGIN TRY
 		INSERT INTO #ObjectList
 		        ( ObjectType_ID,
                 [Objid],
-                MFVersion,
+                MFversion,
                 Destroy)
 
-SELECT  @objectType_ID, t.[ObjID], MFVersion, @DeleteWithDestroy
+SELECT  @objectType_ID, t.[ObjID], -1, @DeleteWithDestroy
 FROM ' + QUOTENAME(@TableName) + N' as t
 WHERE  t.[Process_ID] = @Process_id
 ORDER BY objid ASC;';
@@ -496,8 +498,7 @@ ORDER BY objid ASC;';
                 ) m
             );
 
-        --    EXEC sys.sp_executesql @sql;
-
+            --    EXEC sys.sp_executesql @sql;
             SET @DebugText = @output;
             SET @DebugText = @DefaultDebugText + @DebugText;
 
@@ -535,7 +536,7 @@ ORDER BY objid ASC;';
                 = N' Not Exist: ' + CAST(ISNULL(@NotExist, 0) AS VARCHAR(10)) + N' Other errors: '
                   + CAST(ISNULL(@DelErrors, 0) AS VARCHAR(10));
             SET @DebugText = @DefaultDebugText + @DebugText;
-            SET @ProcedureStep = 'Summarise errors';
+            SET @ProcedureStep = N'Summarise errors';
 
             IF @Debug > 0
             BEGIN
@@ -556,7 +557,7 @@ ORDER BY objid ASC;';
             -------------------------------------------------------------
             IF @NotExist > 0
             BEGIN
-                SET @ProcedureStep = 'Removed records that does not exist :';
+                SET @ProcedureStep = N'Removed records that does not exist :';
                 SET @sql
                     = N'
             Begin tran
@@ -574,7 +575,6 @@ ORDER BY objid ASC;';
 
                 IF @Debug > 0
                 BEGIN
-
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
             END;
@@ -583,9 +583,9 @@ ORDER BY objid ASC;';
             -- Report failed errors
             -------------------------------------------------------------
             SET @Params = N'@FailErrors int output, @process_id int';
-
             SET @DebugText
-                = N' Deleted count ' + CAST(@count AS NVARCHAR(100)) + N' Failed : ' + CAST(@FailErrors AS NVARCHAR(100));
+                = N' Deleted count ' + CAST(@count AS NVARCHAR(100)) + N' Failed : '
+                  + CAST(@FailErrors AS NVARCHAR(100));
             SET @DebugText = @DefaultDebugText + @DebugText;
 
             IF @Debug > 0

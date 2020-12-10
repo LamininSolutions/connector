@@ -211,6 +211,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-11-28  LC         Improve collection of property ids
 2020-11-28  LC         Resolve issue when fail message
 2020-11-24  LC         New functionality to deal with changing of classes
 2020-10-20  LC         Fix locationlisation for class_id 
@@ -310,7 +311,7 @@ BEGIN TRY
         @SynchErrCount      INT,
         @ErrorInfoCount     INT,
         @MFErrorUpdateQuery NVARCHAR(1500),
-        @MFIDs              NVARCHAR(2500) = N'',
+        @MFIDs              NVARCHAR(4000) = N'',
         @ExternalID         NVARCHAR(200),
         @Count              INT,
         @CheckOutObjects    NVARCHAR(MAX),
@@ -1604,13 +1605,14 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
     -------------------------------------------------------------
     -- Get property MFIDs
     -------------------------------------------------------------
-    SELECT @MFIDs = @MFIDs + CAST(ISNULL(MFP.MFID, '') AS NVARCHAR(10)) + N','
+    SELECT @MFIDs = STUFF((SELECT  ',' + 
+  CAST(ISNULL(MFP.MFID, '') AS NVARCHAR(10)) 
     FROM INFORMATION_SCHEMA.COLUMNS AS CLM
         LEFT JOIN dbo.MFProperty    AS MFP
             ON MFP.ColumnName = CLM.COLUMN_NAME
-    WHERE CLM.TABLE_NAME = @MFTableName;
-
-    SELECT @MFIDs = LEFT(@MFIDs, LEN(@MFIDs) - 1); -- Remove last ','
+    WHERE CLM.TABLE_NAME = @MFTableName
+    GROUP BY MFID
+    FOR XML PATH('')),1,1,'')
 
     IF @Debug > 10
     BEGIN
@@ -1969,6 +1971,9 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
                 @OtherMFTableName OUTPUT,
                 @ClassId;
 
+                IF @OtherMFTableName IS NOT NULL
+                BEGIN
+                
             EXEC dbo.spMFUpdateTable @MFTableName = @OtherMFTableName,
                 @UpdateMethod = 1,
                 @ObjIDs = @RemoveClassObjids,
@@ -1992,6 +1997,8 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
             BEGIN
                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
             END;
+            END--update table for other class
+
         END;
     END;
 
