@@ -49,18 +49,21 @@ spMFConvertTableToHtml
 ======================
 
 Return
-- 1 = Success
-- -1 = Error
+1 = Success
+-1 = Error
+
 Parameters
-  @SqlQuery 
-    -  The table select query to be converted
-  @TableBody OUTPUT
-    -  Output in html format
-  @ProcessBatch_ID (optional, output)
-    -  Referencing the ID of the ProcessBatch logging table
-  @Debug (optional)
-    -  Default = 0
-    -  1 = Standard Debug Mode
+==========
+
+@SqlQuery 
+  - The table select query to be converted
+@TableBody OUTPUT
+  - Output in html format
+@ProcessBatch_ID (optional, output)
+  - Referencing the ID of the ProcessBatch logging table
+@Debug (optional)
+  - Default = 0
+  - 1 = Standard Debug Mode
 
 Purpose
 =======

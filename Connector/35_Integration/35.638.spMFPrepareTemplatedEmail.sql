@@ -57,23 +57,24 @@ spMFPrepareTemplatedEmail
 =========================
 
 Return
-- 1 = Success
-- -1 = Error
+1 = Success
+-1 = Error
+
 Parameters
    @RecipientEmail NVARCHAR(128)
-    - email of recipient
+   - email of recipient
    @Document_ID int
-    - identity of related object such as objid
+   - identity of related object such as objid
    @IncludeTable 
-    - default = 0
-    - if set to 1 then the email prepare will expect table to be added
+   - default = 0
+   - if set to 1 then the email prepare will expect table to be added
    @Template_ID INT
-    - id of the related template
+   - id of the related template
    @ProcessBatch_ID (optional, output)
-    - Referencing the ID of the ProcessBatch logging table
+   - Referencing the ID of the ProcessBatch logging table
    @Debug (optional)
-    - Default = 0
-    - 1 = Standard Debug Mode
+   - Default = 0
+   - 1 = Standard Debug Mode
 
 Purpose
 =======
