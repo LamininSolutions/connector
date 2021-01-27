@@ -46,7 +46,7 @@ IF NOT EXISTS ( SELECT  object_id
               [Type] VARCHAR(10) NULL ,
               Modify_Date DATETIME NULL
                                    DEFAULT GETDATE(),
-				Module int
+				Module INT DEFAULT(1)
             );
 
         PRINT SPACE(10) + '... Table: created';
@@ -61,13 +61,10 @@ IF NOT EXISTS ( SELECT  object_id
             END;
     END; 
 
-	IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS AS c WHERE c.COLUMN_NAME = 'Module' AND c.TABLE_NAME = 'MFSQLObjectsControl')
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS AS c WHERE c.COLUMN_NAME = 'Module' AND c.TABLE_NAME = 'MFSQLObjectsControl')
 Begin
 ALTER TABLE setup.MFSQLObjectsControl
-ADD Module INT DEFAULT((0))
+ADD Module INT DEFAULT((1))
 END
-
-
-
-	go
+go
 

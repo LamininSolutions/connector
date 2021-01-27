@@ -4,7 +4,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateMFilesToMFSQL', -- nvarchar(100)
-    @Object_Release = '4.8.23.64',            -- varchar(50)
+    @Object_Release = '4.9.25.67',            -- varchar(50)
     @UpdateFlag = 2;
 
 -- smallint
@@ -158,6 +158,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-01-07  LC         Include override to recheck any class objects not in Audit
 2020-09-04  LC         Resolve bug with full update 
 2020-08-23  LC         replace get max objid with index update
 2020-08-23  LC         Add parameter to retain deletions, default set to NO.
@@ -236,7 +237,8 @@ BEGIN
         @OutofSync        INT,
         @ProcessErrors    INT,
         @Class_ID         INT,
-        @DefaultToObjid   INT;
+        @DefaultToObjid   INT
+        ;
 
 
     BEGIN TRY
@@ -389,16 +391,6 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
                     -- o/s switch to batch when the class table is too large
                     -------------------------------------------------------------  
                     DECLARE @Tobjid INT;
-
-     --               SELECT @Tobjid =  MAX(mah.ObjID)
-     --               FROM dbo.MFAuditHistory AS mah
-     --               WHERE mah.Class = @Class_ID;
-
-					--IF @Tobjid = CASE WHEN @Tobjid < @MaxObjects THEN @Tobjid
-					-- WHEN @MaxObjects = 20000 THEN @MaxObjects 
-					-- ELSE null
-				 --   END 
-
 				
                     BEGIN
                        
@@ -532,21 +524,7 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
                 END;
 
                 -- full update with no audit details
-
-                -------------------------------------------------------------
-                -- Incremental update
-                -------------------------------------------------------------
-                --IF (
-                --       @UpdateTypeID = @UpdateType_0_FullRefresh
-                --       AND
-                --       (
-                --           SELECT ISNULL(COUNT(id),0)
-                --           FROM dbo.MFAuditHistory AS mah
-                --           WHERE mah.Class = @Class_ID
-                --       ) > 0
-                --   )
-                --   OR (@UpdateTypeID IN ( @UpdateType_1_Incremental, @UpdateType_2_Deletes ))
-          
+    
           -------------------------------------------------------------
           -- If incremental update
           -------------------------------------------------------------
@@ -649,23 +627,6 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
                 -- object versions updated
                 -------------------------------------------------------------
 
---                -------------------------------------------------------------
---                -- Catch audit history entries not in class table that is set to identical
---                -------------------------------------------------------------
---                SET @ProcedureStep = N'Reset identical flag';
---                SET @sqlParam = N'@Class_ID int';
---                SET @sql
---                    = N'UPDATE ah
---SET ah.StatusFlag = 5
---FROM MFAuditHistory ah 
---left outer join  ' + QUOTENAME(@MFTableName)
---                      + N' t
---on ah.objid = t.objid
---where ah.Class = @Class_ID and t.id is NULL';
-
---                EXEC sys.sp_executesql @Stmt = @sql,
---                    @param = @sqlParam,
---                    @Class_ID = @Class_ID;
 
                 -------------------------------------------------------------
                 -- Get list of objects to update
@@ -704,6 +665,32 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
                         RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @rowcount);
                     END;
 
+-------------------------------------------------------------
+-- insert objids for update where objid is in class table but not in audit table
+-------------------------------------------------------------
+                   SET @ProcedureStep = 'Objects not in Audit Table ' 
+                   SET @SQL =  
+                    N'INSERT #ObjIdList
+                    (
+                        ObjId,
+                        Flag
+                    )
+                    SELECT cl.objid, 1
+                    FROM ' + quotename(@MFTableName) + ' AS cl
+                    LEFT JOIN dbo.MFAuditHistory AS mah
+                    ON cl.objid = mah.objid AND mah.Class = @Class_id 
+                    WHERE mah.objid IS null'
+
+                    EXEC sp_executeSQL @SQL, N'@Class_ID int', @Class_ID
+
+                     SET @rowcount = @@RowCount;
+
+                    IF @debug > 0
+                    BEGIN
+                        SET @DebugText = @DefaultDebugText + N' %i  ';
+
+                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @rowcount);
+                    END;
 
                     -------------------------------------------------------------
                     -- Group object list
@@ -951,6 +938,9 @@ ON t2.objid = cte.objid
                         @Debug = @debug;                                                -- smallint
                 END;
 
+                -------------------------------------------------------------
+                -- remove objects from Class table, not in table audit
+                -------------------------------------------------------------
                
      
                 -------------------------------------------------------------

@@ -60,7 +60,7 @@ Examples
 
 .. code:: sql
 
-    --upate type 1 : add item in @listitem to @changelist 
+    --update type 1 : add item in @listitem to @changelist 
     DECLARE @listItem NVARCHAR(4000)
     DECLARE @Changelist NVARCHAR(4000)
 

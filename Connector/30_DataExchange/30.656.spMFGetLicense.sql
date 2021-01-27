@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFGetLicense', -- nvarchar(100)
-    @Object_Release = '4.8.24.66',
+    @Object_Release = '4.9.25.67',
     @UpdateFlag = 2;
 GO
 
@@ -110,6 +110,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-01-06  LC         Fix bug with checking module 2 license
 2020-12-04  LC         Create procedure to aid spMFChecklicense status
 ==========  =========  ========================================================
 
@@ -294,7 +295,7 @@ BEGIN
                                  'Status not verified'
                          END;
 
-        SET @DebugText = N' Status %s  ';
+        SET @DebugText = N' %s  ';
         SET @DebugText = @DefaultDebugText + @DebugText;
 
         IF @Debug > 0

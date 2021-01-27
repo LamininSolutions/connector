@@ -57,6 +57,7 @@ spMFClassTableStats
 Return
   - 1 = Success
   - -1 = Error
+
 Parameters
   @ClassTableName nvarchar(128) (optional)
     - Default = NULL (all tables will be listed)

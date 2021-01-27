@@ -4,7 +4,7 @@ go
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFInsertClassProperty', -- nvarchar(100)
-    @Object_Release = '3.1.2.39', -- varchar(50)
+    @Object_Release = '4.9.25.67', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 go
 
@@ -51,33 +51,19 @@ Return
   - -1 = Error
 Parameters
   @Doc nvarchar(max)
-    fixme description
+    XML data
   @isFullUpdate bit
-    fixme description
+    flag from calling procedure
   @Output int (output)
-    fixme description
+    output status
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
-
 
 Purpose
 =======
 
-To insert Class property details into MFClassProperty table.
-
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
+To insert Class property details into MFClassProperty table.  This is procedure is used internally only
 
 Changelog
 =========
@@ -85,23 +71,13 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-12-23  LC         Add class as a property 100
 2019-08-30  JC         Added documentation
 2017-09-11  LC         Resolve issue with constraints
 2015-04-07  DEV2       Resolved synchronization issue (Bug 55)
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
-
-/*******************************************************************************
-** Processing Steps:
-**        1. Insert data from XML into temperory data
-**		2. Update M-Files ID with primary key values
-**		3. Update the Class property details into MFClMFClassPropertyass
-**		4. INsert the new class property details
-**		5. If fullUpdate 
-**				Delete the class property details deleted from M-Files
-**
-******************************************************************************/
 
     SET NOCOUNT ON;
 
@@ -158,7 +134,20 @@ Date        Author     Description
                 SELECT  [t].[c].[value]('(@classID)[1]', 'INT') AS [MFClass_ID] ,
                         [t].[c].[value]('(@PropertyID)[1]', 'INT') AS [MFProperty_ID] ,
                         [t].[c].[value]('(@Required)[1]', 'BIT') AS [Required]
-                FROM    @XML.[nodes]('/form/ClassProperty') AS [t] ( [c] );
+                FROM    @XML.[nodes]('/form/ClassProperty') AS [t] ( [c] )
+
+---------------------------------------------------------------
+---- insert property for class
+---------------------------------------------------------------
+--          INSERT  INTO [#ClassProperty]
+--                ( [MFClass_ID] ,
+--                       [MFProperty_ID] ,
+--                  [Required]
+--                )
+--                SELECT distinct [t].[c].[value]('(@classID)[1]', 'INT') AS [MFClass_ID] 
+--                ,100,1
+--                FROM    @XML.[nodes]('/form/ClassProperty') AS [t] ( [c] )               
+--                ;
 
         SELECT  @ProcedureStep = 'Updating #ClassProperty with Required value from MFClassProperty';
 
@@ -370,7 +359,7 @@ Date        Author     Description
 	 
 	 
 	      --------------------------------------------------------------
-          --Droping all temperory Table 
+          --Droping all temporary Tables
           --------------------------------------------------------------
         DROP TABLE [#TempClassProperty]
 		DROP TABLE [#ClassProperty];

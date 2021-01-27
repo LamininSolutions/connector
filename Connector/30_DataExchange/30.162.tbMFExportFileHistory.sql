@@ -21,7 +21,7 @@ SubFolder\_2 nvarchar(100)
 SubFolder\_3 nvarchar(100)
   This parameter is set in the spMFExportFiles procedure
 MultiDocFolder nvarchar(100)
-  fixme description
+  Name or title of metadata
 FileName nvarchar(256)
   M-Files filename of the file
 ClassID int
@@ -39,7 +39,11 @@ FileCount int
 Created datetime
   The date and time of the export of the file
 FileObjectID int
-  fixme description
+  ID of the file
+FileExtension nvarchar(10)
+  Extension of the file
+FileSize int
+  Size of file
 
 Used By
 =======
@@ -53,6 +57,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-01-04  LC         Add file size and file ext to table
 2019-09-07  JC         Added documentation
 2018-06-29  LC         Add Column for MultiDocFolder
 2018-09-27  LC         Add script to alter column if missing
@@ -70,7 +75,7 @@ GO
 SET NOCOUNT ON;
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
 								   , @ObjectName = N'MFExportFileHistory' -- nvarchar(100)
-								   , @Object_Release = '4.2.7.46'		   -- varchar(50)
+								   , @Object_Release = '4.9.25.67'		   -- varchar(50)
 								   , @UpdateFlag = 2;
 -- smallint
 GO
@@ -131,6 +136,26 @@ IF NOT EXISTS (	  SELECT	1
 BEGIN
 	ALTER TABLE MFExportFileHistory ADD FileObjectID INT;
 	PRINT SPACE(10) + '... Column Message: Added FileObjectID Column';
+END
+
+	IF  NOT EXISTS(SELECT 1 FROM [INFORMATION_SCHEMA].[COLUMNS] 
+		WHERE [TABLE_NAME] = 'MFExportFileHistory'
+		AND [COLUMN_NAME] = 'FileExtension'
+		
+		)
+BEGIN
+	ALTER TABLE MFExportFileHistory ADD FileExtension NVARCHAR(100);
+	PRINT SPACE(10) + '... Column Message: Added FileExtension Column';
+END
+
+	IF  NOT EXISTS(SELECT 1 FROM [INFORMATION_SCHEMA].[COLUMNS] 
+		WHERE [TABLE_NAME] = 'MFExportFileHistory'
+		AND [COLUMN_NAME] = 'FileSize'
+		
+		)
+BEGIN
+	ALTER TABLE MFExportFileHistory ADD FileSize INT;
+	PRINT SPACE(10) + '... Column Message: Added FileSize Column';
 END
 
 GO

@@ -1,26 +1,27 @@
 
 GO
 
-PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFExportFiles]';
+PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFExportFiles]';
 GO
 
 SET NOCOUNT ON;
 
-EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo',
-                                     @ObjectName = N'spMFExportFiles',
-                                     -- nvarchar(100)
-                                     @Object_Release = '4.8.24.65',
-                                     -- varchar(50)
-                                     @UpdateFlag = 2;
+EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
+    @ObjectName = N'spMFExportFiles',
+    -- nvarchar(100)
+    @Object_Release = '4.9.26.67',
+    -- varchar(50)
+    @UpdateFlag = 2;
 -- smallint
 GO
+
 IF EXISTS
 (
     SELECT 1
-    FROM [INFORMATION_SCHEMA].[ROUTINES]
-    WHERE [ROUTINE_NAME] = 'spMFExportFiles' --name of procedure
-          AND [ROUTINE_TYPE] = 'PROCEDURE' --for a function --'FUNCTION'
-          AND [ROUTINE_SCHEMA] = 'dbo'
+    FROM INFORMATION_SCHEMA.ROUTINES
+    WHERE ROUTINE_NAME = 'spMFExportFiles' --name of procedure
+          AND ROUTINE_TYPE = 'PROCEDURE' --for a function --'FUNCTION'
+          AND ROUTINE_SCHEMA = 'dbo'
 )
 BEGIN
     PRINT SPACE(10) + '...Stored Procedure: update';
@@ -32,7 +33,7 @@ ELSE
 GO
 
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE [dbo].[spMFExportFiles]
+CREATE PROCEDURE dbo.spMFExportFiles
 AS
 SELECT 'created, but not implemented yet.';
 --just anything will do
@@ -41,12 +42,14 @@ GO
 -- the following section will be always executed
 SET NOEXEC OFF;
 GO
-ALTER PROCEDURE [dbo].[spMFExportFiles]
+
+ALTER PROCEDURE dbo.spMFExportFiles
 (
     @TableName NVARCHAR(128),
     @PathProperty_L1 NVARCHAR(128) = NULL,
     @PathProperty_L2 NVARCHAR(128) = NULL,
     @PathProperty_L3 NVARCHAR(128) = NULL,
+    @IsDownload BIT = 1,
     @IncludeDocID BIT = 1,
     @Process_id INT = 1,
     @ProcessBatch_ID INT = NULL OUTPUT,
@@ -54,39 +57,40 @@ ALTER PROCEDURE [dbo].[spMFExportFiles]
 )
 AS
 /*rST**************************************************************************
-
 ===============
 spMFExportFiles
 ===============
 
 Return
-  - 1 = Success
-  - -1 = Error
+   1 = Success
+   -1 = Error
 Parameters
   @TableName nvarchar(128)
-    Name of class table
+  - Name of class table
   @PathProperty\_L1 nvarchar(128) (optional)
-    - Default = NULL
-    - Optional column for 1st level path
+  - Default = NULL
+  - Optional property column for 1st level path.  
   @PathProperty\_L2 nvarchar(128) (optional)
-    - Default = NULL
-    - Optional column for 2nd level path
+  - Default = NULL
+  - Optional column for 2nd level path
   @PathProperty\_L3 nvarchar(128) (optional)
-    - Default = NULL
-    - Optional column for 3rd level path
+  - Default = NULL
+  - Optional column for 3rd level path
+  @IsDownload bit
+  - Default = 1 (yes)
+  - When set to 0 the file data will be updated in the table but the file is not downloaded.
   @IncludeDocID bit (optional)
-    - Default = 1
-    - File name include Document id.
+  - Default = 1
+  - File name include Document id.
   @Process\_id int (optional)
-    - Default = 1
-    - process Id for records to be included
+  - Default = 1
+  - process Id for records to be included
   @ProcessBatch\_ID int (optional, output)
-    - Default = NULL
-    - Referencing the ID of the ProcessBatch logging table
+  - Default = NULL
+  - Referencing the ID of the ProcessBatch logging table
   @Debug int (optional)
-    - Default = 0
-    - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
+  - Default = 0
+  - 1 = Standard Debug Mode
 
 Purpose
 =======
@@ -96,18 +100,43 @@ The procedure is used to export selected files for class records from M-Files to
 Additional Info
 ===============
 
-The main use case for this procedure is to allow access to the files as attachments to emails or other third party system applications. An example is bulk emailing of customer invoices.
-Objects with Files and Document Type objects can be exported.
+The main use case for this procedure is to allow access to the files as attachments to emails or other third party system applications. An example is to prepare for bulk emailing of customer invoices.
 
-Use root folder parameter to set the UNC path, or location on the SQL Server e.g. D:\\MFSQLExport\\. On installation this folder is automatically set to c:\MFSQL\FileExport
+All Object Types with Files can be included in an export.  Each class export is performed separately.
 
-Use FileExportFolder column in MFClass to set the 'What is being exported' e.g. SalesInvoices
+The destination folder in explorer is defined as:
+- The Root folder or UNC path is defined in MFSettings with name "RootFolder".  The user executing the script must have permission the read and write to this folder.  On installation this folder is automatically set to c:\MFSQL\FileExport.  
+- The next layer defines the root folder for the class.  This folder is defined in MFClass by changing the value of the column "FileExportFolder" for the specific class in MFClass. This layer is to set the 'What is being exported' e.g. SalesInvoices.  If the value in "FileExportFolder" for the class is null then the files will be saved to the root folder.
+- Three layers of property related folders can be defined as parameters by setting the PathPropertyL1 to L3 to valid columns on the class table.  These parameters are all optional.  L1 must have a value for L2 to and L3 to be specified.
+- Multi document objects will show the name of the object as the name of the folder for the files in the multi file object.
+- Filename (with or without object id)
 
-If no path properties are set, then the files will be exported to D:\MFSQLExport\SalesInvoices
+For example : 
+D:\MFSQLExport\SalesInvoices\ABC Engineering\Service Invoices\2009\ABC Engineering Inv 2324\INV2345.pdf
+D:\MFSQLExport\SalesInvoices\ABC Engineering\Service Invoices\2009\ABC Engineering Inv 2324\Supplements.pdf
+-  Root = D:\MFSQLExport (defined in MFSettings)
+-  Class = SalesInvoices (Defined in MFclass)
+-  Property 1 = Customer
+-  Property 2 = Document_type (type of invoice)
+-  Property 3 = Financial_year (Property showing financial year)
+-  MultiFile Object = Name_or_title
+-  Filename with object id
 
 Each Path Property is the column values for the object. Level 3 is nested in Level 2 is nested in Level 1. E.g. CustomerABC\ProjectABC\InvoiceMonth.
 
 The security context of the export functionality is using the SQL Service Account. The SQL Service Account must have appropriate permissions to create folders and files on the Root Folder.  Special care should be taken If a UNC path is used to set the SQL Service Account with appropriate permissions to access the UNC path.
+
+MFExportFileHistory show the export result. Join this table on the class and objid with the class table to relate the files with the metadata.  Additional file data in the MFExportFileHistory table include:
+ -  checksum
+ -  File size
+ -  File Extension
+ -  File ID
+ -  Count of files in object
+ -  Name or title of object for multiple files 
+ -  Date lastupdated
+ -  Export Result
+
+If IsDownload is set to 0 then the details of the file will be updated in the MFExportFileHistory table will be updated but the file will not be downloaded.
 
 Examples
 ========
@@ -133,14 +162,15 @@ Produce extract of all sales invoices by Customer by Month (assuming that the in
 .. code:: sql
 
     DECLARE @ProcessBatch_ID INT;
-    EXEC [dbo].[spMFExportFiles] @TableName = 'MFSalesInvoice', -- nvarchar(128)
-                                 @PathProperty_L1 = 'Customer', -- nvarchar(128)
-                                 @PathProperty_L2 = 'Document_Date', -- nvarchar(128)
-                                 @PathProperty_L3 = null, -- nvarchar(128)
-                                 @IncludeDocID = 0, -- bit
-                                 @Process_id = 1, -- int
-                                 @ProcessBatch_ID = @ProcessBatch_ID OUTPUT, --int
-                                 @Debug = 0 -- int
+    EXEC [dbo].[spMFExportFiles] @TableName = 'MFSalesInvoice', 
+                                 @PathProperty_L1 = 'Customer', 
+                                 @PathProperty_L2 = 'Document_Date', 
+                                 @PathProperty_L3 = null, 
+                                 @isDownload = 1,
+                                 @IncludeDocID = 0, 
+                                 @Process_id = 1, 
+                                 @ProcessBatch_ID = @ProcessBatch_ID OUTPUT, 
+                                 @Debug = 0 
 
 Changelog
 =========
@@ -148,6 +178,11 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-01-07  LC         Change CLR to improve downloading multiple files
+2021-01-07  LC         Include parameter to restrict download of files
+2021-01-05  LC         Improve productivity and processing logic
+2021-01-04  LC         Add columns filesize and file extension
+2021-01-04  LC         Add new param for GetFiles and set default to 0 
 2020-11-01  LC         Fix bug with misplaced as in code
 2020-08-22  LC         Update code for deleted column change
 2020-05-26  LC         Update fileid into table
@@ -158,16 +193,13 @@ Date        Author     Description
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
-
 BEGIN
     BEGIN TRY
-
         SET NOCOUNT ON;
 
         -----------------------------------------------------
         --DECLARE LOCAL VARIABLE
         ----------------------------------------------------
-
         DECLARE @VaultSettings NVARCHAR(4000);
         DECLARE @ClassID INT;
         DECLARE @ObjType INT;
@@ -185,32 +217,31 @@ BEGIN
         DECLARE @MFClassFileExportFolder NVARCHAR(200);
         DECLARE @ProcedureName sysname = 'spMFExportFiles';
         DECLARE @ProcedureStep sysname = 'Start';
-        DECLARE @PathProperty_ColValL1 NVARCHAR(128) = NULL;
-        DECLARE @PathProperty_ColValL2 NVARCHAR(128) = NULL;
-        DECLARE @PathProperty_ColValL3 NVARCHAR(128) = NULL;
-
+        DECLARE @process_ID_text VARCHAR(5),
+            @vsql                NVARCHAR(MAX),
+            @vquery              NVARCHAR(MAX),
+            @Params              NVARCHAR(MAX);
 
         -----------------------------------------------------
         --DECLARE VARIABLES FOR LOGGING
         -----------------------------------------------------
         --used on MFProcessBatchDetail;
-        DECLARE @DefaultDebugText AS NVARCHAR(256) = 'Proc: %s Step: %s';
-        DECLARE @DebugText AS NVARCHAR(256) = '';
-        DECLARE @LogTypeDetail AS NVARCHAR(MAX) = '';
-        DECLARE @LogTextDetail AS NVARCHAR(MAX) = '';
-        DECLARE @LogTextAccumulated AS NVARCHAR(MAX) = '';
+        DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s';
+        DECLARE @DebugText AS NVARCHAR(256) = N'';
+        DECLARE @LogTypeDetail AS NVARCHAR(MAX) = N'';
+        DECLARE @LogTextDetail AS NVARCHAR(MAX) = N'';
+        DECLARE @LogTextAccumulated AS NVARCHAR(MAX) = N'';
         DECLARE @LogStatusDetail AS NVARCHAR(50) = NULL;
         DECLARE @LogColumnName AS NVARCHAR(128) = NULL;
         DECLARE @LogColumnValue AS NVARCHAR(256) = NULL;
         DECLARE @ProcessType NVARCHAR(50);
-        DECLARE @LogType AS NVARCHAR(50) = 'Status';
-        DECLARE @LogText AS NVARCHAR(4000) = '';
-        DECLARE @LogStatus AS NVARCHAR(50) = 'Started';
+        DECLARE @LogType AS NVARCHAR(50) = N'Status';
+        DECLARE @LogText AS NVARCHAR(4000) = N'';
+        DECLARE @LogStatus AS NVARCHAR(50) = N'Started';
         DECLARE @Status AS NVARCHAR(128) = NULL;
         DECLARE @Validation_ID INT = NULL;
         DECLARE @StartTime AS DATETIME;
         DECLARE @RunTime AS DECIMAL(18, 4) = 0;
-
         DECLARE @error AS INT = 0;
         DECLARE @rowcount AS INT = 0;
         DECLARE @return_value AS INT;
@@ -226,615 +257,704 @@ BEGIN
         ----------------------------------------------------------------------
         --GET Vault LOGIN CREDENTIALS
         ----------------------------------------------------------------------
-        DECLARE @Rootfolder NVARCHAR(100) = '';
+        DECLARE @Rootfolder NVARCHAR(100) = N'';
 
         SET @ProcessType = @ProcedureName;
-        SET @LogType = 'Status';
-        SET @LogText = @ProcedureStep + ' | ';
-        SET @LogStatus = 'Initiate';
+        SET @LogType = N'Status';
+        SET @LogText = @ProcedureStep + N' | ';
+        SET @LogStatus = N'Initiate';
 
-        EXECUTE @RC = [dbo].[spMFProcessBatch_Upsert] @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
-                                                      @ProcessType = @ProcessType,
-                                                      @LogType = @LogType,
-                                                      @LogText = @LogText,
-                                                      @LogStatus = @LogStatus,
-                                                      @debug = @Debug;
+        EXECUTE @RC = dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
+            @ProcessType = @ProcessType,
+            @LogType = @LogType,
+            @LogText = @LogText,
+            @LogStatus = @LogStatus,
+            @debug = @Debug;
 
-        SELECT @VaultSettings = [dbo].[FnMFVaultSettings]();
-		
--------------------------------------------------------------
--- Get deleted column name
--------------------------------------------------------------
-SELECT @DeletedColumn = ColumnName FROM MFProperty WHERE mfid = 27;
+        SELECT @VaultSettings = dbo.FnMFVaultSettings();
 
+        -------------------------------------------------------------
+        -- check class table is valid
+        -------------------------------------------------------------
+        SET @DebugText = N'%s';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = 'check Table Name: ';
 
-        SELECT @Rootfolder = CAST([Value] AS NVARCHAR(100))
-        FROM [dbo].[MFSettings]
-        WHERE [Name] = 'RootFolder';
-
-        SELECT @Name_Or_Title_PropName = [mp].[ColumnName]
-        FROM [dbo].[MFProperty] AS [mp]
-        WHERE [mp].[MFID] = 0;
-
-				Set @DebugText = ' RootFolder %s'
-		Set @DebugText = @DefaultDebugText + @DebugText
-		Set @Procedurestep = 'Getting started'
-		
-		IF @debug > 0
-			Begin
-				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@Rootfolder);
-			END
-
-
-        SELECT @ClassID = ISNULL([CL].[MFID], 0),
-               @ObjType = [OT].[MFID],
-               @ClassName = [CL].[Name],
-               @OjectTypeName = [OT].[Name],
-               @MFClassFileExportFolder = ISNULL([CL].[FileExportFolder], '')
-        FROM [dbo].[MFClass] AS [CL]
-            INNER JOIN [dbo].[MFObjectType] AS [OT]
-                ON [CL].[MFObjectType_ID] = [OT].[ID]
-                   AND [CL].[TableName] = @TableName;
-
-        IF @ClassID != 0
-           OR @Rootfolder != ''
+        IF EXISTS (SELECT 1 FROM dbo.MFClass WHERE TableName = @TableName)
         BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @TableName);
 
-            SET @ProcedureStep = 'Calculating File download path';
+            -------------------------------------------------------------
+            -- Get deleted column name
+            -------------------------------------------------------------
+            SELECT @DeletedColumn = ColumnName
+            FROM dbo.MFProperty
+            WHERE MFID = 27;
 
-							Set @DebugText = ''
-		Set @DebugText = @DefaultDebugText + @DebugText
-		
-		IF @debug > 0
-			Begin
-				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep);
-			END
+            SELECT @Rootfolder = CAST(Value AS NVARCHAR(100))
+            FROM dbo.MFSettings
+            WHERE Name = 'RootFolder';
 
-            ------------------------------------------------------------------------------------------------
-            --Creating File path
-            -------------------------------------------------------------------------------------------------
+            SELECT @Name_Or_Title_PropName = mp.ColumnName
+            FROM dbo.MFProperty AS mp
+            WHERE mp.MFID = 0;
 
-
-            IF @PathProperty_L1 IS NOT NULL
-            BEGIN
-                IF EXISTS
-                (
-                    SELECT [COLUMN_NAME]
-                    FROM [INFORMATION_SCHEMA].[COLUMNS]
-                    WHERE [TABLE_NAME] = @TableName
-                          AND [COLUMN_NAME] = @PathProperty_L1
-                )
-                BEGIN
-                    SET @IsValidProperty_L1 = 1;
-                END;
-
-            END;
-
-
-            IF @PathProperty_L2 IS NOT NULL
-            BEGIN
-                IF EXISTS
-                (
-                    SELECT [COLUMN_NAME]
-                    FROM [INFORMATION_SCHEMA].[COLUMNS]
-                    WHERE [TABLE_NAME] = @TableName
-                          AND [COLUMN_NAME] = @PathProperty_L2
-                )
-                BEGIN
-                    SET @IsValidProperty_L2 = 1;
-                END;
-            END;
-
-
-            IF @PathProperty_L3 IS NOT NULL
-            BEGIN
-                IF EXISTS
-                (
-                    SELECT [COLUMN_NAME]
-                    FROM [INFORMATION_SCHEMA].[COLUMNS]
-                    WHERE [TABLE_NAME] = @TableName
-                          AND [COLUMN_NAME] = @PathProperty_L3
-                )
-                BEGIN
-                    SET @IsValidProperty_L3 = 1;
-                END;
-            END;
-
-            IF @IsValidProperty_L1 = 1
-               OR @IsValidProperty_L2 = 1
-               OR @IsValidProperty_L3 = 1
-            BEGIN
-                SET @IsIncludePropertyPath = 1;
-            END;
-
-
-
+            SET @DebugText = N' RootFolder %s';
+            SET @DebugText = @DefaultDebugText + @DebugText;
+            SET @ProcedureStep = 'Getting started';
 
             IF @Debug > 0
             BEGIN
-                RAISERROR(
-                             '%s : Step %s :MFClassFileExportFolder %s ',
-                             10,
-                             1,
-                             @ProcedureName,
-                             @ProcedureStep,
-                             @MFClassFileExportFolder
-                         );
-                RAISERROR('%s : Step %s :PathProperty_L1 %s ', 10, 1, @ProcedureName, @ProcedureStep, @PathProperty_L1);
-                RAISERROR('%s : Step %s :PathProperty_L2 %s ', 10, 1, @ProcedureName, @ProcedureStep, @PathProperty_L2);
-                RAISERROR('%s : Step %s :PathProperty_L3 %s ', 10, 1, @ProcedureName, @ProcedureStep, @PathProperty_L3);
-
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Rootfolder);
             END;
 
-            IF @MFClassFileExportFolder != ''
-               OR @MFClassFileExportFolder IS NOT NULL
+            SELECT @ClassID              = ISNULL(CL.MFID, 0),
+                @ObjType                 = OT.MFID,
+                @ClassName               = CL.Name,
+                @OjectTypeName           = OT.Name,
+                @MFClassFileExportFolder = ISNULL(CL.FileExportFolder, '')
+            FROM dbo.MFClass                AS CL
+                INNER JOIN dbo.MFObjectType AS OT
+                    ON CL.MFObjectType_ID = OT.ID
+                       AND CL.TableName = @TableName;
+
+            IF @Rootfolder != ''
             BEGIN
+                SET @ProcedureStep = 'File download path: ';
+                SET @DebugText = N'';
+                SET @DebugText = @DefaultDebugText + @DebugText;
 
-                SET @FilePath = CASE
-                                    WHEN PATINDEX('%\%', @MFClassFileExportFolder) > 1 THEN
-                                        @Rootfolder + @MFClassFileExportFolder
-                                    WHEN @MFClassFileExportFolder = '' THEN
-                                        @Rootfolder
-                                    ELSE
-                                        @Rootfolder + @MFClassFileExportFolder + '\'
-                                END;
-            END;
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                END;
 
+                ------------------------------------------------------------------------------------------------
+                --Creating File path
+                -------------------------------------------------------------------------------------------------
+                IF @PathProperty_L1 IS NOT NULL
+                BEGIN
+                    IF EXISTS
+                    (
+                        SELECT COLUMN_NAME
+                        FROM INFORMATION_SCHEMA.COLUMNS
+                        WHERE TABLE_NAME = @TableName
+                              AND COLUMN_NAME = @PathProperty_L1
+                    )
+                    BEGIN
+                        SET @IsValidProperty_L1 = 1;
+                    END;
+                END;
 
+                IF @PathProperty_L2 IS NOT NULL
+                BEGIN
+                    IF EXISTS
+                    (
+                        SELECT COLUMN_NAME
+                        FROM INFORMATION_SCHEMA.COLUMNS
+                        WHERE TABLE_NAME = @TableName
+                              AND COLUMN_NAME = @PathProperty_L2
+                    )
+                    BEGIN
+                        SET @IsValidProperty_L2 = 1;
+                    END;
+                END;
 
-            --SET @FilePath = @FilePath + @PathProperty_L1 + '\' + @PathProperty_L2 + '\' + @PathProperty_L3 + '\';
-
-            SELECT @ProcedureStep = 'Fetching records from ' + @TableName + ' to download document.';
-
-            IF NOT EXISTS
-            (
-                SELECT [COLUMN_NAME]
-                FROM [INFORMATION_SCHEMA].[COLUMNS]
-                WHERE [TABLE_NAME] = @TableName
-                      AND [COLUMN_NAME] = 'FileCount'
-            )
-            BEGIN
-                EXEC ('alter table ' + @TableName + ' add FileCount int CONSTRAINT DK_FileCount_' + @TableName + ' DEFAULT 0 WITH VALUES');
-            END;
-
-            IF @Debug > 0
-            BEGIN
-                SELECT @FilePath AS [FileDownloadPath];
-                --    PRINT 'Fetching records from ' + @TableName + ' to download document.';
-                RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
-
-            END;
-            -----------------------------------------------------------------------------
-            --Creating the cursor and cursor query.
-            -----------------------------------------------------------------------------
-
-
-            DECLARE @GetDetailsCursor AS CURSOR;
-            DECLARE @CursorQuery NVARCHAR(200),
-                    @process_ID_text VARCHAR(5),
-                    @vsql  NVARCHAR(MAX),
-                    @vquery  NVARCHAR(MAX);
-
-            SET @process_ID_text = CAST(@Process_id AS VARCHAR(5));
-
-
-            -----------------------------------------------------------------
-            -- Checking module access for CLR procdure  spMFGetFilesInternal
-            ------------------------------------------------------------------
-            EXEC [dbo].[spMFCheckLicenseStatus] 'spMFGetFilesInternal',
-                                                @ProcedureName,
-                                                @ProcedureStep;
-
-
-            IF @IsIncludePropertyPath = 1
-            BEGIN
-
-                SET @vquery
-                    = 'SELECT ID,ObjID,MFVersion,isnull(Single_File,0) as Single_File,isnull('
-                      + @Name_Or_Title_PropName + ','''') as Name_Or_Title';
+                IF @PathProperty_L3 IS NOT NULL
+                BEGIN
+                    IF EXISTS
+                    (
+                        SELECT COLUMN_NAME
+                        FROM INFORMATION_SCHEMA.COLUMNS
+                        WHERE TABLE_NAME = @TableName
+                              AND COLUMN_NAME = @PathProperty_L3
+                    )
+                    BEGIN
+                        SET @IsValidProperty_L3 = 1;
+                    END;
+                END;
 
                 IF @IsValidProperty_L1 = 1
+                   OR @IsValidProperty_L2 = 1
+                   OR @IsValidProperty_L3 = 1
                 BEGIN
-                    SET @vquery = @vquery + ', isnull(' + @PathProperty_L1 + ', '''') as PathProperty_L1';
-                END;
-                ELSE
-                BEGIN
-                    SET @vquery = @vquery + ', '''' as PathProperty_L1';
+                    SET @IsIncludePropertyPath = 1;
                 END;
 
-                IF @IsValidProperty_L2 = 1
-                BEGIN
-                    SET @vquery = @vquery + ', isnull(' + @PathProperty_L2 + ', '''') as PathProperty_L2';
-                END;
-                ELSE
-                BEGIN
-                    SET @vquery = @vquery + ', '''' as PathProperty_L2';
-                END;
-
-                IF @IsValidProperty_L3 = 1
-                BEGIN
-                    SET @vquery = @vquery + ', isnull(' + @PathProperty_L3 + ', '''') as PathProperty_L3';
-                END;
-                ELSE
-                BEGIN
-                    SET @vquery = @vquery + ', '''' as PathProperty_L3';
-                END;
-
-                SET @vquery
-                    = @vquery + ' from [' + @TableName + '] WHERE Process_ID = ' + @process_ID_text
-                      + ' AND ' +QUOTENAME(@DeletedColumn)+' is null';
-
-                IF @Debug > 0
-                    PRINT @vquery;
-            END;
-            ELSE
-            BEGIN
-                IF @Debug > 0
-                    PRINT 'test';
-
-                SET @vquery
-                    = 'SELECT ID,ObjID,MFVersion,isnull(Single_File,0) as Single_File,isnull('
-                      + @Name_Or_Title_PropName
-                      + ','''') as Name_Or_Title,'''' as PathProperty_L1, '''' as  PathProperty_L2, '''' as PathProperty_L3  from ['
-                      + @TableName + '] WHERE Process_ID = ' + @process_ID_text + ' AND ' +QUOTENAME(@DeletedColumn)+' is null';
-                IF @Debug > 0
-                    PRINT @vquery;
-            END;
-
-            --SET @vquery
-            --             = 'SELECT ID,ObjID,MFVersion,isnull(Single_File,0),isnull('+@Name_Or_Title_PropName+','''') from [' + @TableName
-            --               + '] WHERE Process_ID = '+ @Process_id_text +'    AND Deleted = 0';
-
-
-            SET @vsql = 'SET @cursor = cursor forward_only static FOR ' + @vquery + ' OPEN @cursor;';
-
-            IF @Debug > 0
-                PRINT @vsql;
-
-            EXEC [sys].[sp_executesql] @vsql,
-                                       N'@cursor cursor output',
-                                       @GetDetailsCursor OUTPUT;
-
-
-
-
-
-
-            FETCH NEXT FROM @GetDetailsCursor
-            INTO @ID,
-                 @ObjID,
-                 @MFVersion,
-                 @SingleFile,
-                 @Name_Or_title_ObjName,
-                 @PathProperty_ColValL1,
-                 @PathProperty_ColValL2,
-                 @PathProperty_ColValL3;
-
-            WHILE (@@FETCH_STATUS = 0)
-            BEGIN
-
-
-                SELECT @ProcedureStep = 'Started downloading Files for  objectID: ' + CAST(@ObjID AS VARCHAR(10));
-                IF @Debug > 0
-                BEGIN
-                    PRINT 'Started downloading Files for  objectID=' + CAST(@ObjID AS VARCHAR(10));
-                    RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
-                END;
-
-                DECLARE @TempFilePath NVARCHAR(MAX);
-                SET @TempFilePath = @FilePath;
-
-                IF @IsIncludePropertyPath = 1
-                BEGIN
-                    --SET @TempFilePath = @TempFilePath+@PathProperty_ColValL1+'\'+@PathProperty_ColValL2+'\'+@PathProperty_ColValL3+'\';
-
-                    IF @Debug > 0
-                    BEGIN
-                        SELECT @TempFilePath + @PathProperty_ColValL1 + @PathProperty_ColValL2
-                               + +@PathProperty_ColValL3;
-                    END;
-
-
-                    --IF @PathProperty_ColValL1 IS NOT NULL
-                    --   OR	@PathProperty_ColValL1 != ''
-                    SET @TempFilePath = CASE
-                                            WHEN @PathProperty_ColValL1 IS NOT NULL THEN
-                                                @TempFilePath + CAST(@PathProperty_ColValL1 AS NVARCHAR(200)) + '\'
-                                            ELSE
-                                                @TempFilePath
-                                        END;
-
-                    --IF @PathProperty_ColValL2 IS NOT NULL
-                    --   OR	@PathProperty_ColValL2 != ''
-                    SET @TempFilePath = CASE
-                                            WHEN @PathProperty_ColValL2 IS NULL THEN
-                                                @TempFilePath
-                                            WHEN @PathProperty_ColValL2 = '' THEN
-                                                @TempFilePath
-                                            WHEN @PathProperty_ColValL2 IS NOT NULL THEN
-                                                @TempFilePath + CAST(@PathProperty_ColValL2 AS NVARCHAR(200)) + '\'
-                                        END;
-
-                    --IF @PathProperty_ColValL3 IS NOT NULL
-                    --   OR	@PathProperty_ColValL3 != ''
-                    SET @TempFilePath = CASE
-                                            WHEN @PathProperty_ColValL3 IS NULL THEN
-                                                @TempFilePath
-                                            WHEN @PathProperty_ColValL3 = '' THEN
-                                                @TempFilePath
-                                            WHEN @PathProperty_ColValL3 IS NOT NULL THEN
-                                                @TempFilePath + CAST(@PathProperty_ColValL3 AS NVARCHAR(200)) + '\'
-                                        END;
-
-                --SET @TempFilePath = @TempFilePath
-                --					+ CAST(@PathProperty_ColValL3 AS NVARCHAR(200)) + '\';
-
-
-                END;
-                IF @Debug > 0
-                BEGIN
-                    SELECT @TempFilePath AS [TempFilePath];
-                END;
-
-
-                IF @SingleFile = 0
-                BEGIN
-                    SET @MultiDocFolder = @Name_Or_title_ObjName;
-                    IF @IncludeDocID = 1
-                    BEGIN
-                        SELECT @TempFilePath
-                            = @TempFilePath + '\' + REPLACE(REPLACE(@Name_Or_title_ObjName, ':', '{3}'), '/', '{2}')
-                              + ' (ID ' + CAST(@ObjID AS VARCHAR(10)) + ')\';
-
-                        SET @IncludeDocIDTemp = 0;
-                    END;
-                    ELSE
-                    BEGIN
-                        SELECT @TempFilePath
-                            = @TempFilePath + '\' + REPLACE(REPLACE(@Name_Or_title_ObjName, ':', '{3}'), '/', '{2}')
-                              + '\';
-                        SET @IncludeDocIDTemp = 0;
-                    END;
-
-                    SET @ProcedureStep = 'Calculate multi-file document path';
-                    IF @Debug > 0
-                    BEGIN
-                        PRINT 'testing2';
-
-                        PRINT 'MultiFile document';
-                        PRINT @TempFilePath;
-                        RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
-                        SELECT @TempFilePath AS [MultiFileDownloadPath];
-                    END;
-                END;
-                ELSE
-                BEGIN
-                    SET @IncludeDocIDTemp = @IncludeDocID;
-                END;
-                IF @Debug > 0
-                BEGIN
-                    PRINT @TempFilePath;
-                    SELECT @VaultSettings AS [VaulSettings];
-                    SELECT @ClassID AS [ClassID];
-                    SELECT @ObjID AS [ObjID];
-                    SELECT @ObjType AS [ObjType];
-                    SELECT @MFVersion AS [MFVersion];
-                    SELECT @TempFilePath AS [TempFilePath];
-                    SELECT @IncludeDocIDTemp AS [IncludeDocIDTemp];
-
-                -------------------------------------------------------------------
-                --- Calling  the CLR StoredProcedure to Download file for @ObJID
-                -------------------------------------------------------------------
-
-                END;
-                SET @ProcedureStep = 'Calling CLR GetFilesInternal';
-
-                EXEC [dbo].[spMFGetFilesInternal] @VaultSettings,
-                                                  @ClassID,
-                                                  @ObjID,
-                                                  @ObjType,
-                                                  @MFVersion,
-                                                  @TempFilePath,
-                                                  @IncludeDocIDTemp,
-                                                  @FileExport OUT;
-
-
-                IF @Debug > 0
-                BEGIN
-                    SELECT @FileExport AS [FileExport];
-                END;
-
-                IF @Debug > 0
-                BEGIN
-                    PRINT @TempFilePath;
-                    PRINT 'Resetting the Process_ID column';
-                END;
-
-                IF @FileExport IS NULL
-                    SET @DebugText = 'Failed to get File from MF for Objid %i ';
+                SET @DebugText = N' Property path included %s';
                 SET @DebugText = @DefaultDebugText + @DebugText;
-                SET @ProcedureStep = '';
+
+                IF (@Debug > 0)
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @MFClassFileExportFolder);
+
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @PathProperty_L1);
+
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @PathProperty_L2);
+
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @PathProperty_L3);
+                END;
+
+                SELECT @ProcedureStep = ' Set file path';
+
+                IF @MFClassFileExportFolder != ''
+                   OR @MFClassFileExportFolder IS NOT NULL
+                BEGIN
+                    SET @FilePath = CASE
+                                        WHEN PATINDEX('%\%', @MFClassFileExportFolder) > 1 THEN
+                                            @Rootfolder + @MFClassFileExportFolder
+                                        WHEN @MFClassFileExportFolder = '' THEN
+                                            @Rootfolder
+                                        ELSE
+                                            @Rootfolder + @MFClassFileExportFolder + '\'
+                                    END;
+                END;
+
+                SET @DebugText = N':' + @FilePath;
+                SET @DebugText = @DefaultDebugText + @DebugText;
 
                 IF @Debug > 0
                 BEGIN
-                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ObjID);
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
+                --SET @FilePath = @FilePath + @PathProperty_L1 + '\' + @PathProperty_L2 + '\' + @PathProperty_L3 + '\';
+                SELECT @ProcedureStep = 'Fetching records from ' + @TableName + ' to download document.';
+
+                IF NOT EXISTS
+                (
+                    SELECT COLUMN_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_NAME = @TableName
+                          AND COLUMN_NAME = 'FileCount'
+                )
+                BEGIN
+                    EXEC ('alter table ' + @TableName + ' add FileCount int CONSTRAINT DK_FileCount_' + @TableName + ' DEFAULT 0 WITH VALUES');
+
+                    SET @DebugText = N'';
+
+                    IF @Debug > 0
+                    BEGIN
+                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                    END;
+                END;
+
+                -----------------------------------------------------------------
+                -- Checking module access for CLR procdure  spMFGetFilesInternal
+                ------------------------------------------------------------------
+                SET @ProcedureStep = 'Check license';
+
+                EXEC dbo.spMFCheckLicenseStatus 'spMFGetFilesListInternal',
+                    @ProcedureName,
+                    @ProcedureStep;
+
+                -------------------------------------------------------------
+                -- Create list of objids and filenr
+                -------------------------------------------------------------
+                SET @ProcedureStep = 'Create list of objids and filenr';
+
+                IF
+                (
+                    SELECT OBJECT_ID('tempdb..#FileList')
+                ) IS NOT NULL
+                    DROP TABLE #Filelist;
+
+                DECLARE @filecount INT,
+                    @Filenr        INT;
+
+                SET @Params = N'@Objid int output';
+                SET @vquery = N'
+                SELECT @ObjID = MIN(t.ObjID)
+                FROM ' + QUOTENAME(@TableName) + N' AS t';
+
+                EXEC sys.sp_executesql @vquery, @Params, @ObjID OUTPUT;
+
+                SET @Filenr = 1;
+
+                CREATE TABLE #Filelist
+                (
+                    Filecount INT,
+                    FileNr INT,
+                    objid INT
+                );
+
+                WHILE @ObjID IS NOT NULL
+                BEGIN
+                    SET @Params = N'@Filecount int output, @objid int';
+                    SET @vquery = N'
+                    SELECT @filecount = FileCount
+                    FROM ' + QUOTENAME(@TableName) + N' AS t
+                    WHERE ObjID = @ObjID';
+
+                    EXEC sys.sp_executesql @vquery, @Params, @filecount OUTPUT, @ObjID;
+
+                    IF @filecount > 0
+                    BEGIN
+                        WHILE @Filenr <= @filecount
+                        BEGIN
+                            INSERT INTO #Filelist
+                            (
+                                Filecount,
+                                FileNr,
+                                objid
+                            )
+                            VALUES
+                            (@filecount, @Filenr, @ObjID);
+
+                            SELECT @Filenr = @Filenr + 1;
+                        END; -- filenr < filecount
+                    END; -- filecount > 0
+
+                    SET @Params = N'@Objid int output';
+                    SET @vquery
+                        = N'
+                    SELECT @ObjID =
+                    (
+                        SELECT MIN(t.ObjID)
+                        FROM ' + QUOTENAME(@TableName)
+                          + N' AS t
+                        WHERE t.ObjID > @ObjID
+                    );';
+
+                    EXEC sys.sp_executesql @vquery, @Params, @ObjID OUTPUT;
+
+                    SET @Filenr = 1;
+                END;
+
+                SET @DebugText = N'';
+                SET @DebugText = @DefaultDebugText + @DebugText;
+
+                IF @Debug > 0
+                    SELECT *
+                    FROM #Filelist AS f;
+
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                END;
+
+                -------------------------------------------------------------
+                -- Create #ExportFile 
+                -------------------------------------------------------------
+                SET @ProcedureStep = 'Create #ExportFiles ';
+
+                /* for testing
+ DECLARE @TableName NVARCHAR(258) = 'MFOtherDocument'
+DECLARE @process_ID_text VARCHAR(5) = '0'
+DECLARE @DeletedColumn NVARCHAR(100) = 'Deleted'
+DECLARE @IncludeDocID INT = 0;
+DECLARE @FilePath nvarchar(100) = 'C:\MFSQL\FileExport'
+DECLARE @IsValidProperty_L1 INT = 1
+DECLARE @IsValidProperty_L2 INT = 1
+DECLARE @IsValidProperty_L3 INT = 1
+DECLARE @PathProperty_L1 NVARCHAR(100) = 'l_1'
+DECLARE @PathProperty_L2 NVARCHAR(100) = 'l_2'
+DECLARE @PathProperty_L3 NVARCHAR(100) = 'l_3'
+DECLARE @Vquery nvarchar(MAX)
+DECLARE @Params NVARCHAR(MAX)
+DECLARE @Isdownload BIT = 0 
+ */
+                SELECT @process_ID_text = CAST(@Process_id AS VARCHAR(10));
+
+                IF
+                (
+                    SELECT OBJECT_ID('Tempdb..#ExportFiles')
+                ) IS NOT NULL
+                    DROP TABLE #ExportFiles;
+
+                CREATE TABLE #ExportFiles
+                (
+                    ClassID INT,
+                    ObjID INT,
+                    ObjType INT,
+                    MFVersion INT,
+                    Single_file INT,
+                    FileNr INT,
+                    MultiFolder NVARCHAR(258),
+                    FilePath NVARCHAR(258),
+                    IsDownload BIT,
+                    IncludeDocID BIT,
+                    FileName NVARCHAR(258),
+                    FileCheckSum NVARCHAR(1000),
+                    FileCount INT,
+                    FileObjectID INT,
+                    Extension NVARCHAR(100),
+                    FileSize INT
+                );
+
+                SET @Params
+                    = N'
+@ClassID int,
+@ObjType int,
+@IncludeDocID int,
+@FilePath nvarchar(100),
+ @IsValidProperty_L1 INT ,
+ @IsValidProperty_L2 INT ,
+ @IsValidProperty_L3 INT ,
+ @PathProperty_L1 NVARCHAR(100) ,
+ @PathProperty_L2 NVARCHAR(100) ,
+ @PathProperty_L3 NVARCHAR(100) ,
+ @Isdownload bit
+'               ;
+                SET @vquery
+                    = N'
+ INSERT INTO #ExportFiles
+                (
+                    ClassID ,
+                    ObjID ,
+                    ObjType,
+                    MFVersion,
+                    Single_file ,
+                    FileNr ,
+                    MultiFolder,
+                    FilePath ,
+                    IsDownload ,
+                    IncludeDocID 
+                )
+Select @ClassID, t.ObjID, @ObjType, t.MFVersion,t.Single_File, fl.FileNr ,
+FileName = 
+case when @IncludeDocID = 1 then ''\'' + dbo.fnMFReplaceSpecialCharacter(Name_or_title) + '' (ID''  + CAST(t.ObjID AS VARCHAR(10))+'')''
+else
+''\'' + dbo.fnMFReplaceSpecialCharacter(Name_or_title)
+END,
+FilePath = CASE 
+WHEN  @IsValidProperty_L1  = 1 AND  @IsValidProperty_L2 <> 1 AND  @IsValidProperty_L3 <> 1
+THEN  @Filepath + ''\'' + @PathProperty_L1
+WHEN @IsValidProperty_L1 = 1 AND  @IsValidProperty_L2 = 1 AND  @IsValidProperty_L3 <> 1
+THEN  @Filepath + ''\'' + @PathProperty_L1 + ''\'' + @PathProperty_L2
+WHEN  @IsValidProperty_L1 = 1 AND  @IsValidProperty_L2 = 1 AND   @IsValidProperty_L3 = 1
+THEN  @Filepath + ''\'' + @PathProperty_L1 + ''\'' +  @PathProperty_L2 + ''\'' +  @PathProperty_L3
+ELSE @Filepath 
+END,
+@IsDownload,@IncludeDocID 
+  from [' +     @TableName + N'] as t
+  inner join #Filelist fl
+  on t.objid = fl.objid
+  WHERE Process_ID = ' + @process_ID_text + N' AND ' + QUOTENAME(@DeletedColumn) + N' is null';
+                SET @DebugText = N'Vquery ';
+                SET @DebugText = @DefaultDebugText + @DebugText;
+                SET @ProcedureStep = 'Prepare query ';
+
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                END;
+
+                --          IF @Debug > 0
+                --                PRINT @vquery;
+                ;
+
+                SET @ProcedureStep = 'Insert into #ExportFiles';
+
+                EXEC sys.sp_executesql @stmt = @vquery,
+                    @param = @Params,
+                    @ClassID = @ClassID,
+                    @ObjType = @ObjType,
+                    @IncludeDocID = @IncludeDocID,
+                    @IsValidProperty_L1 = @IsValidProperty_L1,
+                    @IsValidProperty_L2 = @IsValidProperty_L2,
+                    @IsValidProperty_L3 = @IsValidProperty_L3,
+                    @PathProperty_L1 = @PathProperty_L1,
+                    @PathProperty_L2 = @PathProperty_L2,
+                    @PathProperty_L3 = @PathProperty_L3,
+                    @Filepath = @FilePath,
+                    @IsDownload = @IsDownload;
+
+                SET @RC = @@RowCount;
+                SET @DebugText = N' RowCount %i';
+                SET @DebugText = @DefaultDebugText + @DebugText;
+
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @RC);
+                END;
+
+                IF @Debug > 100
+                    SELECT *
+                    FROM #ExportFiles AS ef;
+
+                -------------------------------------------------------------
+                -- create input XML
+                -------------------------------------------------------------
+                SET @ProcedureStep = 'Create input XML';
+
+                DECLARE @XML NVARCHAR(MAX);
+
+                SET @XML =
+                (
+                    SELECT @ClassID       AS [ObjectFilesItem/@ClassID],
+                        @ObjType          AS [ObjectFilesItem/@ObjType],
+                        moch.ObjID        AS [ObjectFilesItem/@ObjID],
+                        moch.MFVersion    AS [ObjectFilesItem/@ObjVersion],
+                        moch.IsDownload   AS [ObjectFilesItem/@IsDownload],
+                        moch.IncludeDocID AS [ObjectFilesItem/@IncludeDocID],
+                        moch.FilePath     AS [ObjectFilesItem/@FilePath]
+                    FROM #ExportFiles AS moch
+                    ORDER BY moch.ObjID
+                    FOR XML PATH(''), ROOT('ObjectFilesList')
+                );
+                SET @DebugText = N'';
+                SET @DebugText = @DefaultDebugText + @DebugText;
+
+                IF @Debug > 0
+                    SELECT CAST(@XML AS XML) inputXML;
+
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                END;
+
+                DECLARE @XMLInput NVARCHAR(MAX);
+
+                SELECT @XMLInput = CAST(@XML AS NVARCHAR(MAX));
+
+                -------------------------------------------------------------
+                -- Call Wrapper
+                -------------------------------------------------------------
+                SET @ProcedureStep = 'Wrapper spMFGetFilesListInternal ';
+
+                EXEC dbo.spMFGetFilesListInternal @VaultSettings,
+                    @XMLInput,
+                    @IsDownload,
+                    @IncludeDocID,
+                    @FileExport OUT;
+
+                /*
+                -----------------------------------------------------------------------------
+                SET @ProcedureStep = 'Loop to get files';
+
+                DECLARE @FullFilePath NVARCHAR(258);
+
+                SELECT @ObjID = MIN(ef.ObjID)
+                FROM #ExportFiles AS ef;
+
+                WHILE @ObjID IS NOT NULL
+                BEGIN
+                    SELECT @MFVersion = ef.MFVersion,
+                        @FullFilePath = ef.FilePath + N'\'
+                    FROM #ExportFiles AS ef
+                    WHERE ef.ObjID = @ObjID;
+
+                    -------------------------------------------------------------------
+                    --- Calling  the CLR StoredProcedure to Download file for @ObJID
+                    -------------------------------------------------------------------
+                    SET @ProcedureStep = 'Calling CLR GetFilesInternal';
+                    SET @DebugText = N'Get files for %i';
+                    SET @DebugText = @DefaultDebugText + @DebugText;
+
+                    IF @Debug > 0
+                    BEGIN
+                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ObjID);
+                    END;
+
+                    DECLARE @IsDownloadText NVARCHAR(5);
+
+                    SET @IsDownloadText = CAST(@IsDownload AS VARCHAR(4));
+
+                    EXEC dbo.spMFGetFilesInternal @VaultSettings,
+                        @ClassID,
+                        @ObjID,
+                        @ObjType,
+                        @MFVersion,
+                        @FullFilePath,
+                        @IsDownloadText,
+                        @IncludeDocIDTemp,
+                        @FileExport OUT;
+
+*/
+                SET @ProcedureStep = ' Return from wrapper ';
+
+                IF @Debug > 0
+                BEGIN
+                    SELECT CAST(@FileExport AS XML) AS FileExport;
+                END;
+
+                --    IF @FileExport IS NULL
+                SET @DebugText = N' ';
+                SET @DebugText = @DefaultDebugText + @DebugText;
+
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                END;
 
                 DECLARE @XmlOut XML;
+
                 SET @XmlOut = @FileExport;
+                SET @ProcedureStep = 'Reset process_ID ';
 
-                EXEC ('Update ' + @TableName + ' set Process_ID=0 where ObjID=' + 'cast(' + @ObjID + 'as varchar(10))');
+                --             EXEC ('Update ' + @TableName + ' set Process_ID=0 where ObjID=' + 'cast(' + @ObjID + 'as varchar(10))');
+                SET @ProcedureStep = 'Update ExportFiles with return ';
 
-				
+                UPDATE ef
+                SET ef.FileName = t.c.value('(@FileName)[1]', 'NVARCHAR(400)'),
+                    ef.FileCheckSum = t.c.value('(@FileCheckSum)[1]', 'nvarchar(1000)'),
+                    ef.FileCount = t.c.value('(@FileCount)[1]', 'INT'),
+                    ef.FileObjectID = t.c.value('(@FileObjectID)[1]', 'INT'),
+                    ef.Extension = t.c.value('(@Extension)[1]', 'nvarchar(100)'),
+                    ef.FileSize = t.c.value('(@FileSize)[1]', 'INT')
+                FROM @XmlOut.nodes('/Files/FileItem') AS t(c)
+                    INNER JOIN #Filelist              AS f
+                        ON t.c.value('(@ObjID)[1]', 'INT') = f.objid
+                    INNER JOIN #ExportFiles           AS ef
+                        ON ef.ObjID = f.objid
+                           AND ef.FileNr = f.FileNr;
 
-                CREATE TABLE [#temp]
-                (
-                    [FileName] NVARCHAR(400),
-                    [ClassID] INT,
-                    [ObjID] INT,
-                    [ObjType] INT,
-                    [Version] INT,
-                    [FileCheckSum] NVARCHAR(1000),
-                    [FileCount] INT,
-					[FileObjectID] INT
-                );
-                INSERT INTO [#temp]
-                (
-                    [FileName],
-                    [ClassID],
-                    [ObjID],
-                    [ObjType],
-                    [Version],
-                    [FileCheckSum],
-                    [FileCount],
-					[FileObjectID]
-                )
-                SELECT [t].[c].[value]('(@FileName)[1]', 'NVARCHAR(400)') AS [FileName],
-                       [t].[c].[value]('(@ClassID)[1]', 'INT') AS [ClassID],
-                       [t].[c].[value]('(@ObjID)[1]', 'INT') AS [ObjID],
-                       [t].[c].[value]('(@ObjType)[1]', 'INT') AS [ObjType],
-                       [t].[c].[value]('(@Version)[1]', 'INT') AS [Version],
-                       [t].[c].[value]('(@FileCheckSum)[1]', 'nvarchar(1000)') AS [FileCheckSum],
-                       [t].[c].[value]('(@FileCount)[1]', 'INT') AS [FileCount],
-					   [t].[c].[value]('(@FileObjectID)[1]','INT') as [FileObjectID]
-                FROM @XmlOut.[nodes]('/Files/FileItem') AS [t]([c]);
+                SET @DebugText = N'';
+                SET @DebugText = @DefaultDebugText + @DebugText;
 
-               IF @Debug > 0
-               SELECT * FROM #temp AS t;
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                END;
 
-			
-                MERGE INTO [dbo].[MFExportFileHistory] [t]
+                SET @ProcedureStep = ' Update table MFExportfilehistory ';
+
+                MERGE INTO dbo.MFExportFileHistory t
                 USING
                 (
-                    SELECT @FilePath AS [FileExportRoot],
-                           @PathProperty_ColValL1 AS [subFolder_1],
-                           @PathProperty_ColValL2 AS [subFolder_2],
-                           @PathProperty_ColValL3 AS [subFolder_3],
-                           [FileName],
-                           [ClassID],
-                           [ObjID],
-                           [ObjType],
-                           [Version],
-                           @MultiDocFolder AS [MultiDocFolder],
-                           [FileCheckSum],
-                           [FileCount],
-						   [FileObjectID]
-                    FROM [#temp]
-                ) [S]
-                ON [t].[ClassID] = [S].[ClassID]
-                   AND [t].[ObjID] = [S].[ObjID]
-                   AND [t].[FileName] = [S].[FileName]
+                    SELECT ef.ClassID,
+                        ef.ObjID,
+                        ef.ObjType,
+                        ef.MFVersion,
+                        ef.Single_file,
+                        ef.FileNr,
+                        ef.MultiFolder   AS MultiDocFolder,
+                        ef.FilePath,
+                        ef.IsDownload,
+                        ef.IncludeDocID,
+                        ef.FileName,
+                        ef.FileCheckSum,
+                        ef.FileCount,
+                        ef.FileObjectID,
+                        ef.Extension,
+                        ef.FileSize,
+                        @FilePath        AS FileExportRoot,
+                        @PathProperty_L1 AS subFolder_1,
+                        @PathProperty_L2 AS subFolder_2,
+                        @PathProperty_L3 AS subFolder_3
+                    FROM #ExportFiles AS ef
+                ) S
+                ON t.ClassID = S.ClassID
+                   AND t.ObjID = S.ObjID
+                   AND t.FileName = S.FileName
                 WHEN NOT MATCHED THEN
                     INSERT
                     (
-                        [FileExportRoot],
-                        [SubFolder_1],
-                        [SubFolder_2],
-                        [SubFolder_3],
-                        [FileName],
-                        [ClassID],
-                        [ObjID],
-                        [ObjType],
-                        [Version],
-                        [MultiDocFolder],
-                        [FileCheckSum],
-                        [FileCount],
-						[FileObjectID]
+                        FileExportRoot,
+                        SubFolder_1,
+                        SubFolder_2,
+                        SubFolder_3,
+                        FileName,
+                        ClassID,
+                        ObjID,
+                        ObjType,
+                        Version,
+                        MultiDocFolder,
+                        FileCheckSum,
+                        FileCount,
+                        FileObjectID,
+                        FileExtension,
+                        FileSize
                     )
                     VALUES
-                    ([S].[FileExportRoot], [S].[subFolder_1], [S].[subFolder_2], [S].[subFolder_3], [S].[FileName],
-                     [S].[ClassID], [S].[ObjID], [S].[ObjType], [S].[Version], [S].[MultiDocFolder],
-                     [S].[FileCheckSum], [S].[FileCount],[S].[FileObjectID])
+                    (S.FileExportRoot, S.subFolder_1, S.subFolder_2, S.subFolder_3, S.FileName, S.ClassID, S.ObjID,
+                        S.ObjType, S.MFVersion, S.MultiDocFolder, S.FileCheckSum, S.FileCount, S.FileObjectID,
+                        S.Extension, S.FileSize)
                 WHEN MATCHED THEN
-                    UPDATE SET [t].[FileExportRoot] = [S].[FileExportRoot],
-                               [t].[SubFolder_1] = [S].[subFolder_1],
-                               [t].[SubFolder_2] = [S].[subFolder_2],
-                               [t].[SubFolder_3] = [S].[subFolder_3],
-                               [t].[Version] = [S].[Version],
-                               [t].[MultiDocFolder] = [S].[MultiDocFolder],
-                               [t].[FileCount] = [S].[FileCount],
-                               [t].[Created] = GETDATE(),
-							   [t].[FileObjectID]=[S].[FileObjectID];
+                    UPDATE SET t.FileExportRoot = S.FileExportRoot,
+                        t.SubFolder_1 = S.subFolder_1,
+                        t.SubFolder_2 = S.subFolder_2,
+                        t.SubFolder_3 = S.subFolder_3,
+                        t.Version = S.MFVersion,
+                        t.MultiDocFolder = S.MultiDocFolder,
+                        t.FileCount = S.FileCount,
+                        t.Created = GETDATE(),
+                        t.FileObjectID = S.FileObjectID,
+                        t.FileExtension = S.Extension,
+                        t.FileSize = S.FileSize;
 
+                SET @RC = @@RowCount;
+                SET @DebugText = N'Updated %i';
+                SET @DebugText = @DefaultDebugText + @DebugText;
 
-                EXEC ('Update  MFT  set MFT.FileCount= t.FileCount
-									From ' + @TableName + ' MFT inner join #temp t
-									on MFT.ObjID=t.ObjID 
-									where MFT.ObjID=cast(' + @ObjID + 'as varchar(10))');
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @RC);
+                END;
 
+                SET @ProcedureStep = 'Update process_ID';
 
+                SET @vquery = 
+                'Update  MFT  set Process_id = 0
+									From ' + @TableName + ' MFT 
+									where process_id = @process_ID';
 
-                DROP TABLE [#temp];
+      IF @debug > 0
+      PRINT @vquery;
 
-                FETCH NEXT FROM @GetDetailsCursor
-                INTO @ID,
-                     @ObjID,
-                     @MFVersion,
-                     @SingleFile,
-                     @Name_Or_title_ObjName,
-                     @PathProperty_ColValL1,
-                     @PathProperty_ColValL2,
-                     @PathProperty_ColValL3;
-            END;
+      EXEC sp_executeSQL @Vquery,N'@process_id int', @Process_id
 
-            CLOSE @GetDetailsCursor;
-            DEALLOCATE @GetDetailsCursor;
+                SET @RC = @@RowCount;
+                SET @DebugText = N'Updated %i';
+                SET @DebugText = @DefaultDebugText + @DebugText;
 
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @RC);
+                END;
 
+                /*
+                    SELECT @ObjID =
+                    (
+                        SELECT MIN(ef.ObjID) FROM #ExportFiles AS ef WHERE ef.ObjID > @ObjID 
+                    );
+                END; --end while
+*/
+                SET @StartTime = GETUTCDATE();
+                SET @LogTypeDetail = N'Updated files';
+                SET @LogTextDetail = @ProcedureName;
+                SET @LogStatusDetail = N'Completed';
+                SET @Validation_ID = NULL;
+                SET @LogColumnValue = N'';
+                SET @LogColumnValue = N'';
 
-            SET @StartTime = GETUTCDATE();
+                EXECUTE @RC = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+                    @LogType = @LogTypeDetail,
+                    @LogText = @LogTextDetail,
+                    @LogStatus = @LogStatusDetail,
+                    @StartTime = @StartTime,
+                    @MFTableName = @TableName,
+                    @Validation_ID = @Validation_ID,
+                    @ColumnName = @LogColumnName,
+                    @ColumnValue = @LogColumnValue,
+                    @Update_ID = @Update_ID,
+                    @LogProcedureName = @ProcedureName,
+                    @LogProcedureStep = @ProcedureStep,
+                    @debug = @Debug;
 
-            SET @LogTypeDetail = 'Download files';
-            SET @LogTextDetail = @ProcedureName;
-            SET @LogStatusDetail = 'Completed';
-            SET @Validation_ID = NULL;
-            SET @LogColumnValue = '';
-            SET @LogColumnValue = '';
-
-            EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert] @ProcessBatch_ID = @ProcessBatch_ID,
-                                                                @LogType = @LogTypeDetail,
-                                                                @LogText = @LogTextDetail,
-                                                                @LogStatus = @LogStatusDetail,
-                                                                @StartTime = @StartTime,
-                                                                @MFTableName = @TableName,
-                                                                @Validation_ID = @Validation_ID,
-                                                                @ColumnName = @LogColumnName,
-                                                                @ColumnValue = @LogColumnValue,
-                                                                @Update_ID = @Update_ID,
-                                                                @LogProcedureName = @ProcedureName,
-                                                                @LogProcedureStep = @ProcedureStep,
-                                                                @debug = @Debug;
-
-            RETURN 1;
-        END;
-        ELSE
-        BEGIN
-            PRINT 'Please check the ClassName';
-        END;
+                RETURN 1;
+            END; -- rootfolder
+        END; -- class table
     END TRY
     BEGIN CATCH
+ --       EXEC ('Update ' + @TableName + ' set Process_ID=3 where ObjID=' + 'cast(' + @ObjID + 'as varchar(10))');
 
-        EXEC ('Update ' + @TableName + ' set Process_ID=3 where ObjID=' + 'cast(' + @ObjID + 'as varchar(10))');
-
-        INSERT INTO [dbo].[MFLog]
+        INSERT INTO dbo.MFLog
         (
-            [SPName],
-            [ErrorNumber],
-            [ErrorMessage],
-            [ErrorProcedure],
-            [ProcedureStep],
-            [ErrorState],
-            [ErrorSeverity],
-            [Update_ID],
-            [ErrorLine]
+            SPName,
+            ErrorNumber,
+            ErrorMessage,
+            ErrorProcedure,
+            ProcedureStep,
+            ErrorState,
+            ErrorSeverity,
+            Update_ID,
+            ErrorLine
         )
         VALUES
         (@ProcedureName, ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), @ProcedureStep, ERROR_STATE(),
-         ERROR_SEVERITY(), @Update_ID, ERROR_LINE());
+            ERROR_SEVERITY(), @Update_ID, ERROR_LINE());
 
         SET NOCOUNT OFF;
     END CATCH;
 END;
-
 GO

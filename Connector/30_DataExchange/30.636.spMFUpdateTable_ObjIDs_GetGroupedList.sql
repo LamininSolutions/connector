@@ -40,7 +40,7 @@ GO
 
 ALTER PROCEDURE [dbo].[spMFUpdateTable_ObjIds_GetGroupedList]
     (
-       @ObjIds_FieldLenth SMALLINT = 4000
+       @ObjIds_FieldLenth SMALLINT = 3950
 	  ,@Debug SMALLINT = 0
 	)
 AS
@@ -86,6 +86,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-12-11  LC         fix bug related to number of objids in list
 2020-09-08  Lc         resolve number of objids in batch
 2020-04-08  LC         Resolve issue with #objidlist not exist 
 2019-08-30  JC         Added documentation

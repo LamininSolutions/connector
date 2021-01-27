@@ -4,7 +4,7 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].
 GO
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFvwMetadataStructure', -- nvarchar(100)
-    @Object_Release = '4.8.22.62', -- varchar(50)
+    @Object_Release = '4.9.25.67', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
 
@@ -85,6 +85,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-12-20  LC         Add MFDatatype_ID
 2020-08-22  LC         Deleted column change to localisation
 2020-07-08  LC         Add Valuelist Table name to columns
 2020-03-27  LC         Add documentation for the view
@@ -120,7 +121,8 @@ Date        Author     Description
             [mot].[Alias] AS ObjectType_Alias ,
             [mot].[MFID] AS ObjectType_MFID ,
             [mdt].[SQLDataType] ,
-            [mdt].[Name] AS MFDataType
+            [mdt].[Name] AS MFDataType,
+            mdt.MFTypeID
     FROM    [dbo].[MFProperty] AS [mp]
             LEFT JOIN [dbo].[MFClassProperty] AS [mcp] ON [mcp].[MFProperty_ID] = mp.[ID]
             LEFT JOIN [dbo].[MFClass] AS [mc] ON mc.[ID] = [mcp].[MFClass_ID]

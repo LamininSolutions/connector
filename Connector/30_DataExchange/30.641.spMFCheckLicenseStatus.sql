@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFCheckLicenseStatus', -- nvarchar(100)
-    @Object_Release = '4.7.24.66',           -- varchar(50)
+    @Object_Release = '4.7.25.67',           -- varchar(50)
     @UpdateFlag = 2;                         -- smallint
 GO
 
@@ -115,6 +115,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-01-06  LC         Debug module 2 license
+2020-12-31  LC         update message for license expired
 2020-12-05  LC         Rework core logic and introduce new supporting procedure
 2020-12-03  LC         Improve error messages when license is invalid
 2020-12-03  LC         Set additional defaults
@@ -197,14 +199,15 @@ SELECT @VaultSettings = dbo.FnMFVaultSettings();
 -------------------------------------------------------------
 -- reset license table
 -------------------------------------------------------------
- IF @IsLicenseUpdate = 1
-        BEGIN
-         IF
-        (
-            SELECT OBJECT_ID('..MFModule')
-        ) IS NOT NULL
-            drop TABLE MFModule;
-        END;
+IF @IsLicenseUpdate = 1
+BEGIN
+    IF
+    (
+        SELECT OBJECT_ID('..MFModule')
+    ) IS NOT NULL
+        DROP TABLE dbo.MFModule;
+END;
+
 -------------------------------------------------------------
 -- Get module
 -------------------------------------------------------------
@@ -212,7 +215,7 @@ SELECT @ModuleID = moc.Module
 FROM setup.MFSQLObjectsControl AS moc
 WHERE moc.Name = @InternalProcedureName;
 
-SELECT @ModuleID = ISNULL(@ModuleID, '0');
+SELECT @ModuleID = ISNULL(@ModuleID, '1');
 
 SET @DebugText = N' %s';
 SET @DebugText = @DefaultDebugText + @DebugText;
@@ -235,7 +238,7 @@ BEGIN TRY
 
     IF @ModuleID > '0'
     BEGIN
-    
+
         -------------------------------------------------------------
         -- Create license module if not exist
         -------------------------------------------------------------
@@ -265,7 +268,7 @@ BEGIN TRY
 
         SET @DebugText = N' Module %s';
         SET @DebugText = @DefaultDebugText + @DebugText;
-        SET @ProcedureStep = 'Check if module exist';
+        SET @ProcedureStep = 'Checked module exists';
 
         IF @Debug > 0
         BEGIN
@@ -277,7 +280,7 @@ BEGIN TRY
         -------------------------------------------------------------
         -- is license update
         -------------------------------------------------------------
-      
+
         -------------------------------------------------------------
         --pre-checks
         -- 1 = module table does not exsit
@@ -286,6 +289,7 @@ BEGIN TRY
         -- 4 = license exists
         -- 5 = license expiry date does not exist
         -- 6 = last check date does not exist
+
         -------------------------------------------------------------
         SET @ProcedureStep = 'Pre-checks ';
 
@@ -303,6 +307,9 @@ BEGIN TRY
         FROM dbo.MFModule
         WHERE Module = @ModuleID;
 
+        -------------------------------------------------------------
+        -- checkstatus from MFModule
+        -------------------------------------------------------------
         SELECT @Checkstatus = CASE
                                   WHEN @ModuleTable_ID = 0 THEN
                                       1
@@ -318,7 +325,7 @@ BEGIN TRY
                                       NULL
                               END;
 
-        SET @DebugText = N' Checkstatus %i';
+        SET @DebugText = N' Checkstatus %i ' + ' License ' + ISNULL(@LicenseInTable,'no license record');
         SET @DebugText = @DefaultDebugText + @DebugText;
 
         IF @Debug > 0
@@ -326,15 +333,18 @@ BEGIN TRY
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Checkstatus);
         END;
 
+        -------------------------------------------------------------
+        -- Check status from license
+        -------------------------------------------------------------
+        SET @ProcedureStep = 'Analyse license ';
         -- decrypt license for further analysis
         IF @Checkstatus = 4
-        
         BEGIN
             SELECT @license = license
             FROM dbo.MFModule
             WHERE Module = @ModuleID;
 
-            SET @license = ISNULL(@license,'');
+            SET @license = ISNULL(@license, '');
 
             EXEC dbo.spMFDecrypt @EncryptedPassword = @license, -- nvarchar(2000)
                 @DecryptedPassword = @license OUTPUT;           -- nvarchar(2000)
@@ -386,29 +396,7 @@ BEGIN TRY
             SELECT @Checkstatus AS PreCheckstatus;
         END;
 
-        SELECT @Msg
-            = CASE
-                  WHEN @Checkstatus = 1 THEN
-                      N'MFModule table does not exist '
-                  WHEN @Checkstatus = 2 THEN
-                      N' Module does not exist '
-                  WHEN @Checkstatus = 3 THEN
-                      N' license does not exist '
-                  WHEN @Checkstatus = 4 THEN
-                      N' License Assembly is found '
-                  WHEN @Checkstatus = 5 THEN
-                      N' Missing expiry date in license '
-                  WHEN @Checkstatus = 6 THEN
-                      N' Missing last checked date '
-                  WHEN @Checkstatus = 10 THEN
-                      N' License requires re-validation '
-                  WHEN @Checkstatus = 11 THEN
-                      N' License checked ' + CAST(@HoursfromlastChecked AS NVARCHAR(5)) + ' hours ago '
-                  WHEN @Checkstatus IS NULL THEN
-                      N' no pre-check'
-                  ELSE
-                      NULL
-              END;
+     
 
         -------------------------------------------------------------
         -- set error code to invalid license when table or module invalid
@@ -422,8 +410,19 @@ BEGIN TRY
                                     -1
                             END;
 
+        SELECT @Msg = CASE
+                          WHEN @Checkstatus = 1 THEN
+                              N'MFModule table does not exist '
+                          WHEN @Checkstatus = 2 THEN
+                              N' Module does not exist '
+                          WHEN @Checkstatus = 3 THEN
+                              N' license does not exist '
+                              end
+            
+        
+        
         SET @DebugText = @DefaultDebugText + @Msg;
-        SET @ProcedureStep = 'Pre-checks error';
+        SET @ProcedureStep = 'Pre-checks error: ';
 
         IF @Debug > 0
         BEGIN
@@ -433,9 +432,9 @@ BEGIN TRY
         -------------------------------------------------------------
         -- initialise license if license does not exist
         -------------------------------------------------------------
-        SET @ProcedureStep = 'Initialise license';
+        SET @ProcedureStep = 'Get license';
 
-        IF @Checkstatus IN (3, 10)
+        IF @Checkstatus IN ( 3, 10 )
            OR @Checkstatus IS NULL
         BEGIN
             SET @DebugText = N'%s';
@@ -447,7 +446,7 @@ BEGIN TRY
                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ModuleID);
             END;
 
-            EXEC spmfgetlicense @ModuleID,
+            EXEC dbo.spMFGetLicense @ModuleID,
                 @LicenseExpiry OUTPUT,
                 @ErrorCode OUTPUT,
                 @Checkstatus OUTPUT,
@@ -456,87 +455,134 @@ BEGIN TRY
 
             DECLARE @newLicense NVARCHAR(400);
 
-            BEGIN
+    
                 SELECT @newLicense
-                    = @ModuleID + N'|' + @ErrorCode + N'|' + CAST(@LicenseExpiry AS NVARCHAR(30)) + N'|'
-                      + CAST(CONVERT(DATE, GETDATE()) AS VARCHAR(10));
+                    = CASE WHEN @LicenseExpiry IS NULL THEN @Status
+                    Else
+                    @ModuleID + N'|' + @ErrorCode + N'|' + CAST(@LicenseExpiry AS NVARCHAR(30)) + N'|'
+                      + CAST(CONVERT(DATE, GETDATE()) AS VARCHAR(10))
+                      END;
 
-                IF @Debug > 0
-                    SELECT @newLicense AS Newlicense;
+        SET @DebugText = @Status + N' %i';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = 'License generated: '
+
+        IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @newLicense);
+        END;
+
 
                 --encrypt the license again
-                IF ISNULL(@newLicense,'') <> ''
-                begin
-                EXEC dbo.spMFEncrypt @Password = @newLicense,     -- nvarchar(2000)
-                    @EcryptedPassword = @EcryptedPassword OUTPUT; -- nvarchar(2000)
+                IF ISNULL(@newLicense, '') <> '' 
+                BEGIN
+                    EXEC dbo.spMFEncrypt @Password = @newLicense,     -- nvarchar(2000)
+                        @EcryptedPassword = @EcryptedPassword OUTPUT; -- nvarchar(2000)
 
-                MERGE INTO dbo.MFModule t
-                USING
-                (
-                    SELECT @ModuleID      AS Module,
-                        @EcryptedPassword AS licence,
-                        GETDATE()         AS Datelastcheck
-                ) s
-                ON s.Module = t.Module
-                WHEN MATCHED THEN
-                    UPDATE SET t.license = s.licence,
-            
-            t.DateLastChecked = s.Datelastcheck
-                WHEN NOT MATCHED THEN
-                    INSERT
+                    MERGE INTO dbo.MFModule t
+                    USING
                     (
-                        Module,
-                        license,
-                        DateLastChecked
-                    )
-                    VALUES
+                        SELECT @ModuleID      AS Module,
+                            @EcryptedPassword AS licence,
+                            GETDATE()         AS Datelastcheck
+                    ) s
+                    ON s.Module = t.Module
+                    WHEN MATCHED THEN
+                        UPDATE SET t.license = s.licence,
+                            t.DateLastChecked = s.Datelastcheck
+                    WHEN NOT MATCHED THEN
+                        INSERT
+                        (
+                            Module,
+                            license,
+                            DateLastChecked
+                        )
+                        VALUES
+                        (s.Module, s.licence, s.Datelastcheck);
 
-                    (s.Module, s.licence, s.Datelastcheck);
+                    SET @count = @@RowCount;
+                END;
 
-                    SET @count = @@RowCount
+                SELECT @Msg =   @Status
+   
 
-                    END
-
-                    SELECT @Msg = CASE WHEN @count > 0 THEN 'License re-checked'
-                    ELSE
-                    @MSg
-                    end
-
-                SET @DebugText = N'License %s';
+                SET @DebugText = N' %s';
                 SET @DebugText = @DefaultDebugText + @DebugText;
-                SET @ProcedureStep = 'Initialise ';
+                SET @ProcedureStep = 'MFModule updated ';
 
                 IF @Debug > 0
                 BEGIN
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @newLicense);
                 END;
-            END; --end add valid license in table
+         END; --checkstatus 3,10
+    -------------------------------------------------------------
+    -- set message
+    -------------------------------------------------------------
+       SET @ProcedureStep = 'Set Status Message '
 
-            BEGIN
+        SELECT @Msg = CASE
+                          WHEN @Checkstatus = 1 THEN
+                              N'MFModule table does not exist '
+                          WHEN @Checkstatus = 2 THEN
+                              N' Module does not exist '
+                          WHEN @Checkstatus = 3 THEN
+                              N' license does not exist '
+                          WHEN @Checkstatus = 4 THEN
+                              N' License Assembly is found '
+                          WHEN @Checkstatus = 5 THEN
+                              N' Missing expiry date in license '
+                            WHEN @Checkstatus = 7 THEN
+                              N' license expired '
+                          WHEN @Checkstatus = 6 THEN
+                              N' Missing last checked date '
+                          WHEN @Checkstatus = 9 THEN 
+                             N' License expires on ' + CAST(@LicenseExpiry AS NVARCHAR(30))
+                          WHEN @Checkstatus = 10 THEN
+                              N' License requires re-validation '
+                          WHEN @Checkstatus = 11 THEN
+                              N' License checked ' + CAST(@HoursfromlastChecked AS NVARCHAR(5)) + ' hours ago '
+                          WHEN @Checkstatus IS NULL THEN
+                              N' no pre-check'
+                          
+                      END;
+        
+        SET @DebugText = N'  %i : %s';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+
+        IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Checkstatus, @Msg);
+        END;
+
                 -------------------------------------------------------------
                 -- LICENSE NOTIFICATION
                 -------------------------------------------------------------
                 SET @ProcedureStep = 'License notification ';
 
-                IF @Checkstatus IN( 9,10)
+                IF @Checkstatus IN ( 9, 10 )
                 BEGIN
+                    SET @DebugText = 'Checkstatus 9 and 10 ' + ISNULL(@Msg,'no status');
+                    SET @DebugText = @DefaultDebugText + @DebugText;
+
+                    IF @Debug > 0
+                    BEGIN
+                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                    END;
                 
-                    SET @DebugText = @msg;
+                IF @Checkstatus = 9
 
-                SET @DebugText = @DefaultDebugText + @DebugText;
-
-                IF @Debug > 0
-                BEGIN
-                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-                END;
-                END
                 -------------------------------------------------------------
                 -- re-check license
                 -------------------------------------------------------------
                 BEGIN
-                           SET @DebugText = @msg
+                    SET @DebugText = ISNULL(@Msg, 'Expiry notification') 
                     SET @DebugText = @DefaultDebugText + @DebugText;
                     SET @ProcedureStep = 'Expiry Notification ';
+
+                      IF @Debug > 0
+                    BEGIN
+                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                    END;
 
                     IF
                     (
@@ -561,16 +607,68 @@ BEGIN TRY
                             ProcedureStep
                         )
                         VALUES
-                        (@ProcedureName, 90003, @Status, ERROR_PROCEDURE(), 'WARNING', 0, 0, @ProcedureStep);
+                        (@ProcedureName, 90003, @Msg, ERROR_PROCEDURE(), 'WARNING', 0, 0, @ProcedureStep);
                     END;
 
-                    IF @Debug > 0
-                    BEGIN
-                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-                    END;
+                  
                 END; --remaining days < 30
-            END;
-        END;
+
+                -------------------------------------------------------------
+                -- re-validation
+                -------------------------------------------------------------
+                 IF @Checkstatus = 10
+
+                 BEGIN
+
+                    --encrypt the license again
+                IF ISNULL(@newLicense, '') <> ''
+                BEGIN
+                    EXEC dbo.spMFEncrypt @Password = @newLicense,     -- nvarchar(2000)
+                        @EcryptedPassword = @EcryptedPassword OUTPUT; -- nvarchar(2000)
+
+                    MERGE INTO dbo.MFModule t
+                    USING
+                    (
+                        SELECT @ModuleID      AS Module,
+                            @EcryptedPassword AS licence,
+                            GETDATE()         AS Datelastcheck
+                    ) s
+                    ON s.Module = t.Module
+                    WHEN MATCHED THEN
+                        UPDATE SET t.license = s.licence,
+                            t.DateLastChecked = s.Datelastcheck
+                    WHEN NOT MATCHED THEN
+                        INSERT
+                        (
+                            Module,
+                            license,
+                            DateLastChecked
+                        )
+                        VALUES
+                        (s.Module, s.licence, s.Datelastcheck);
+
+                    SET @count = @@RowCount;
+                END;
+
+                SELECT @Msg =   @Status
+   
+
+                SET @DebugText = N' %s';
+                SET @DebugText = @DefaultDebugText + @DebugText;
+                SET @ProcedureStep = 'MFModule updated ';
+
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @newLicense);
+                END;
+
+                 
+
+                 END
+
+                END; -- expiry notification
+   --         END;
+ 
     END;
 
     -- if module > 0
@@ -580,7 +678,7 @@ BEGIN TRY
     -------------------------------------------------------------
     SET @ProcedureStep = 'Report error codes ';
 
-    IF @Checkstatus IN ( 1, 2 )
+    IF @Checkstatus IN ( 1, 2,7 )
     BEGIN
         SET @DebugText = @Status;
         SET @DebugText = @DefaultDebugText + @DebugText;
@@ -628,16 +726,14 @@ BEGIN TRY
     SET @DebugText = @DefaultDebugText + @DebugText;
     SET @ProcedureStep = 'License validity ';
 
-    IF @ErrorCode in ('2','3','4','5')
+    IF @ErrorCode IN ( '2', '3', '4', '5' )
     BEGIN
         RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
-
     END;
 
     RETURN @ErrorCode;
 END TRY -- update license check check status > 4
 BEGIN CATCH
-
     BEGIN
         INSERT INTO dbo.MFLog
         (
@@ -651,7 +747,7 @@ BEGIN CATCH
             ProcedureStep
         )
         VALUES
-        (@ProcedureName, 90004, ERROR_MESSAGE(), ERROR_PROCEDURE(), ERROR_STATE(), ERROR_SEVERITY(), ERROR_LINE(),
+        (@ProcedureName, 90004, @Msg, ERROR_PROCEDURE(), ERROR_STATE(), ERROR_SEVERITY(), ERROR_LINE(),
             @ProcedureStep);
 
         SET @ProcedureStep = 'Catch Error';

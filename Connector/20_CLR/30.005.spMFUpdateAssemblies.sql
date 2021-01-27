@@ -457,6 +457,7 @@ MODIFICATIONS TO COLLECTION
 version 3.1.2.38 ADD spMFGetFilesInternal
 version 3.1.2.38 ADD spMFGetHistory
 version 3.1.5.41 ADD spMFSynchronizeFileToMFilesInternal
+version 4.9.25.67 ADD spMFGetFileListInternal
 
 */
 /*------------------------------------------------------------------------------------------------
@@ -2179,7 +2180,7 @@ EXTERNAL NAME [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetMFilesEventLog]
 ');
 
 -- -------------------------------------------------------- 
--- sp.spMFGetMFilesLogInternal
+-- sp.spMFGetFilesInternal
 -- --------------------------------------------------------   
 
 
@@ -2235,11 +2236,61 @@ Create Procedure dbo.spMFGetFilesInternal
 @ObjType nvarchar(10),
 @ObjVersion nvarchar(10),
 @FilePath nvarchar(max),
-@IncludeDocID nvarchar(4),
+@IsDownload bit,
+@IncludeDocID bit,
 @FileExport  nvarchar(max) Output
 WITH EXECUTE AS CALLER
 AS
 EXTERNAL NAME [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetFiles]
+');
+
+
+-- -------------------------------------------------------- 
+-- sp.spMFGetFilesListInternal
+-- --------------------------------------------------------   
+
+
+PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
+    + '.[dbo].[spMFGetFilesListInternal]';
+
+ 
+SET NOCOUNT ON 
+EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',   @ObjectName = N'spMFGetFilesListInternal', -- nvarchar(100)
+    @Object_Release = '4.9.25.67', -- varchar(50)
+    @UpdateFlag = 2 -- smallint
+ 
+
+/*------------------------------------------------------------------------------------------------
+	Author: LC, Laminin Solutions
+	Create date: 2021-01
+	Database: 
+	Description: CLR procedure to Get list of files
+------------------------------------------------------------------------------------------------*/
+
+IF EXISTS ( SELECT  1
+            FROM    INFORMATION_SCHEMA.ROUTINES
+            WHERE   ROUTINE_NAME = 'spMFGetFilesListInternal'--name of procedure
+                    AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
+                    AND ROUTINE_SCHEMA = 'dbo' )
+    BEGIN
+        PRINT SPACE(10) + '...Drop CLR Procedure';
+        DROP PROCEDURE [dbo].[spMFGetFilesListInternal];
+		
+    END;
+	
+    
+PRINT SPACE(10) + '...Stored Procedure: create';
+	 
+EXEC (N'
+Create Procedure dbo.spMFGetFilesListInternal
+@VaultSettings [nvarchar](4000) ,
+@XMLInput nvarchar(max),
+@IsDownload bit,
+@IncludeDocID bit,
+@FileExport  nvarchar(max) Output
+WITH EXECUTE AS CALLER
+AS
+EXTERNAL NAME [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetFilesList]
 ');
 
 

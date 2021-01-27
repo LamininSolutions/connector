@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFCreateTable', -- nvarchar(100)
-    @Object_Release = '4.8.24.66',    -- varchar(2506
+    @Object_Release = '4.9.25.67',    -- varchar(2506
     @UpdateFlag = 2;
 
 IF EXISTS
@@ -197,6 +197,7 @@ Date        Author     Description
 2020-05-12  LC         Add index on Update_ID to improve performance
 2020-08-18  LC         replace deleted column flag with property 27 (deleted)
 2020-11-21  LC         Fix bug with unique index on objid
+2021-01-22  LC         set default schema to dbo
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -549,15 +550,15 @@ BEGIN
                 SELECT @dsql = @IDColumn + @dsql + @ConstColumn;
 
                 SELECT @dsql
-                    = N'CREATE TABLE ' + QUOTENAME(@TableName) + N' (' + LEFT(@dsql, LEN(@dsql) - 1)
+                    = N'CREATE TABLE dbo.' + QUOTENAME(@TableName) + N' (' + LEFT(@dsql, LEN(@dsql) - 1)
                       + N'
 								 CONSTRAINT pk_' + @TableName + N'ID PRIMARY KEY (ID))' +
 									--ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Deleted_'
          --             + @TableName + N']  DEFAULT 0 FOR [Deleted]
          '
-									ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Process_id_'
+									ALTER TABLE dbo.' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Process_id_'
                       + @TableName + N']  DEFAULT 1 FOR [Process_ID]
-				    ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_FileCount_' + @TableName
+				    ALTER TABLE dbo.' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_FileCount_' + @TableName
                       + N']  DEFAULT 0 FOR [FileCount]
                        ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_LastModified_' + @TableName
                       + N']  DEFAULT GetDate() FOR [LastModified]

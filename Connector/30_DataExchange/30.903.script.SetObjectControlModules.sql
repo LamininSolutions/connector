@@ -1,3 +1,4 @@
+
 /*
 
 script to set the module assignments in setup.MFSQLObjectControl
@@ -7,91 +8,16 @@ new modules must be added by hand into this script to be licensed
 */
 GO
 
+PRINT SPACE(10) + '... MFSQLObjectsControl Initialised';
+
 SET NOCOUNT ON
 
+IF (SELECT OBJECT_ID('setup.MFSQLObjectsControl')) IS NULL
+RAISERROR('Incomplete installation - run installation package again',16,1);
 
-	   PRINT SPACE(10) + '... MFSQLObjectsControl Initialised';
+IF (SELECT OBJECT_ID('tempdb..#tmp_GridResults_1')) IS NOT NULL
+DROP TABLE #tmp_GridResults_1;
 
-              TRUNCATE TABLE Setup.[MFSQLObjectsControl];
-
-                INSERT  INTO Setup.[MFSQLObjectsControl]
-                        ( [Schema] ,
-                          [Name] ,
-                          [object_id] ,
-                          [Type] ,
-                          [Modify_Date]
-                        )
-                        
-                       
-                        SELECT  s.[name] ,
-                                objects.name ,
-                                [objects].[object_id] ,
-                                type ,
-                                [objects].[modify_date]
-                        FROM    sys.objects
-                                INNER JOIN sys.[schemas] AS [s] ON [s].[schema_id] = [objects].[schema_id]
-                        WHERE   [objects].[name] LIKE 'MF%'
-                        UNION ALL
-                        SELECT  s.[name] ,
-                                objects.name ,
-                                [objects].[object_id] ,
-                                type ,
-                                [objects].[modify_date]
-                        FROM    sys.objects
-                                INNER JOIN sys.[schemas] AS [s] ON [s].[schema_id] = [objects].[schema_id]
-                        WHERE   [objects].[name] LIKE 'spMF%'
---UNION ALL
---SELECT s.[name],objects.Name, [objects].[object_id], type, [objects].[modify_date] FROM sys.objects
---INNER JOIN sys.[schemas] AS [s] ON [s].[schema_id] = [objects].[schema_id] WHERE [objects].[name] like 'tMF%'
-                        UNION ALL
-                        SELECT  s.[name] ,
-                                objects.name ,
-                                [objects].[object_id] ,
-                                type ,
-                                [objects].[modify_date]
-                        FROM    sys.objects
-                                INNER JOIN sys.[schemas] AS [s] ON [s].[schema_id] = [objects].[schema_id]
-                        WHERE   [objects].[name] LIKE 'fnMF%';
-
-
-
-DECLARE @ProcRelease VARCHAR(100) = '2.0.2.7'
-IF NOT EXISTS ( SELECT  Name
-                FROM    Setup.[MFSQLObjectsControl]
-                WHERE   [Schema] = 'setup'
-                        AND Name = 'MFSQLObjectsControl' )
-    BEGIN
-        INSERT  INTO Setup.[MFSQLObjectsControl]
-                ( [Schema] ,
-                  [Name] ,
-                  [object_id] ,
-                  [Release] ,
-                  [Type] ,
-                  [Modify_Date]
-                )
-        VALUES  ( 'setup' , -- Schema - varchar(100)
-                  'spMFSQLObjectsControl' , -- Name - varchar(100)
-                  0 , -- object_id - int
-                   @ProcRelease, -- Release - varchar(50)
-                  'P' , -- Type - varchar(10)
-                  GETDATE()  -- Modify_Date - datetime
-                );
-    END;
-ELSE
-    BEGIN
-        UPDATE  moc
-        SET      
-                [moc].[Release] = @ProcRelease,
-				moc.[Modify_Date] = GETDATE()
-     
-	    FROM    Setup.[MFSQLObjectsControl] AS [moc] WHERE [moc].[Schema] = N'setup' and
-                [moc].[Name] = N'MFSQLObjectsControl' ;
-    END;
-
-
-
-
----------------   #tmp_GridResults_1   ---------------
 SELECT * INTO #tmp_GridResults_1
 FROM (
 SELECT N'spMFCreateObjectInternal' AS [name], N'1' AS [Module] UNION ALL
@@ -101,6 +27,7 @@ SELECT N'spMFDeleteObjectInternal' AS [name], N'2' AS [Module] UNION ALL
 SELECT N'spMFEncrypt' AS [name], N'1' AS [Module] UNION ALL
 SELECT N'spMFGetClass' AS [name], N'1' AS [Module] UNION ALL
 SELECT N'spMFGetDataExportInternal' AS [name], N'1' AS [Module] UNION ALL
+SELECT N'spMFGetFilesListInternal' AS [name], N'2' AS [Module] UNION ALL
 SELECT N'spMFGetFilesInternal' AS [name], N'2' AS [Module] UNION ALL
 SELECT N'spMFGetHistoryInternal' AS [name], N'2' AS [Module] UNION ALL
 SELECT N'spMFGetLoginAccounts' AS [name], N'1' AS [Module] UNION ALL
@@ -124,23 +51,73 @@ SELECT N'spMFUpdateProperty' AS [name], N'1' AS [Module] UNION ALL
 SELECT N'spMFUpdatevalueList' AS [name], N'1' AS [Module] UNION ALL
 SELECT N'spMFUpdateWorkFlow' AS [name], N'1' AS [Module] UNION ALL
 SELECT N'spMFGetUnManagedObjectDetails' AS [name], N'3' AS [Module] UNION ALL
+SELECT N'spMFCreateTable' AS [name], N'1' AS [Module] UNION ALL
+SELECT N'spMFGetHistory' AS [name], N'1' AS [Module] UNION ALL
+SELECT N'spMFUpdateWorkFlowState' AS [name], N'1' AS [Module] UNION ALL
+SELECT N'spMFUpdateExplorerFileToMFiles' AS [name], N'2' AS [Module] ) t;
 
-SELECT N'spMFUpdateWorkFlowState' AS [name], N'1' AS [Module] ) t;
+
 --SELECT [name], [Module]
 --FROM #tmp_GridResults_1
 
-IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS AS c WHERE c.COLUMN_NAME = 'Module' AND c.TABLE_NAME = 'MFSQLObjectsControl')
-Begin
-ALTER TABLE setup.MFSQLObjectsControl
-ADD Module INT DEFAULT((0))
-END
-
-UPDATE moc
-SET module = tgr.Module
-FROM setup.MFSQLObjectsControl AS moc
-INNER JOIN #tmp_GridResults_1 AS tgr
-ON tgr.name = moc.Name
+;
+WITH cte AS
+(
+ SELECT  s.[name] AS [schema] ,
+                                objects.name ,
+                                [objects].[object_id] ,
+                                type ,
+                                [objects].[modify_date]
+                        FROM    sys.objects
+                                INNER JOIN sys.[schemas] AS [s] ON [s].[schema_id] = [objects].[schema_id]
+                        WHERE   [objects].[name] LIKE 'MF%'
+                        UNION ALL
+                        SELECT  s.[name] ,
+                                objects.name ,
+                                [objects].[object_id] ,
+                                type ,
+                                [objects].[modify_date]
+                        FROM    sys.objects
+                                INNER JOIN sys.[schemas] AS [s] ON [s].[schema_id] = [objects].[schema_id]
+                        WHERE   [objects].[name] LIKE 'spMF%'
+                        UNION ALL
+                        SELECT  s.[name] ,
+                                objects.name ,
+                                [objects].[object_id] ,
+                                type ,
+                                [objects].[modify_date]
+                        FROM    sys.objects
+                                INNER JOIN sys.[schemas] AS [s] ON [s].[schema_id] = [objects].[schema_id]
+                        WHERE   [objects].[name] LIKE 'fnMF%'
+)
+MERGE INTO setup.MFSQLObjectsControl t
+USING (
+SELECT cte.[schema],
+       cte.[name],
+       cte.[object_id],
+       cte.[type],
+       cte.modify_date,
+       ISNULL(tgr.Module,1) AS Module FROM cte
+LEFT JOIN #tmp_GridResults_1 AS tgr
+ON cte.name = tgr.name) s
+ON t.[Schema] = s.[schema] AND t.Name = s.name
+WHEN MATCHED THEN UPDATE SET
+t.Module =  s.Module
+WHEN NOT MATCHED
+THEN INSERT
+(
+[Schema]
+,Name
+,[object_id]
+,Type
+,Modify_Date
+,Module
+)
+VALUES
+(s.[schema],s.name,s.[object_id],s.type,s.modify_date,1)
+;
 
 DROP TABLE #tmp_GridResults_1
-GO
 
+--SELECT * FROM setup.MFSQLObjectsControl AS moc
+GO

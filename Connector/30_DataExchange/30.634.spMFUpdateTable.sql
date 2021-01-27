@@ -139,6 +139,8 @@ When using a filter (e.g. for a single object) to update the table with Update m
 
 This procedure will not remove destroyed objects from the class table.  Use spMFUpdateMFilestoMFSQL identify and remove destroyed object.
 
+Deleted objects will only be removed if they are included in the filter 'Objids'.  Use spMFUpdateMFilestoMFSQL to identify deleted objects in general identify and update the deleted objects in the table.
+
 Deleted objects in M-Files will automatically be removed from the class table unless @RetainDeletions is set to 1.
 
 Examples
@@ -1605,14 +1607,20 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
     -------------------------------------------------------------
     -- Get property MFIDs
     -------------------------------------------------------------
-    SELECT @MFIDs = STUFF((SELECT  ',' + 
-  CAST(ISNULL(MFP.MFID, '') AS NVARCHAR(10)) 
-    FROM INFORMATION_SCHEMA.COLUMNS AS CLM
-        LEFT JOIN dbo.MFProperty    AS MFP
-            ON MFP.ColumnName = CLM.COLUMN_NAME
-    WHERE CLM.TABLE_NAME = @MFTableName
-    GROUP BY MFID
-    FOR XML PATH('')),1,1,'')
+    SELECT @MFIDs = STUFF(
+                    (
+                        SELECT ',' + CAST(ISNULL(MFP.MFID, '') AS NVARCHAR(10))
+                        FROM INFORMATION_SCHEMA.COLUMNS AS CLM
+                            LEFT JOIN dbo.MFProperty    AS MFP
+                                ON MFP.ColumnName = CLM.COLUMN_NAME
+                        WHERE CLM.TABLE_NAME = @MFTableName
+                        GROUP BY MFP.MFID
+                        FOR XML PATH('')
+                    ),
+                             1,
+                             1,
+                             ''
+                         );
 
     IF @Debug > 10
     BEGIN
@@ -1749,7 +1757,10 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
         -------------------------------------------------------------
         -- get status of updated records
         -------------------------------------------------------------
-        EXEC sys.sp_xml_preparedocument @idoc3 OUTPUT, @NewObjectXml;
+      IF @NewObjectXml IS NOT NULL
+      BEGIN
+      
+      EXEC sys.sp_xml_preparedocument @idoc3 OUTPUT, @NewObjectXml;
 
         SET @ProcedureStep = ' Status of returned objects ';
         SET @Query
@@ -1790,15 +1801,19 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
         IF @idoc3 IS NOT NULL
             EXEC sys.sp_xml_removedocument @idoc3;
 
+            END -- if @newobjectXML is not null
+
         SET @DebugText = N'';
         SET @DebugText = @DefaultDebugText + @DebugText;
         SET @ProcedureStep = 'Process Deletes phase 2';
 
-        EXEC sys.sp_xml_preparedocument @idoc3 OUTPUT, @DeletedObjects;
+        IF @DeletedObjects IS NOT NULL
+        BEGIN
+            EXEC sys.sp_xml_preparedocument @idoc3 OUTPUT, @DeletedObjects;
 
-        SET @Query
-            = N'INSERT INTO ' + @TempStatusList
-              + N'
+            SET @Query
+                = N'INSERT INTO ' + @TempStatusList
+                  + N'
         (
             ObjectID,
             Status
@@ -1813,25 +1828,27 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
                 objectID INT ''./Objid'',
                 Deleted NVARCHAR(25) ''./Deleted''
             )                     t
-            LEFT JOIN ' + @TempStatusList + N' AS sl
+            LEFT JOIN '  + @TempStatusList + N' AS sl
                 ON sl.ObjectID = t.objectID';
 
-        EXEC sys.sp_executesql @Query, N'@Idoc3 int', @idoc3;
+            EXEC sys.sp_executesql @Query, N'@Idoc3 int', @idoc3;
 
-        SET @Count = @@RowCount;
-        SET @DebugText = N' %i ';
-        SET @DebugText = @DefaultDebugText + @DebugText;
+            SET @Count = @@RowCount;
+            SET @DebugText = N' %i ';
+            SET @DebugText = @DefaultDebugText + @DebugText;
 
-        IF @Debug > 0
-        BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
+            IF @Debug > 0
+            BEGIN
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
+            END;
+
+            --       WHERE sl.ObjectID IS NOT NULL;
+            IF @idoc3 IS NOT NULL
+                EXEC sys.sp_xml_removedocument @idoc3;
         END;
 
-        --       WHERE sl.ObjectID IS NOT NULL;
-        IF @idoc3 IS NOT NULL
-            EXEC sys.sp_xml_removedocument @idoc3;
-
-        --     SELECT @Count = @@RowCount 
+        -- @deletedobjects is not null
+ 
         SET @ProcedureStep = ' checked out objects ';
         SET @Query
             = N'UPDATE t 
@@ -1971,34 +1988,32 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
                 @OtherMFTableName OUTPUT,
                 @ClassId;
 
-                IF @OtherMFTableName IS NOT NULL
-                BEGIN
-                
-            EXEC dbo.spMFUpdateTable @MFTableName = @OtherMFTableName,
-                @UpdateMethod = 1,
-                @ObjIDs = @RemoveClassObjids,
-                @Update_IDOut = @Update_IDOut OUTPUT,
-                @ProcessBatch_ID = @ProcessBatch_ID OUTPUT;
+            IF @OtherMFTableName IS NOT NULL
+            BEGIN
+                EXEC dbo.spMFUpdateTable @MFTableName = @OtherMFTableName,
+                    @UpdateMethod = 1,
+                    @ObjIDs = @RemoveClassObjids,
+                    @Update_IDOut = @Update_IDOut OUTPUT,
+                    @ProcessBatch_ID = @ProcessBatch_ID OUTPUT;
 
-            SET @Query
-                = N' SElect @Count = COUNT(*) FROM ' + QUOTENAME(@OtherMFTableName)
-                  + N'
+                SET @Query
+                    = N' SElect @Count = COUNT(*) FROM ' + QUOTENAME(@OtherMFTableName)
+                      + N'
                          WHERE update_ID = @Update_IDOut;';
 
-            EXEC sys.sp_executesql @Query,
-                N'@count int output, @Update_IDOut int',
-                @Count OUTPUT,
-                @Update_IDOut;
+                EXEC sys.sp_executesql @Query,
+                    N'@count int output, @Update_IDOut int',
+                    @Count OUTPUT,
+                    @Update_IDOut;
 
-            SET @DebugText = N' Delete rows with other classes %i';
-            SET @DebugText = @DefaultDebugText + @DebugText;
+                SET @DebugText = N' Delete rows with other classes %i';
+                SET @DebugText = @DefaultDebugText + @DebugText;
 
-            IF @Debug > 0
-            BEGIN
-                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
-            END;
-            END--update table for other class
-
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
+                END;
+            END; --update table for other class
         END;
     END;
 
@@ -2798,8 +2813,8 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
     RETURN @return_value; --For More information refer Process Table      
 END TRY
 BEGIN CATCH
-    IF @idoc3 IS NOT NULL
-        EXEC sys.sp_xml_removedocument @idoc3;
+    --IF @idoc3 IS NOT NULL
+    --    EXEC sys.sp_xml_removedocument @idoc3;
 
     IF @@TranCount <> 0
     BEGIN

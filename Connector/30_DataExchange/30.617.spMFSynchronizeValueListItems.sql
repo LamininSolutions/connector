@@ -42,41 +42,13 @@ AS
 spMFSynchronizeValueListItems
 =============================
 
-Return
-  - 1 = Success
-  - -1 = Error
-Parameters
-  @VaultSettings nvarchar(4000)
-    fixme description
-  @Debug smallint (optional)
-    - Default = 0
-    - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
-  @Out nvarchar(max) (output)
-    fixme description
-  @MFvaluelistID int
-    fixme description
-
-
 Purpose
 =======
 
-The purpose of this procedure is to synchronize M-File VALUE LIST ITEM details  
+The purpose of this procedure is to synchronize M-File VALUE LIST ITEM details. It is an internal procedure and should not be used in custom procedures on its own.
 
-Additional Info
-===============
+This procedure can be called with spMFSynchronizeSpecificMetadata
 
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
-
-Changelog
-=========
 
 ==========  =========  ========================================================
 Date        Author     Description

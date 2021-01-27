@@ -8,53 +8,25 @@ Columns
 =======
 
 ID int (primarykey, not null)
-  fixme description
+  SQL id
 Name varchar(100)
-  fixme description
+  Name of Object Type
 Alias nvarchar(100)
-  fixme description
+  Aliase of object type
 MFID int (not null)
-  fixme description
+  M-Files id
 ModifiedOn datetime (not null)
-  fixme description
+  last modified in SQL
 CreatedOn datetime (not null)
-  fixme description
+  created in SQL
 Deleted bit (not null)
-  fixme description
+  set to 1 when object is deleted in MF
 
 Indexes
 =======
 
 TUC\_MFObjectType\_MFID
   - MFID
-
-Used By
-=======
-
-- MFClass
-- MFvwMetadataStructure
-- MFvwObjectTypeSummary
-- spMFAddCommentForObjects
-- spMFCreatePublicSharedLink
-- spMFDeleteAdhocProperty
-- spMFDeleteObjectList
-- spMFDropAndUpdateMetadata
-- spMFExportFiles
-- spMFGetDeletedObjects
-- spMFGetHistory
-- spMFInsertClass
-- spMFInsertObjectType
-- spMFObjectTypeUpdateClassIndex
-- spMFSynchronizeFilesToMFiles
-- spMFSynchronizeObjectType
-- spMFTableAudit
-- spMFUpdateClassAndProperties
-- spMFUpdateExplorerFileToMFiles
-- spMFUpdateHistoryShow
-- spMFUpdateItemByItem
-- spMFUpdateTable
-- fnMFObjectHyperlink
-
 
 Changelog
 =========
@@ -70,27 +42,7 @@ GO
 
 SET NOCOUNT ON; 
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-02
-	Database: {Database}
-	Description: MFiles Object Type metadata
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  Select * from MFObjectType
-  
------------------------------------------------------------------------------------------------*/
 
-
-GO
 
 PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
     + '.[dbo].[MFObjectType]';

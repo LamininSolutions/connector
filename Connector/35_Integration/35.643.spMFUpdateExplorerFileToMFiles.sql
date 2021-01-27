@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateExplorerFileToMFiles',
     -- nvarchar(100)
-    @Object_Release = '4.7.18.59',
+    @Object_Release = '4.9.26.67',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -95,6 +95,8 @@ This functionality will:
 - The object must pre-exist in the class table. The class table metadata will be applied to object when adding the file. This procedure will add a new object from the class table, or update an existing object in M-Files using the class table metadata.
 - The source file will optionally be deleted from the source folder.
 
+The procedure will not automatically change a multifile document to a single file document. To set an object to a single file object the column 'Single_File' can be set to 1 after the file has been added.
+
 Warnings
 ========
 
@@ -128,6 +130,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-12-31  LC         Improve error handling in procedure
+2020-12-31  LC         Update datetime handling in mffileexport
 2019-08-30  JC         Added documentation
 ==========  =========  ========================================================
 
@@ -237,6 +241,7 @@ BEGIN
         DECLARE @Objid INT;
         DECLARE @Sql NVARCHAR(MAX);
         DECLARE @Params NVARCHAR(MAX);
+        DECLARE @Count INT;
         DECLARE @FileID NVARCHAR(250);
         DECLARE @ParmDefinition NVARCHAR(500);
         DECLARE @XMLOut    XML,
@@ -297,30 +302,36 @@ BEGIN
             DECLARE @TempFile VARCHAR(100);
 
             -------------------------------------------------------------
-            -- 
+            -- license check
             -------------------------------------------------------------
-            SET @ProcedureStep = ' import file from source ';
 
-            --               WHILE @Counter IS NOT NULL
-            BEGIN
+                EXEC dbo.spMFCheckLicenseStatus 'spMFUpdateExplorerFileToMFiles',
+                'spMFUpdateExplorerFileToMFiles',
+                'Import file';
 
                 -------------------------------------------------------------
                 -- Get objid for record
-                -------------------------------------------------------------
+                -------------------------------------------------------------         
+                
                 SET @ProcedureStep = 'Get latest version';
-                SET @Params = N'@ObjID INT output, @SQLID int';
+                SET @Params = N'@ObjID INT output, @Count int output, @SQLID int';
                 SET @Sql
-                    = N'Select @ObjID = Objid FROM ' + QUOTENAME(@MFTableName) + N' WHERE ID = '
-                      + CAST(@SQLID AS VARCHAR(10));
+                    = N'Select @ObjID = Objid, @Count = count(*) FROM ' + QUOTENAME(@MFTableName) + N' WHERE ID = '
+                      + CAST(@SQLID AS VARCHAR(10)) + ' Group by Objid';
+                
+      --          PRINT @SQL
+                EXEC sys.sp_executesql @Sql, @Params, @Objid OUTPUT, @Count OUTPUT, @SQLID;
 
-      --          PRINT @Sql;
+                IF @count > 0 --SQLid is found
+                BEGIN 
+                SELECT @objid = CASE WHEN @objid > 0 THEN @objid ELSE NULL
+                end
 
-                EXEC sys.sp_executesql @Sql, @Params, @Objid OUTPUT, @SQLID;
+                SELECT COUNT(*) FROM dbo.MFContractOrAgreement AS mcoa WHERE id = 14
 
-                SELECT @ObjIDs = CAST(@Objid AS VARCHAR(4000));
+                SELECT @ObjIDs = CASE WHEN @objid IS NULL THEN 'null' ELSE CAST(@Objid AS VARCHAR(4000)) end;
 
-          --      SELECT @Objid AS '@ObjId';
-
+                --      SELECT @Objid AS '@ObjId';
                 SET @DebugText = N' Objids %s';
                 SET @DebugText = @DefaultDebugText + @DebugText;
                 SET @ProcedureStep = 'Get Objids for update';
@@ -346,13 +357,14 @@ BEGIN
                         @ObjIDs = @ObjIDs,                                -- nvarchar(max)
                         @Update_IDOut = @Update_IDOut OUTPUT,             -- int
                         @ProcessBatch_ID = @ProcessBatch_id;
+
                 END;
 
                 IF @Objid IS NULL
                 BEGIN
                     SET @ProcedureStep = 'Create new object into MF';
                     SET @Params = N'@Objid int';
-                    SET @Sql = N'UPDATE ' + QUOTENAME(@MFTableName) + N' SET [Process_ID] = 1 WHERE objid = @Objid';
+                    SET @Sql = N'UPDATE ' + QUOTENAME(@MFTableName) + N' SET [Process_ID] = 1, single_file = 1, WHERE objid = @Objid';
 
                     EXEC sys.sp_executesql @Sql, @Params, @Objid;
 
@@ -623,25 +635,13 @@ BEGIN
                 BEGIN
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
 
-                    SELECT @XMLFile AS XMLFile;
+                    SELECT @XMLFile AS XMLFileForImport;
                 END;
 
                 SET @ProcedureStep = 'Prepare XML out';
                 SET @Sql = N'';
                 ;
-                /*
-                --SELECT @XML = CAST(@XMLOut AS NVARCHAR(MAX));
-                SET @DebugText = '';
-                SET @DebugText = @DefaultDebugText + @DebugText;
-
-                IF @Debug > 0
-                BEGIN
-                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-                END;
-
-                -- PRINT @XML;
-				*/
-
+                
                 -------------------------------------------------------------------
                 --Importing File into M-Files using Connector
                 -------------------------------------------------------------------
@@ -726,8 +726,8 @@ BEGIN
                 (
                     FileName NVARCHAR(200),
                     FileUniqueRef VARCHAR(100),
-                    MFCreated VARCHAR(100),
-                    MFLastModified VARCHAR(100),
+                    MFCreated DATETIME,
+                    MFLastModified DATETIME,
                     ObjID INT,
                     ObjVer INT,
                     FileObjectID INT,
@@ -747,21 +747,21 @@ BEGIN
                     FileCheckSum,
                     ImportError
                 )
-                SELECT t.c.value('(@FileName)[1]', 'NVARCHAR(200)')   AS FileName,
+                SELECT t.c.value('(@FileName)[1]', 'NVARCHAR(200)')  AS FileName,
                     COALESCE(@FileLocation, NULL),
                     --          ,[t].[c].[value]('(@FileUniqueRef)[1]', 'VARCHAR(100)') AS [FileUniqueRef]
-                    t.c.value('(@MFCreated)[1]', 'VARCHAR(100)')      AS MFCreated,
-                    t.c.value('(@MFLastModified)[1]', 'VARCHAR(100)') AS MFLastModified,
-                    t.c.value('(@ObjID)[1]', 'INT')                   AS ObjID,
-                    t.c.value('(@ObjVer)[1]', 'INT')                  AS ObjVer,
-                    t.c.value('(@FileObjectID)[1]', 'INT')            AS FileObjectID,
-                    t.c.value('(@FileCheckSum)[1]', 'NVARCHAR(MAX)')  AS FileCheckSum,
+                    t.c.value('(@MFCreated)[1]', 'datetime')         AS MFCreated,
+                    t.c.value('(@MFLastModified)[1]', 'datetime')    AS MFLastModified,
+                    t.c.value('(@ObjID)[1]', 'INT')                  AS ObjID,
+                    t.c.value('(@ObjVer)[1]', 'INT')                 AS ObjVer,
+                    t.c.value('(@FileObjectID)[1]', 'INT')           AS FileObjectID,
+                    t.c.value('(@FileCheckSum)[1]', 'NVARCHAR(MAX)') AS FileCheckSum,
                     CASE
                         WHEN LEN(@ErrorMsg) = 0 THEN
                             'Success'
                         ELSE
                             @ErrorMsg
-                    END                                               AS ImportError
+                    END                                              AS ImportError
                 FROM @ResultXml.nodes('/form/Object') AS t(c);
 
                 -------------------------------------------------------------
@@ -796,8 +796,8 @@ BEGIN
                 )
                 BEGIN
                     UPDATE FI
-                    SET FI.MFCreated = CONVERT(DATETIME, FD.MFCreated, 105),
-                        FI.MFLastModified = CONVERT(DATETIME, FD.MFLastModified, 105),
+                    SET FI.MFCreated = FD.MFCreated,
+                        FI.MFLastModified = FD.MFLastModified,
                         FI.ObjID = FD.ObjID,
                         FI.Version = FD.ObjVer,
                         FI.FileObjectID = FD.FileObjectID,
@@ -808,8 +808,6 @@ BEGIN
                             ON FI.FileUniqueRef = FD.FileUniqueRef
                                AND FD.FileName = FI.FileName;
                 END;
-
-                
                 ELSE
                 BEGIN
                     INSERT INTO dbo.MFFileImport
@@ -851,7 +849,7 @@ BEGIN
                         ImportError
                     FROM #TempFileDetails;
                 END;
-                
+
                 DROP TABLE #TempFileDetails;
 
                 IF
@@ -900,8 +898,16 @@ BEGIN
                     @ObjIDs = @ObjIDs,
                     @Update_IDOut = @Update_IDOut OUTPUT,
                     @ProcessBatch_ID = @ProcessBatch_id OUTPUT;
-            END;
-        END;
+
+            END --SQLID is valid
+            ELSE
+            BEGIN
+             SET @DebugText = N'Object not found in ' + @MFTableName ;
+            SET @DebugText = @DefaultDebugText + @DebugText;
+
+            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+            END;            
+        END; --table is valid
         ELSE
         BEGIN
             SET @DebugText = N'Target Table ' + @MFTableName + N' does not belong to MFClass table';
@@ -909,6 +915,7 @@ BEGIN
 
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END;
+
     END TRY
     BEGIN CATCH
         SET @StartTime = GETUTCDATE();
