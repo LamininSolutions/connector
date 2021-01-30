@@ -8,6 +8,38 @@ EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo',
 
 GO
 
+IF EXISTS
+(
+    SELECT 1
+    FROM [INFORMATION_SCHEMA].[ROUTINES]
+    WHERE [ROUTINE_NAME] = 'spMFCreateValueListLookupView' --name of procedure
+          AND [ROUTINE_TYPE] = 'PROCEDURE' --for a function --'FUNCTION'
+          AND [ROUTINE_SCHEMA] = 'dbo'
+)
+BEGIN
+    DROP PROC [dbo].[spMFCreateValueListLookupView];
+    PRINT SPACE(10) + '...Stored Procedure: dropped and recreated';
+    SET NOEXEC ON;
+END;
+ELSE
+    PRINT SPACE(10) + '...Stored Procedure: create';
+GO
+
+
+-- the following section will be always executed
+SET NOEXEC OFF;
+GO
+
+CREATE PROCEDURE [dbo].[spMFCreateValueListLookupView]
+(
+    @ValueListName NVARCHAR(128),
+    @ViewName NVARCHAR(128),
+    @Schema NVARCHAR(20) = 'dbo',
+    @Debug SMALLINT = 0
+)
+AS
+
+
 /*rST**************************************************************************
 
 =============================
@@ -84,46 +116,6 @@ Date        Author     Description
 
 **rST*************************************************************************/
 
-IF EXISTS
-(
-    SELECT 1
-    FROM [INFORMATION_SCHEMA].[ROUTINES]
-    WHERE [ROUTINE_NAME] = 'spMFCreateValueListLookupView' --name of procedure
-          AND [ROUTINE_TYPE] = 'PROCEDURE' --for a function --'FUNCTION'
-          AND [ROUTINE_SCHEMA] = 'dbo'
-)
-BEGIN
-    DROP PROC [dbo].[spMFCreateValueListLookupView];
-    PRINT SPACE(10) + '...Stored Procedure: dropped and recreated';
-    SET NOEXEC ON;
-END;
-ELSE
-    PRINT SPACE(10) + '...Stored Procedure: create';
-GO
-
-
--- the following section will be always executed
-SET NOEXEC OFF;
-GO
-
-CREATE PROCEDURE [dbo].[spMFCreateValueListLookupView]
-(
-    @ValueListName NVARCHAR(128),
-    @ViewName NVARCHAR(128),
-    @Schema NVARCHAR(20) = 'dbo',
-    @Debug SMALLINT = 0
-)
-AS
-/*******************************************************************************
-  ** Desc:  The purpose of this procedure is to easily create one or more SQL Views to be used as lookup sources
-  **  
-  ** Version: 1.0.0.6
-  **
-  ** 
-  ** Author:          Thejus T V
-  ** Date:            15/07/2015 
- 
-  ******************************************************************************/
 BEGIN
     BEGIN TRY
         -- SET NOCOUNT ON added to prevent extra result sets from
