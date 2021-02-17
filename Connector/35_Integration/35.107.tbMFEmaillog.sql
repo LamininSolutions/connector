@@ -29,14 +29,22 @@ The log table have a row for each email sent showing if the email was send succe
 Columns
 =======
 
-[ID] [int] identity NOT NULL
-document_ID int not null. Defined in the custom.DoChannelEmail procedure and represents the unique reference to the specific object that drives the email.
+ID int identity NOT NULL
+  row id
+Document_ID int not null. 
+  Defined in the custom.DoChannelEmail procedure and represents the unique reference to the specific object that drives the email.
 Template_ID int NULL
-[msdb_mailitem_id] [int] NULL
-[Email_Date] [datetime] NULL
-[Email_Status] [nvarchar](100) NULL
-[Body] [nvarchar](max) NULL
-[Recipient] [nvarchar](256) NULL
+  Id of template
+msdb_mailitem_id int NULL
+  id if msdb mail system 
+Email_Date datetime NULL
+  date if email
+Email_Status nvarchar(100) NULL
+  status of sending email
+Body nvarchar(max) NULL
+  body of email sent out
+Recipient nvarchar(256) NULL
+  recipient of email
 
 The columns: Email_Date, Email_status, Body, Recipient are all inserted during processing to log the sending of the email.
 

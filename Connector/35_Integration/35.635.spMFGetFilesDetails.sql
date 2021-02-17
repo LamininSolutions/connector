@@ -155,8 +155,20 @@ BEGIN
         DECLARE @RC INT;
         DECLARE @Update_ID INT;
    
-
-        ----------------------------------------------------------------------
+   Declare @PathProperty_L1 NVARCHAR(128) = NULL,
+    @PathProperty_L2 NVARCHAR(128) = NULL,
+    @PathProperty_L3 NVARCHAR(128) = NULL,
+    @IsIncludePropertyPath BIT = 0,
+    @IsValidProperty_L1 bit = 0,
+    @IsValidProperty_L2 bit = 0,
+    @IsValidProperty_L3 bit = 0,
+    @PathProperty_ColValL1 NVARCHAR(256)  = NULL,
+    @PathProperty_ColValL2 NVARCHAR(256)  = NULL,
+    @PathProperty_ColValL3 NVARCHAR(256)  = NULL,
+    @DeletedColumn NVARCHAR(256)  = NULL,
+    @MultiDocFolder NVARCHAR(256)  = NULL,
+    @IncludeDocID int
+    ----------------------------------------------------------------------
         --GET Vault LOGIN CREDENTIALS
         ----------------------------------------------------------------------
 
@@ -236,7 +248,7 @@ BEGIN
                 END;
 
                 SET @vquery
-                    = @vquery + ' from [' + @TableName + '] WHERE Process_ID = ' + @process_ID_text
+                    = @vquery + ' from [' + @MFTableName + '] WHERE Process_ID = ' + @process_ID_text
                       + ' AND ' +QUOTENAME(@DeletedColumn)+' is null';
 
                 IF @Debug > 0
@@ -251,13 +263,13 @@ BEGIN
                     = 'SELECT ID,ObjID,MFVersion,isnull(Single_File,0) as Single_File,isnull('
                       + @Name_Or_Title_PropName
                       + ','''') as Name_Or_Title,'''' as PathProperty_L1, '''' as  PathProperty_L2, '''' as PathProperty_L3  from ['
-                      + @TableName + '] WHERE Process_ID = ' + @process_ID_text + ' AND ' +QUOTENAME(@DeletedColumn)+' is null';
+                      + @MFTableName + '] WHERE Process_ID = ' + @process_ID_text + ' AND ' +QUOTENAME(@DeletedColumn)+' is null';
                 IF @Debug > 0
                     PRINT @vquery;
             END;
 
             --SET @vquery
-            --             = 'SELECT ID,ObjID,MFVersion,isnull(Single_File,0),isnull('+@Name_Or_Title_PropName+','''') from [' + @TableName
+            --             = 'SELECT ID,ObjID,MFVersion,isnull(Single_File,0),isnull('+@Name_Or_Title_PropName+','''') from [' + @MFTableName
             --               + '] WHERE Process_ID = '+ @Process_id_text +'    AND Deleted = 0';
 
 
@@ -440,7 +452,7 @@ BEGIN
                 DECLARE @XmlOut XML;
                 SET @XmlOut = @FileExport;
 
-                EXEC ('Update ' + @TableName + ' set Process_ID=0 where ObjID=' + 'cast(' + @ObjID + 'as varchar(10))');
+                EXEC ('Update ' + @MFTableName + ' set Process_ID=0 where ObjID=' + 'cast(' + @ObjID + 'as varchar(10))');
 
 				
 
@@ -535,7 +547,7 @@ BEGIN
 
 
                 EXEC ('Update  MFT  set MFT.FileCount= t.FileCount
-									From ' + @TableName + ' MFT inner join #temp t
+									From ' + @MFTableName + ' MFT inner join #temp t
 									on MFT.ObjID=t.ObjID 
 									where MFT.ObjID=cast(' + @ObjID + 'as varchar(10))');
 
@@ -573,7 +585,7 @@ BEGIN
                                                                 @LogText = @LogTextDetail,
                                                                 @LogStatus = @LogStatusDetail,
                                                                 @StartTime = @StartTime,
-                                                                @MFTableName = @TableName,
+                                                                @MFTableName = @MFTableName,
                                                                 @Validation_ID = @Validation_ID,
                                                                 @ColumnName = @LogColumnName,
                                                                 @ColumnValue = @LogColumnValue,
@@ -587,7 +599,7 @@ BEGIN
     END TRY
     BEGIN CATCH
 
-        EXEC ('Update ' + @TableName + ' set Process_ID=3 where ObjID=' + 'cast(' + @ObjID + 'as varchar(10))');
+        EXEC ('Update ' + @MFTableName + ' set Process_ID=3 where ObjID=' + 'cast(' + @ObjID + 'as varchar(10))');
 
         INSERT INTO [dbo].[MFLog]
         (

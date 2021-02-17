@@ -4,7 +4,7 @@ GO
 SET NOCOUNT ON
 EXEC [setup].[spMFSQLObjectsControl]
 	@SchemaName = N'dbo'
-  , @ObjectName = N'spMFConvertTableToHtml' -- nvarchar(100)
+  , @ObjectName = N'spMFSendHTMLBodyEmail' -- nvarchar(100)
   , @Object_Release = '4.9.25.67'
   , @UpdateFlag = 2
 
@@ -66,19 +66,19 @@ Return
 Parameters
    @Body 
      Body must be in HTML format
-   ,@MessageTitle 
+   @MessageTitle 
      Subject of email
-   ,@FromEmail 
+   @FromEmail 
      email address for sender
-   ,@ToEmail 
+   @ToEmail 
      email address of recipient. Delimited with ';' if multiples
-   ,@CCEmail 
+   @CCEmail 
      email address of CC recipients. Delimited with ';' if multiples 
-   ,@Mailitem_ID  output
+   @Mailitem_ID  output
      msdb database mail id
-   ,@ProcessBatch_ID 
+   @ProcessBatch_ID 
      will record processing in MFProcessBatch
-   ,@Debug 
+   @Debug 
        Default = 0
        1 = Standard Debug Mode
 
@@ -127,6 +127,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-01-29  LC         Updated to allow for setting profile in MFEmailTemplate
 2021-01-26  LC         Create procedure
 ==========  =========  ========================================================
 
@@ -281,8 +282,10 @@ BEGIN TRY
         DECLARE @EMAIL_PROFILE VARCHAR(255);
         DECLARE @ReturnValue INT;
 
-        EXEC @ReturnValue = dbo.spMFValidateEmailProfile @emailProfile = @EMAIL_PROFILE OUTPUT, -- varchar(100)
-            @debug = @Debug;                                                                    -- smallint
+        SELECT @EMAIL_PROFILE = Emailprofile FROM dbo.MFEmailTemplate AS met
+      
+        EXEC @ReturnValue = dbo.spMFValidateEmailProfile @emailProfile = @EMAIL_PROFILE OUTPUT, 
+            @debug = @Debug;                                                                    -- 
 
         IF @ReturnValue = 1
         BEGIN

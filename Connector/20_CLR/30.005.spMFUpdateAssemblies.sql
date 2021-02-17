@@ -450,16 +450,13 @@ END;
 IF @CLRInstallationFlag = 0
     RAISERROR(@Output, 16, 1);
 
+
+
+
+
 --THIS COLLECTION OF PROCEDURES CREATE ALL THE CLR PROCEDURES
 
-/*
-MODIFICATIONS TO COLLECTION
-version 3.1.2.38 ADD spMFGetFilesInternal
-version 3.1.2.38 ADD spMFGetHistory
-version 3.1.5.41 ADD spMFSynchronizeFileToMFilesInternal
-version 4.9.25.67 ADD spMFGetFileListInternal
 
-*/
 /*------------------------------------------------------------------------------------------------
 	Author: leRoux Cilliers, Laminin Solutions
 	Create date: 2015-12
@@ -474,42 +471,13 @@ version 4.9.25.67 ADD spMFGetFileListInternal
 	2016-09-26      DevTeam2    Removed vault settings parameters and pass them as comma separated
 	                            string in @VaultSettings parameter.
     2017-05-04      DevTeam2    Added new parameter @DeleteWithDestroy
+version 3.1.2.38 ADD spMFGetFilesInternal
+version 3.1.2.38 ADD spMFGetHistory
+version 3.1.5.41 ADD spMFSynchronizeFileToMFilesInternal
+version 4.9.25.67 ADD spMFGetFileListInternal
+
 
 ------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-
-
------------------------------------------------------------------------------------------------*/
-
-IF EXISTS ( SELECT  1
-            FROM    INFORMATION_SCHEMA.ROUTINES
-            WHERE   ROUTINE_NAME = 'spMFDeleteObjectInternal'--name of procedure
-                    AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
-                    AND ROUTINE_SCHEMA = 'dbo' )
-    BEGIN
-        PRINT SPACE(10) + '...Drop CLR Procedure';
-        DROP PROCEDURE [dbo].[spMFDeleteObjectInternal];
-		
-    END;
-	
-    
-PRINT SPACE(10) + '...Stored Procedure: create';
-	 
-     
-EXEC (N'
-CREATE PROCEDURE [dbo].[spMFDeleteObjectInternal]
-    @VaultSettings NVARCHAR(4000) ,
-    @ObjectTypeId INT ,
-    @objectId INT ,	
-	@DeleteWithDestroy bit,
-	@ObjectVersion INT,
-    @Output NVARCHAR(2000) OUTPUT
-AS EXTERNAL NAME
-    [LSConnectMFilesAPIWrapper].[MFilesWrapper].[DeleteObject];
-')
-
 
 
 -- -------------------------------------------------------- 
@@ -624,22 +592,11 @@ AS EXTERNAL NAME
     [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetMFClasses];
 	')
 
-
-
-
-
-
-
-
-  
- 
 -- -------------------------------------------------------- 
 -- sp.spMFGetLoginAccounts.sql 
 -- -------------------------------------------------------- 
 PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
     + '.[dbo].[spMFGetLoginAccounts]';
-
-
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFGetLoginAccounts', -- nvarchar(100)
@@ -663,7 +620,6 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFGet
 /*-----------------------------------------------------------------------------------------------
   USAGE:
   =====
-
 
 -----------------------------------------------------------------------------------------------*/
 IF EXISTS ( SELECT  1
@@ -689,12 +645,6 @@ AS EXTERNAL NAME
     [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetLoginAccounts];
 	');
 
-
-
-
-
-  
- 
 -- -------------------------------------------------------- 
 -- sp.spMFGetDataExportInternal.sql 
 -- -------------------------------------------------------- 
@@ -2190,7 +2140,7 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
  
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',   @ObjectName = N'spMFGetFilesInternal', -- nvarchar(100)
-    @Object_Release = '3.1.2.38', -- varchar(50)
+    @Object_Release = '4.9.26.67', -- varchar(50)
     @UpdateFlag = 2 -- smallint
  
 
@@ -2211,38 +2161,38 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',   @ObjectName = N'spMFG
 
 
 -----------------------------------------------------------------------------------------------*/
-IF EXISTS ( SELECT  1
-            FROM    INFORMATION_SCHEMA.ROUTINES
-            WHERE   ROUTINE_NAME = 'spMFGetFilesInternal'--name of procedure
-                    AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
-                    AND ROUTINE_SCHEMA = 'dbo' )
-    BEGIN
-        PRINT SPACE(10) + '...Drop CLR Procedure';
-        DROP PROCEDURE [dbo].[spMFGetFilesInternal];
+--IF EXISTS ( SELECT  1
+--            FROM    INFORMATION_SCHEMA.ROUTINES
+--            WHERE   ROUTINE_NAME = 'spMFGetFilesInternal'--name of procedure
+--                    AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
+--                    AND ROUTINE_SCHEMA = 'dbo' )
+--    BEGIN
+--        PRINT SPACE(10) + '...Drop CLR Procedure';
+--        DROP PROCEDURE [dbo].[spMFGetFilesInternal];
 		
-    END;
+--    END;
 	
     
-PRINT SPACE(10) + '...Stored Procedure: create';
+--PRINT SPACE(10) + '...Stored Procedure: create';
 	 
      
 
 
-EXEC (N'
-Create Procedure dbo.spMFGetFilesInternal
-@VaultSettings [nvarchar](4000) ,
-@ClassID nvarchar(10),
-@ObjID nvarchar(20),
-@ObjType nvarchar(10),
-@ObjVersion nvarchar(10),
-@FilePath nvarchar(max),
-@IsDownload bit,
-@IncludeDocID bit,
-@FileExport  nvarchar(max) Output
-WITH EXECUTE AS CALLER
-AS
-EXTERNAL NAME [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetFiles]
-');
+--EXEC (N'
+--Create Procedure dbo.spMFGetFilesInternal
+--@VaultSettings [nvarchar](4000) ,
+--@ClassID nvarchar(10),
+--@ObjID nvarchar(20),
+--@ObjType nvarchar(10),
+--@ObjVersion nvarchar(10),
+--@FilePath nvarchar(max),
+--@IsDownload bit,
+--@IncludeDocID bit,
+--@FileExport  nvarchar(max) Output
+--WITH EXECUTE AS CALLER
+--AS
+--EXTERNAL NAME [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetFiles]
+--');
 
 
 -- -------------------------------------------------------- 
@@ -2256,7 +2206,7 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
  
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',   @ObjectName = N'spMFGetFilesListInternal', -- nvarchar(100)
-    @Object_Release = '4.9.25.67', -- varchar(50)
+    @Object_Release = '4.9.26.67', -- varchar(50)
     @UpdateFlag = 2 -- smallint
  
 
@@ -2766,12 +2716,12 @@ AS EXTERNAL NAME
 -- sp.spMFConnectionTest.sql 
 -- -------------------------------------------------------- 
 PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
-    + '.[dbo].[spMFConnectionTest]';
+    + '.[dbo].[spMFConnectionTestInternal]';
 
 
 
 SET NOCOUNT ON 
-EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',     @ObjectName = N'spMFConnectionTest', -- nvarchar(100)
+EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',     @ObjectName = N'spMFConnectionTestInternal', -- nvarchar(100)
     @Object_Release = '4.7.20.60', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 
@@ -2836,7 +2786,12 @@ AS EXTERNAL NAME
 
 
 -- ---------------------------------------------------------------------------------------------*/
-  
+ SET NOCOUNT ON 
+EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',     @ObjectName = N'spMFDeleteObjectListInternal', -- nvarchar(100)
+    @Object_Release = '4.8.24.66', -- varchar(50)
+    @UpdateFlag = 2 -- smallint
+
+
 IF EXISTS ( SELECT  1
             FROM    INFORMATION_SCHEMA.ROUTINES
             WHERE   ROUTINE_NAME = 'spMFDeleteObjectListInternal'--name of procedure

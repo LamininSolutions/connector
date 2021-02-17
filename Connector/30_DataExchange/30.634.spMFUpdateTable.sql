@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTable',
     -- nvarchar(100)
-    @Object_Release = '4.8.24.66',
+    @Object_Release = '4.8.25.67',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -213,6 +213,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-01-31  LC         Fix bug on insert new into audithistory
 2020-11-28  LC         Improve collection of property ids
 2020-11-28  LC         Resolve issue when fail message
 2020-11-24  LC         New functionality to deal with changing of classes
@@ -2588,8 +2589,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
   t.UPDATE_ID,
   t.LastModified, 
   @ObjectType, 
-  ' + @ClassPropName
-          + N',
+ @ClassID,
   sl.ObjectID,
   t.MFVersion,
   CASE WHEN sl.status = ''1'' THEN 0

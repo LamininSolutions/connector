@@ -14,20 +14,30 @@ Columns
 =======
 
 ID int IDENTITY NOT NULL
+ id of row
 Template_Name NVARCHAR(128) NOT null
-- each template must have a unique name
-- each row represent a specific template
+ - each template must have a unique name
+ - each row represent a specific template
 Channel NVARCHAR(12) not nULL
-- each template has a one to one correlation with the valuelist item in 'Channel'. The valuelist item is added in the channel column
+ - each template has a one to one correlation with the valuelist item in 'Channel'. The valuelist item is added in the channel column
 FromEmail NVARCHAR(128) NOT null
-- fromEmail and CCemail can include multiple addressed delimited by ';'
+ - fromEmail can include multiple addressed delimited by ';'
 CCEmail NVARCHAR(128) null
+ - CCemail can include multiple addressed delimited by ';'
 Subject NVARCHAR(256) NULL
-Head_HTML NVARCHAR(max) NULL DEFAULT('<head></head>')
-Greeting_HTML NVARCHAR(128) NULL DEFAULT('<p></p>')
-MainBody_HTML NVARCHAR(max) NULL DEFAULT('<p></p>')
-Signature_HTML nvarchar(256) NULL  DEFAULT('<p></p>')
-Footer_HTML nvarchar(256) NULL DEFAULT('<p></p>')
+ - Subject of email. 
+EmailProfile nvarchar(128) null
+ - custom email profile.  if left blank the default profile in MFSettings will be used
+Head_HTML NVARCHAR(max) NULL 
+ - DEFAULT('<head></head>')
+Greeting_HTML NVARCHAR(128) NULL
+ - DEFAULT('<p></p>')
+MainBody_HTML NVARCHAR(max) NULL 
+ - DEFAULT('<p></p>')
+Signature_HTML nvarchar(256) NULL
+ - DEFAULT('<p></p>')
+Footer_HTML nvarchar(256) NULL 
+ - DEFAULT('<p></p>')
 
 The head, greeting, mainbody, signature and footer must include html tags
 
@@ -35,11 +45,10 @@ Additional Info
 ===============
 
 Email body consists of:
-
-Greeting : Dear Sir  or Dear John
-Main body : standard text of the email
-Signature : From Customer care or From Peter
-Footer : Company detail
+ - Greeting : Dear Sir  or Dear John
+ - Main body : standard text of the email
+ - Signature : From Customer care or From Peter
+ - Footer : Company detail
 
 All styling is done in the HEAD and as inline styling using CSS and HTML
 
@@ -53,7 +62,7 @@ Placeholders
 Example Insert statement
 ========================
 
-..code::SQL
+..code:: sql
 
     INSERT INTO custom.EmailTemplate
     ( Template_Name,
@@ -61,6 +70,7 @@ Example Insert statement
     FromEmail,
     CCEmail,
     Subject,
+    EmailProfile,
     Head_HTML,
     Greeting_HTML,
     MainBody_HTML,
@@ -72,6 +82,7 @@ Example Insert statement
     'noreply@lamininsolutions.com',
     'support@lamininsolutions.com',
     'Test',
+    null,
     '{Head}',
     '<BR><p>Dear {FirstName}</p>',
     '<BR><p>this is test email<BR></p>',
@@ -81,13 +92,13 @@ Example Insert statement
 
 To review table
 
-..code::SQL
+..code:: sql
 
      SELECT * FROM custom.EmailTemplate AS et
 
 To remove a template
 
-..code::SQL
+..code:: sql
 
     DELETE FROM Custom.EmailTemplate where template_Name = 'DemoEmail'
 
@@ -128,6 +139,7 @@ CREATE TABLE [dbo].[MFEmailTemplate](
     FromEmail NVARCHAR(128) NOT NULL,
     CCEmail NVARCHAR(128) NULL,
     Subject NVARCHAR(256) NULL,
+    EmailProfile NVARCHAR(128) NULL,
     Head_HTML NVARCHAR(max) NULL DEFAULT('<head></head>'),
     Greeting_HTML NVARCHAR(128) NULL DEFAULT('<p></p>'),
     MainBody_HTML NVARCHAR(max) NULL DEFAULT('<p></p>'),

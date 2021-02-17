@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFClassTableColumns',
     -- nvarchar(100)
-    @Object_Release = '4.9.25.67',
+    @Object_Release = '4.9.26.67',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -114,6 +114,8 @@ Redundant table
 
 The listing will identify the columns added to the table related to Additional properties.
 
+It will also identify properties that is not used in any class tables, which is handy when trying to remove redundant properties from the vault.
+
 The procedure combines the data from various dimensions including:
 
 - MFProperty + MFClass + MFClassProperty for the M-Files property and class usage
@@ -164,6 +166,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-01-31  LC         update to allow for multi language default columns
 2020-12-31  LC         rework logic to show column types
 2020-12-10  LC         update result to improve usage of the procedure
 2020-12-10  LC         add new parameters to aid trouble shooting
@@ -197,9 +200,7 @@ BEGIN
 
         EXEC dbo.spMFSynchronizeSpecificMetadata @Metadata = 'Class'; -- varchar(100)
     END;
-
    
-
 DECLARE @SpecialColumns AS TABLE (Name NVARCHAR(200), ColType NVARCHAR(100))
 INSERT INTO @SpecialColumns
 (
@@ -217,20 +218,13 @@ VALUES
 ,('FileCount', 'MF Internal ')
 ,('Update_ID','MFSQL Column')
 
-DECLARE @SpecialProperties AS TABLE (MFID int, ColType NVARCHAR(100))
-INSERT INTO @SpecialProperties
+
+INSERT INTO @SpecialColumns
 (
-    MFID,ColType
+    Name,ColType
 )
-VALUES
-( 100,'MF Internal')
-,(27, 'MF Internal ')
-,(25, 'MF Internal ')
-,(23, 'MF Internal ')
-,(38, 'MF Internal ')
-,(39, 'MF Internal ')
-,(0, 'MF Internal ')
-,(22, 'MF Internal ');  
+
+SELECT columnname, 'MF Internal' FROM dbo.MFProperty AS mp WHERE mfid < 1000
 
     CREATE TABLE ##spMFClassTableColumns
     (
@@ -290,11 +284,11 @@ VALUES
                                                    AND mfms.MFTypeID IN ( 9, 10 ) THEN
                                                   'ClassTable_' + mfms.Valuelist
                                               WHEN mfms.IsObjectType = 0
-                                                   AND mfms.Valuelist NOT IN ( 'Workflow', 'Workflow State' )
+                                                   AND mfms.Property_MFID NOT IN ( 39, 38 )
                                                    AND mfms.MFTypeID IN ( 9, 10 ) THEN
                                                   'Valuelist_' + mfms.Valuelist
                                               WHEN mfms.IsObjectType = 0
-                                                   AND mfms.Valuelist IN ( 'Workflow', 'Workflow State' )
+                                                   AND mfms.Property_MFID IN ( 39, 38 )
                                                    AND mfms.MFTypeID IN ( 9, 10 ) THEN
                                                   'Workflow_' + mfms.Valuelist
                                           END
@@ -303,8 +297,13 @@ VALUES
 
 UPDATE cts
 SET cts.ColumnType = CASE WHEN IncludedInApp = 1 THEN  'Metadata Card' ELSE 'Not Used' END
-, class = CASE WHEN class IS NULL THEN 'Not in class' ELSE class END
-, tableName = CASE WHEN mc.tablename IS NULL THEN 'Not in table' ELSE mc.TableName end
+, class = CASE 
+WHEN class IS NULL AND sc.NAME IS NOT NULL THEN 'All class tables'
+WHEN class IS NULL AND sc.NAME IS null THEN 'No class table' ELSE class END
+, tableName = CASE 
+
+WHEN mc.tablename IS NULL AND IncludedInApp IS NULL AND sc.NAME IS NOT NULL THEN 'All Class tables'
+WHEN mc.tablename IS NULL AND IncludedInApp IS NULL AND sc.NAME IS null THEN 'Not used in class' ELSE mc.TableName end
 --SELECT property, property_mfid, * 
 FROM ##spMFClasstablecolumns cts
 left JOIN dbo.MFProperty AS mp
@@ -313,6 +312,9 @@ left JOIN mfclass mc
 ON cts.tablename= mc.tablename
 left JOIN dbo.MFClassProperty AS mcp
 ON mp.id = mcp.MFProperty_ID AND mcp.MFClass_ID = mc.id
+LEFT JOIN @SpecialColumns sc
+ON mp.ColumnName = sc.NAME
+
 
 UPDATE cts
 SET cts.Length = c.CHARACTER_MAXIMUM_LENGTH
@@ -413,26 +415,26 @@ SELECT cte.ColumnType,
     INNER JOIN @SpecialColumns  mc
     ON cts.ColumnName = mc.name
 
-    UPDATE cts
-    SET ColumnType = CASE WHEN Property_MFID IS NULL THEN sp.ColType
-    ELSE ColumnType end
-    , cts.Property = mp.name, cts.Property_MFID = mp.mfid
-    FROM @SpecialProperties AS sp
-    INNER JOIN dbo.MFProperty AS mp
-    ON sp.mfid = mp.mfid
-    INNER JOIN ##spMFClasstablecolumns cts
-    ON cts.ColumnName = mp.ColumnName
+    --UPDATE cts
+    --SET ColumnType = CASE WHEN Property_MFID IS NULL THEN sp.ColType
+    --ELSE ColumnType end
+    --, cts.Property = mp.name, cts.Property_MFID = mp.mfid
+    --FROM @SpecialProperties AS sp
+    --INNER JOIN dbo.MFProperty AS mp
+    --ON sp.mfid = mp.mfid
+    --INNER JOIN ##spMFClasstablecolumns cts
+    --ON cts.ColumnName = mp.ColumnName
 
-        UPDATE cts
-    SET ColumnType = CASE WHEN ColumnType IS NULL THEN sp.ColType
-    ELSE ColumnType end
-    , cts.Property = mp.name, cts.Property_MFID = mp.mfid
-    FROM @SpecialProperties AS sp
-    INNER JOIN dbo.MFProperty AS mp
-    ON sp.mfid = mp.mfid
-    INNER JOIN ##spMFClasstablecolumns cts
-    ON cts.ColumnName = SUBSTRING(mp.ColumnName,1,LEN(mp.ColumnName)-3)
-    WHERE ColumnType IS null
+    --    UPDATE cts
+    --SET ColumnType = CASE WHEN ColumnType IS NULL THEN sp.ColType
+    --ELSE ColumnType end
+    --, cts.Property = mp.name, cts.Property_MFID = mp.mfid
+    --FROM @SpecialProperties AS sp
+    --INNER JOIN dbo.MFProperty AS mp
+    --ON sp.mfid = mp.mfid
+    --INNER JOIN ##spMFClasstablecolumns cts
+    --ON cts.ColumnName = SUBSTRING(mp.ColumnName,1,LEN(mp.ColumnName)-3)
+    --WHERE ColumnType IS null
 
     --catch all
   UPDATE cts
@@ -450,7 +452,7 @@ SELECT cte.ColumnType,
     SET RedundantTable = 1
     FROM ##spMFClassTableColumns AS pc
     WHERE pc.IncludedInApp IS NULL
-          AND pc.columnType <> 'Not used';
+          AND pc.columnType NOT IN ( 'Not used', 'MF Internal');
 
     UPDATE ##spMFClassTableColumns
     SET MissingTable = 1

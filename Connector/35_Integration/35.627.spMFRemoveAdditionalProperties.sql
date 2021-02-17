@@ -37,9 +37,10 @@ GO
 SET NOEXEC OFF;
 GO
 ALTER PROCEDURE [dbo].[spMFRemoveAdditionalProperties]
-	(   @MFTableName NVARCHAR(200)
-		,@ProcessBatch_ID INT	  = NULL OUTPUT
-	  , @Debug			 SMALLINT = 0
+	(   @MFTableName NVARCHAR(200),
+        @Columns NVARCHAR(4000) = NULL,
+		@ProcessBatch_ID INT	  = NULL OUTPUT,
+	   @Debug			 SMALLINT = 0
 	)
 AS
 /*rST**************************************************************************
@@ -55,12 +56,15 @@ Parameters
   @MFTableName
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
+  @Columns
+    - default = null.  
+    - If set to null then all columns with no data in that is not included in the metadatacard will be removed.
+    - Set @Columns to a comma delimited string to validate and remove specific columns
   @ProcessBatch_ID (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @Debug (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
 
 Purpose
 =======
@@ -70,12 +74,40 @@ M-Files allows for properties to be added to the metadata card as additional pro
 Additional Info
 ===============
 
-By default the column will only be removed if all data has been removed.
+By default the column will only be removed if all data has been removed.  Property columns where property MFID < 1000 is ignored.
+
+do a normal update from SQL to MF by setting the data in unwanted columns to null, and set the process_id = 1 to remove the data in unwanted columns.
+
+When @Column is null then all additional property columns with null data will be removed.
+
+To remove columns where the property MFID < 1000 the column must be specified e.g. @Columns = 'Is_Template'
 
 Examples
 ========
-   
 
+deleting additional columns where all data is null
+
+.. code:: sql
+
+    DECLARE @ProcessBatch_ID1 INT;
+
+    EXEC dbo.spMFRemoveAdditionalProperties @MFTableName = 'MFOtherDocument',
+    @ProcessBatch_ID = @ProcessBatch_ID1 OUTPUT,
+    @Debug = 1
+
+----------------------------
+
+Deleting specified columns
+
+.. code:: sql
+
+    DECLARE @ProcessBatch_ID1 INT;
+
+    EXEC dbo.spMFRemoveAdditionalProperties @MFTableName = 'MFOtherDocument',
+    @columns = 'Is_Template',
+    @ProcessBatch_ID = @ProcessBatch_ID1 OUTPUT,
+    @Debug = 1
+   
 Changelog
 =========
 
@@ -92,6 +124,7 @@ Date        Author     Description
 BEGIN
 		SET NOCOUNT ON;
 
+        BEGIN -- parameters
 		-------------------------------------------------------------
 		-- CONSTANTS: MFSQL Class Table Specific
 		-------------------------------------------------------------
@@ -165,7 +198,14 @@ BEGIN
 		DECLARE @sql NVARCHAR(MAX) = N''
 		DECLARE @sqlParam NVARCHAR(MAX) = N''
 
+        -------------------------------------------------------------
+        -- Custom variables
+        -------------------------------------------------------------
+DECLARE @id INT = 1;
+DECLARE @columnname NVARCHAR(100);
+DECLARE @Status INT;
 
+END -- end parameters
 		-------------------------------------------------------------
 		-- INTIALIZE PROCESS BATCH
 		-------------------------------------------------------------
@@ -205,74 +245,215 @@ BEGIN
 			-------------------------------------------------------------
 			SET @DebugText = ''
 			Set @DebugText = @DefaultDebugText + @DebugText
-			Set @Procedurestep = ''
+			Set @Procedurestep = 'Update table'
 			
 			IF @debug > 0
 				Begin
 					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
 				END
 
-                
+  -------------------------------------------------------------
+  -- update table
+  -------------------------------------------------------------              
+  DECLARE @MFLastUpdateDate SMALLDATETIME
+  
+  EXEC dbo.spMFUpdateMFilesToMFSQL @MFTableName = @MFTableName,
+      @MFLastUpdateDate = @MFLastUpdateDate OUTPUT,
+      @UpdateTypeID = 1,   
+      @WithStats = 0,
+      @Update_IDOut = @Update_ID OUTPUT,
+      @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
+      @debug = 0
 
-DECLARE @id INT = 1;
-DECLARE @columnname NVARCHAR(100);
-DECLARE @lookupLabel NVARCHAR(100);
-DECLARE @ForDeletion BIT;
---DECLARE @datatype INT;
-
+  -------------------------------------------------------------
+  -- validate column list
+  -------------------------------------------------------------
+  
 IF
 (
-    SELECT OBJECT_ID('tempdb..#tablelist')
+    SELECT OBJECT_ID('tempdb..#Columnlist')
 ) IS NOT NULL
-    DROP TABLE #tablelist;
+    DROP TABLE #Columnlist;
 
-CREATE TABLE #tablelist
+CREATE TABLE #Columnlist
 (
     id INT IDENTITY PRIMARY KEY,
     columnname NVARCHAR(100),
     Datatype INT,
-    tablename NVARCHAR(100)
+    ColumnType NVARCHAR(100),
+    Status INT DEFAULT(9)
 );
 
-INSERT INTO #tablelist
+IF @Debug > 0
+SELECT @Columns AS columns;
+
+
+IF @Columns IS NULL 
+BEGIN -- @column is null
+
+-------------------------------------------------------------
+-- Remove all empty columns with property id's > 1000
+-------------------------------------------------------------
+  SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
+			Set @Procedurestep = 'Validate column list'
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				END
+
+EXEC dbo.spMFClassTableColumns @ErrorsOnly = 0,
+    @IsSilent = 1,
+    @MFTableName = @MFTableName,
+    @Debug = 0
+
+INSERT INTO #Columnlist
 (
     columnname,
     Datatype,
-    tablename
+    ColumnType,
+    Status
 )
-SELECT mp.ColumnName,
-    mp.MFDataType_ID,
-    c.TABLE_NAME
-FROM INFORMATION_SCHEMA.COLUMNS   AS c
-    INNER JOIN dbo.MFProperty     AS mp
-        ON c.COLUMN_NAME = mp.ColumnName
-    LEFT JOIN dbo.MFClassProperty AS mcp
-        ON mcp.MFProperty_ID = mp.ID
-WHERE mp.MFID > 100
-      AND mcp.MFClass_ID IS NULL;
+SELECT cc.Columnname,cc.MFdataType_ID , cc.ColumnType,
+ CASE WHEN cc.ColumnType = 'Additional Property' THEN 2
+    ELSE 1
+    END
+FROM ##spMFclassTableColumns cc WHERE TableName = @MFTableName
 
+UPDATE c2
+SET STATUS = 2
+FROM #Columnlist AS c
+INNER JOIN #Columnlist AS c2
+ON c2.columnname = SUBSTRING(c.columnname,1, LEN(c.columnname)-3)
+WHERE C.Status = 2
+
+IF @debug > 0
+SELECT * FROM #Columnlist AS c WHERE status > 1;
+
+ Set @Procedurestep = 'Drop columns loop'
 WHILE @id IS NOT NULL
 BEGIN
-    SET @ForDeletion = 0
-    SELECT @MFTableName = t.tablename,
-        @lookupLabel  = CASE
-                            WHEN t.Datatype IN ( 8, 9 ) THEN
-                                SUBSTRING(@columnname,1,LEN(@columnname)-3)
-                            ELSE
-                                NULL
-                        END,
-        @columnname   = t.columnname
-    FROM #tablelist AS t
+ 
+    SELECT @columnname = t.columnname,    
+        @Status   = t.status
+    FROM #Columnlist AS t
     WHERE t.id = @id;
 
+    SET @sqlParam = N'@count int output, @Status int'
+    SET @sql = N'
+    SELECT @count = COUNT(*) FROM '+ QUOTENAME(@MFTableName) + ' AS t
+    WHERE ' + quotename(@columnname) + ' IS NOT NULL and @Status > 1;'
 
-    --IF (
-    --SELECT COUNT(*) FROM @MFTableName AS t
-    --WHERE @columnname IS NULL) = 0
+    --IF @debug > 0
+    --PRINT @SQL;
 
-    SELECT @id = (SELECT MIN(id) FROM #tablelist AS t WHERE id >@id)
-END;
+    EXEC sp_executeSQL @SQL, @sqlParam, @count = @count OUTPUT,  @status = @Status;
 
+    UPDATE l 
+    SET status = CASE WHEN @count = 0 THEN 3 ELSE status end 
+    FROM #columnlist l WHERE columnname = @Columnname AND status > 1
+
+    SET @count = @@RowCount
+    -------------------------------------------------------------
+    -- Remove columns
+    -------------------------------------------------------------
+    IF EXISTS (SELECT columnname FROM #Columnlist AS c WHERE Status = 3 AND c.columnname = @columnname)
+    Begin
+    SET @SQL = N'
+    ALTER TABLE ' + QUOTENAME(@MFTableName) + '
+    DROP COLUMN ' + QUOTENAME(@Columnname) + ';'
+
+    EXEC(@SQL)
+
+    Set @DebugText = 'Column Dropped : ' + @columnname
+    Set @DebugText = @DefaultDebugText + @DebugText
+   
+    IF @debug > 0
+    	Begin
+    		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+    	END
+    END
+
+    SELECT @id = (SELECT MIN(id) FROM #Columnlist AS t WHERE id >@id)
+END -- end loop;
+
+if @debug > 0
+SELECT * FROM #Columnlist AS c WHERE STATUS > 1;
+
+END -- remove empty columns
+
+IF @Columns IS NOT NULL
+BEGIN -- @Column is specified
+
+INSERT INTO #Columnlist
+(
+    columnname,
+    Status
+)
+SELECT fmpds.ListItem, 2  FROM dbo.fnMFParseDelimitedString(@Columns,',') AS fmpds
+
+ SET @DebugText = @Columns
+			Set @DebugText = @DefaultDebugText + @DebugText
+			Set @Procedurestep = 'Validate specified columns: '
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				END
+
+IF @debug > 0
+SELECT * FROM #Columnlist AS c WHERE status > 1;
+
+ Set @Procedurestep = 'Drop specified columns loop'
+WHILE @id IS NOT NULL
+BEGIN -- BEGIN  LOOP
+ 
+    SELECT @columnname = t.columnname,    
+        @Status   = t.status
+    FROM #Columnlist AS t
+    WHERE t.id = @id;
+
+    SET @sqlParam = N'@count int output, @Status int'
+    SET @sql = N'
+    SELECT @count = COUNT(*) FROM '+ QUOTENAME(@MFTableName) + ' AS t
+    WHERE ' + quotename(@columnname) + ' IS NOT NULL and @Status > 1;'
+
+    --IF @debug > 0
+    --PRINT @SQL;
+
+    EXEC sp_executeSQL @SQL, @sqlParam, @count = @count OUTPUT,  @status = @Status;
+
+    UPDATE l 
+    SET status = CASE WHEN @count = 0 THEN 3 ELSE status end 
+    FROM #columnlist l WHERE columnname = @Columnname AND status > 1
+
+    SET @count = @@RowCount
+    -------------------------------------------------------------
+    -- Remove columns
+    -------------------------------------------------------------
+    IF EXISTS (SELECT columnname FROM #Columnlist AS c WHERE Status = 3 AND c.columnname = @columnname)
+    Begin
+    SET @SQL = N'
+    ALTER TABLE ' + QUOTENAME(@MFTableName) + '
+    DROP COLUMN ' + QUOTENAME(@Columnname) + ';'
+
+    EXEC(@SQL)
+
+    Set @DebugText = 'Column Dropped : ' + @columnname
+    Set @DebugText = @DefaultDebugText + @DebugText
+   
+    IF @debug > 0
+    	Begin
+    		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+    	END
+    END
+
+    SELECT @id = (SELECT MIN(id) FROM #Columnlist AS t WHERE id >@id)
+
+    END -- end loop
+
+END -- @columns is specified
 
 			-------------------------------------------------------------
 			--END PROCESS
