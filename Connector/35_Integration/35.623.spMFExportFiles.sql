@@ -106,15 +106,15 @@ The main use case for this procedure is to allow access to the files as attachme
 All Object Types with Files can be included in an export.  Each class export is performed separately.
 
 The destination folder in explorer is defined as:
-  - The Root folder or UNC path is defined in MFSettings with name "RootFolder".  The user executing the script must have permission the read and write to this folder.  On installation this folder is automatically set to c:\MFSQL\FileExport.  
+  - The Root folder or UNC path is defined in MFSettings with name "RootFolder".  The user executing the script must have permission the read and write to this folder.  On installation this folder is automatically set to c:\\MFSQL\\FileExport.  
   - The next layer defines the root folder for the class.  This folder is defined in MFClass by changing the value of the column "FileExportFolder" for the specific class in MFClass. This layer is to set the 'What is being exported' e.g. SalesInvoices.  If the value in "FileExportFolder" for the class is null then the files will be saved to the root folder.
   - Three layers of property related folders can be defined as parameters by setting the PathPropertyL1 to L3 to valid columns on the class table.  These parameters are all optional.  L1 must have a value for L2 to and L3 to be specified.
   - Multi document objects will show the name of the object as the name of the folder for the files in the multi file object.
   - Filename (with or without object id)
 
 For example the folders will be
-  -  D:\MFSQLExport\SalesInvoices\ABC Engineering\Service Invoices\2009\ABC Engineering Inv 2324\INV2345.pdf
-  -  D:\MFSQLExport\SalesInvoices\ABC Engineering\Service Invoices\2009\ABC Engineering Inv 2324\Supplements.pdf
+  -  D:\\MFSQLExport\\SalesInvoices\\ABC Engineering\\Service Invoices\\2009\\ABC Engineering Inv 2324\\INV2345.pdf
+  -  D:\\MFSQLExport\\SalesInvoices\\ABC Engineering\\Service Invoices\\2009\\ABC Engineering Inv 2324\\Supplements.pdf
 
 The folder Definition comes from
   -  Root = D:\MFSQLExport (defined in MFSettings)

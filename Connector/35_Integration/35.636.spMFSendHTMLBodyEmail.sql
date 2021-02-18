@@ -253,12 +253,6 @@ BEGIN TRY
         RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
     END;
 
-    -- Declare the return variable here
-    SET @ec = 0;
-    SET @rowcount = 0;
-    SET @Stage = N'Email';
-    SET @Step = N'Prepare';
-
     -------------------------------------------------------------
     -- Setup body
     -------------------------------------------------------------
