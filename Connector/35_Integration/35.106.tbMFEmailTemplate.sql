@@ -48,6 +48,7 @@ Additional Info
 ===============
 
 The tablescript to produce the table for inclusion in the email (optional)
+
 Email body consists of:
  - Greeting : Dear Sir  or Dear John
  - Main body : standard text of the email
