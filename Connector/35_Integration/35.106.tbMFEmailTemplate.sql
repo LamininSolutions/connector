@@ -47,9 +47,11 @@ The head, greeting, mainbody, signature and footer must include html tags
 Additional Info
 ===============
 
-The tablescript to produce the table for inclusion in the email (optional)
+The tablescript to produce the table for inclusion in the email (optional) should copy with two requirements
+  - insert result into ##Report e.g. select * into ##Report from table
+  - the where clause to include @objid for e.g. where objid = @objid
 
-Email body consists of:
+Email body consists of the following
  - Greeting : Dear Sir  or Dear John
  - Main body : standard text of the email
  - Signature : From Customer care or From Peter
