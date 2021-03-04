@@ -67,14 +67,16 @@ Parameters
   @Processbatch\_ID int
     The process batch ID to base the message on
   @Detaillevel int
-    fixme description
+    - Default 0
+    - the default will include only MFProcessBatch columns
+    - set to 1 will include MFProcessBatchDetail columns
   @MessageOUT nvarchar(4000) (output)
     - Formatted with /n as new line token
   @MessageForMFilesOUT nvarchar(4000) (output)
     - Formatted with CHAR(10) as new line character
   @GetEmailContent bit (optional)
     - Default = 0
-    - 1 = format EMailHTMLBodyOUT as HTML message
+    - 1 = format EMailHTMLBodyOUT as HTML message 
   @EMailHTMLBodyOUT nvarchar(max) (output)
     - Formatted as HTML table using the stylesheet as defined by DefaultEMailCSS in MFSettings.
   @RecordCount int (output)
@@ -93,10 +95,21 @@ Parameters
 Purpose
 =======
 
-Format process messages based on logging in MFProcessBatch and MFProcessBatch_Detail for output to Context Menu UI, Mulit-Line Text Property/Field and/or HTML.
+Format process messages based on logging in MFProcessBatch and MFProcessBatch_Detail for output in different formats for use as a return message in the Context Menu UI, as a Multi-Line Text output or HTML format for inclusion in emails.
 
 Additional Info
 ===============
+
+The content of the output is defined by:
+  - the ProcessBatch ID
+  - if Detail level is set to 1 then the ProcessBatchDetail will be included
+
+The procedure will format the output in three different formats:
+  - Multiline text
+  - for display in M-Files
+  - in HTML format
+  - if GetEmailContent is set to 0 (default) then HTML formatting will be ignored
+
 
 When a single class table is part of a ProcessBatch_ID the message will be based on MFProcessBatch.LogText and Duration.
 
@@ -113,12 +126,7 @@ Regardless of what you include in the LogText the resulting message will always 
     Started On: [CreatedOn]
     Duration: [DurationSeconds] --formatted as 00:00:00
 
-The HTML Message is formatted as a table including a header row with the following elements:
-
-.. code:: text
-
-    M-Files Vault: [VaultName]
-
+The HTML Message is formatted as a table including a header row with the elements above formatted in HTML
 
 Add ' | ' (includes spaces both sides of pipe (I) sign) to indicate a new-line token in the message
 
@@ -131,7 +139,7 @@ Use with spMFLogProcessSummaryForClassTable to generate LogText based on various
 Prerequisites
 =============
 
-Requires use MFProcessBatch in solution.
+Is dependent on the deploying detail logging and requires MFProcessBatch id as input in solution.
 
 Warnings
 ========
@@ -141,17 +149,38 @@ This procedure to be used as part of an overall messaging and logging solution. 
 Examples
 ========
 
+Get formatted output for a processbatch id
+
 .. code:: sql
 
     DECLARE @MessageOUT NVARCHAR(4000)
            ,@MessageForMFilesOUT NVARCHAR(4000)
            ,@EMailHTMLBodyOUT NVARCHAR(MAX);
 
-    EXEC [dbo].[spMFResultMessageForUI] @Processbatch_ID = ?
+    EXEC [dbo].[spMFResultMessageForUI] @Processbatch_ID = 3   
               ,@MessageOUT = @MessageOUT OUTPUT
               ,@MessageForMFilesOUT = @MessageForMFilesOUT OUTPUT
-              ,@GetEmailContent = ?
+              ,@GetEmailContent = 1
               ,@EMailHTMLBodyOUT = @EMailHTMLBodyOUT OUTPUT
+
+              Select @MessageOUT standardOutput, @MessageForMFilesOUT MFilesFormat, @EmailHTMLBodyOut EmailOutput
+
+Get formatted output for Processbatch and ProcessBatchDetail
+
+.. code:: sql
+
+    DECLARE @MessageOUT NVARCHAR(4000)
+           ,@MessageForMFilesOUT NVARCHAR(4000)
+           ,@EMailHTMLBodyOUT NVARCHAR(MAX);
+
+    EXEC [dbo].[spMFResultMessageForUI] @Processbatch_ID = 191
+              ,@Detaillevel = 1     
+              ,@MessageOUT = @MessageOUT OUTPUT
+              ,@MessageForMFilesOUT = @MessageForMFilesOUT OUTPUT
+              ,@GetEmailContent = 1
+              ,@EMailHTMLBodyOUT = @EMailHTMLBodyOUT OUTPUT
+
+              Select @MessageOUT standardOutput, @MessageForMFilesOUT MFilesFormat, @EmailHTMLBodyOut EmailOutput
 
 Changelog
 =========
@@ -159,6 +188,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-02-26  LC         Fix issue with duration
 2019-08-30  JC         Added documentation
 2018-12-02  LC         Fix bug for returning more than one result in query
 2018-11-18  LC         Fix count of records
@@ -193,46 +223,47 @@ BEGIN
     FROM [dbo].[MFProcessBatchDetail] AS [mpbd]
     WHERE [mpbd].[ProcessBatch_ID] = @Processbatch_ID;
 
-    --   BEGIN
+        BEGIN -- default message
 
     -------------------------------------------------------------
     -- Default message
     -------------------------------------------------------------
-    --SELECT @Message
-    --    = CASE
-    --          WHEN @Detaillevel = 0 THEN
-    --(
-    --    SELECT ISNULL([mpb].[ProcessType], '(process type unknown)') + ': '
-    --           + ISNULL([mpb].[Status], '(status unknown)') + ' | ' + ISNULL([mpb].[LogText], '(null)') + ' | '
-    --           + 'Process Batch#: ' + ISNULL(CAST([mpb].[ProcessBatch_ID] AS VARCHAR(10)), '(null)') + ' | '
-    --           + 'Started On: ' + ISNULL(CONVERT(VARCHAR(30), [mpb].[CreatedOn]), '(null)') + ' | '
-    --           + 'Duration Seconds: ' + CONVERT(VARCHAR(25), @SumDuration)
-    --    --+ CAST(RIGHT('0' + CAST(FLOOR((COALESCE([mpb].[DurationSeconds], 0) / 60) / 60) AS VARCHAR(8)), 2) + ':'
-    --    --       + RIGHT('0' + CAST(FLOOR(COALESCE([mpb].[DurationSeconds], 0) / 60) AS VARCHAR(8)), 2) + ':' AS varchar(258))
-    --    FROM [dbo].[MFProcessBatch] AS [mpb]
-    --    WHERE [mpb].[ProcessBatch_ID] = @Processbatch_ID
-    --)
-    --          WHEN @Detaillevel = 1 THEN
-    --(
-    --    SELECT ISNULL([mpb].[ProcessType], '(process type unknown)') + ': '
-    --           + ISNULL([mpbd].[Status], '(status unknown)') + ' | ' + ISNULL([mpbd].[LogText], '(null)') + ' | '
-    --           + 'Process Batch#: ' + ISNULL(CAST([mpb].[ProcessBatch_ID] AS VARCHAR(10)), '(null)') + ' | '
-    --           + 'Started On: ' + ISNULL(CONVERT(VARCHAR(30), [mpb].[CreatedOn]), '(null)') + ' | '
-    --           + 'Duration Seconds: ' + CONVERT(VARCHAR(25), [mpbd].[DurationSeconds]),
-    --           --+ CAST(RIGHT('0' + CAST(FLOOR((COALESCE([mpbd].[DurationSeconds], 0) / 60) / 60) AS VARCHAR(8)), 2) + ':'
-    --           --       + RIGHT('0' + CAST(FLOOR(COALESCE([mpbd].[DurationSeconds], 0) / 60) AS VARCHAR(8)), 2) + ':' AS varchar(258))
-    --           [mpb].[ProcessType],
-    --           [mpbd].*
-    --    FROM [dbo].[MFProcessBatch] AS [mpb]
-    --        INNER JOIN [dbo].[MFProcessBatchDetail] AS [mpbd]
-    --            ON [mpbd].[ProcessBatch_ID] = [mpb].[ProcessBatch_ID]
-    --    WHERE [mpb].[ProcessBatch_ID] = @Processbatch_ID
-    --          AND [mpbd].[LogType] = 'Message'
-    --          AND [mpbd].[MFTableName] <> 'MFUserMessages'
-    --)
-    --      END;
+    SELECT @Message
+        = CASE
+              WHEN @Detaillevel = 0 THEN
+    (
+        SELECT ISNULL([mpb].[ProcessType], '(process type unknown)') + ': '
+               + ISNULL([mpb].[Status], '(status unknown)') + ' | ' + ISNULL([mpb].[LogText], '(null)') + ' | '
+               + 'Process Batch#: ' + ISNULL(CAST([mpb].[ProcessBatch_ID] AS VARCHAR(10)), '(null)') + ' | '
+               + 'Started On: ' + ISNULL(CONVERT(VARCHAR(30), [mpb].[CreatedOn]), '(null)') + ' | '
+               + 'Duration Seconds: ' + CONVERT(VARCHAR(25), @SumDuration)
+        + CAST(RIGHT('0' + CAST(FLOOR((COALESCE([mpb].[DurationSeconds], 0) / 60) / 60) AS VARCHAR(8)), 2) + ':'
+               + RIGHT('0' + CAST(FLOOR(COALESCE([mpb].[DurationSeconds], 0) / 60) AS VARCHAR(8)), 2) + ':' AS varchar(258))
+        FROM [dbo].[MFProcessBatch] AS [mpb]
+        WHERE [mpb].[ProcessBatch_ID] = @Processbatch_ID
+    )
+              WHEN @Detaillevel = 1 THEN
+    (
+        SELECT ISNULL([mpb].[ProcessType], '(process type unknown)') + ': '
+               + ISNULL([mpbd].[Status], '(status unknown)') + ' | ' + ISNULL([mpbd].[LogText], '(null)') + ' | '
+               + 'Process Batch#: ' + ISNULL(CAST([mpb].[ProcessBatch_ID] AS VARCHAR(10)), '(null)') + ' | '
+               + 'Started On: ' + ISNULL(CONVERT(VARCHAR(30), [mpb].[CreatedOn]), '(null)') + ' | '
+                    + 'Duration Seconds: ' + CONVERT(VARCHAR(25), @SumDuration)             
+                      + CAST(RIGHT('0' + CAST(FLOOR((COALESCE([mpb].[DurationSeconds], 0) / 60) / 60) AS VARCHAR(8)), 2) + ':'
+               + RIGHT('0' + CAST(FLOOR(COALESCE([mpb].[DurationSeconds], 0) / 60) AS VARCHAR(8)), 2) + ':' AS varchar(258))
+               --       ,
+               --[mpb].[ProcessType],
+               --[mpbd].*
+        FROM [dbo].[MFProcessBatch] AS [mpb]
+            INNER JOIN [dbo].[MFProcessBatchDetail] AS [mpbd]
+                ON [mpbd].[ProcessBatch_ID] = [mpb].[ProcessBatch_ID]
+        WHERE [mpb].[ProcessBatch_ID] = @Processbatch_ID
+              AND [mpbd].[LogType] = 'Message'
+              AND [mpbd].[MFTableName] <> 'MFUserMessages'
+    )
+          END --end case
+     END; -- end default message
 
-    -- END;
     DECLARE @ClassName NVARCHAR(100);
     DECLARE @ClassTable NVARCHAR(100);
     DECLARE @ClassTableCount INT = 1;
@@ -285,11 +316,7 @@ BEGIN
               + ' | ' + 'Process Batch#: ' + ISNULL(CAST([mpb].[ProcessBatch_ID] AS VARCHAR(10)), '(null)') + ' | '
               + 'Started On: ' + ISNULL(CONVERT(VARCHAR(30), [mpb].[CreatedOn]), '(null)') + ' | '
               + 'Duration Seconds: ' + CONVERT(VARCHAR(25), [mpb].[DurationSeconds])
-        --+ CAST(RIGHT('0' + CAST(FLOOR((COALESCE(@SumDuration, 0) / 60) / 60) AS VARCHAR(8)), 2)
-        --       + ':'
-        --       + RIGHT('0' + CAST(FLOOR(COALESCE([mpb].[DurationSeconds], 0) / 60) AS VARCHAR(8)), 2)
-        --       + ':'
-        --       + RIGHT('0' + CAST(FLOOR(COALESCE([mpb].[DurationSeconds], 0) % 60) AS VARCHAR(2)), 2) AS VARCHAR(10))
+       
         FROM [dbo].[MFProcessBatch] AS [mpb]
         WHERE [mpb].[ProcessBatch_ID] = @Processbatch_ID;
 
@@ -302,7 +329,7 @@ BEGIN
         END;
     END; --IF @ClassTableCount = 1
 
-    IF @ClassTableCount <> 1
+    IF @ClassTableCount > 1
        AND @Detaillevel = 0
     BEGIN
         SET @ProcedureStep = 'Multiple Class tables';
