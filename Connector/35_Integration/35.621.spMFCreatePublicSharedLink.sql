@@ -4,7 +4,7 @@ EXEC [Setup].[spMFSQLObjectsControl]
     @SchemaName = N'dbo'
   , @ObjectName = N'spMFCreatePublicSharedLink'
   , -- nvarchar(100)
-    @Object_Release = '4.8.22.62'
+    @Object_Release = '4.9.26.68'
   , -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
@@ -39,7 +39,8 @@ ALTER PROCEDURE [dbo].[spMFCreatePublicSharedLink] (
 	   ,@ExpiryDate DATETIME = null
        ,@ClassID int=null
 	   ,@ObjectID int=null
-	   ,@ProcessID int=1
+	   ,@ProcessID int=1,
+       @Debug SMALLINT = 0 
 )
 AS
 /*rST**************************************************************************
@@ -90,11 +91,11 @@ Examples
 .. code:: sql
 
     EXEC dbo.spMFCreatePublicSharedLink
-         @TableName = 'ClassTableName', -- varchar(250)
-         @ExpiryDate = '2017-05-21',    -- datetime
-         @ClassID = nul,                -- int
-         @ObjectID = ,                  -- int
-         @ProcessID = 0                 -- int
+         @TableName = 'ClassTableName', 
+         @ExpiryDate = '2017-05-21',    
+         @ClassID = null,               
+         @ObjectID = null ,                  
+         @ProcessID = 0                 
 
 Changelog
 =========
@@ -102,6 +103,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2020-03-04  LC         fix bug and add debugging
 2020-08-22  LC         update for new deleted column
 2019-08-30  JC         Added documentation
 2018-04-04  DEV2       Added Licensing module validation code
@@ -110,6 +112,19 @@ Date        Author     Description
 **rST*************************************************************************/
       BEGIN
             SET NOCOUNT ON
+
+            	-------------------------------------------------------------
+		-- VARIABLES: DEBUGGING
+		-------------------------------------------------------------
+		DECLARE @ProcedureName AS NVARCHAR(128) = 'dbo.spMFCreatePublicSharedLink';
+		DECLARE @ProcedureStep AS NVARCHAR(128) = 'Start';
+		DECLARE @DefaultDebugText AS NVARCHAR(256) = 'Proc: %s Step: %s'
+		DECLARE @DebugText AS NVARCHAR(256) = ''
+		DECLARE @Msg AS NVARCHAR(256) = ''
+		DECLARE @MsgSeverityInfo AS TINYINT = 10
+		DECLARE @MsgSeverityObjectDoesNotExist AS TINYINT = 11
+		DECLARE @MsgSeverityGeneralError AS TINYINT = 16
+           
 
     Begin Try
 
@@ -126,6 +141,14 @@ Date        Author     Description
         ,@DeletedColumn NVARCHAR(100)
 
 
+Set @DebugText = ''
+Set @DebugText = @DefaultDebugText + @DebugText
+Set @Procedurestep = 'Start'
+
+IF @debug > 0
+	Begin
+		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+	END
 
 	  -----------Fetching Vault Settings------------------------------- 
 	   
@@ -137,6 +160,15 @@ Date        Author     Description
 
 	  ------------------------------------------
 
+      Set @DebugText = ''
+      Set @DebugText = @DefaultDebugText + @DebugText
+      Set @Procedurestep = 'Get column names '
+      
+      IF @debug > 0
+      	Begin
+      		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+      	END
+      
       -------------------------------------------------------------
       -- get deleted column name
       -------------------------------------------------------------
@@ -201,18 +233,55 @@ Date        Author     Description
                     , N'@Xml nvarchar(max) OUTPUT'
                     , @Xml OUTPUT;
 
+                    Set @DebugText = ''
+                    Set @DebugText = @DefaultDebugText + @DebugText
+                    Set @Procedurestep = 'Get XML'
+                    
+                    IF @debug > 0
+                    	BEGIN
+                        SELECT CAST(@XML AS XML)
+                    		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+                    	END
+                    
              -----------------------------------------------------------------
 			-- Checking module access for CLR procdure  spMFCreatePublicSharedLinkInternal
 			------------------------------------------------------------------
-		   EXEC [dbo].[spMFCheckLicenseStatus] 
+	Set @DebugText = ''
+	Set @DebugText = @DefaultDebugText + @DebugText
+	Set @Procedurestep = 'Check license '
+	
+	IF @debug > 0
+		Begin
+			RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+		END
+	
+    EXEC [dbo].[spMFCheckLicenseStatus] 
 		             'spMFCreatePublicSharedLinkInternal'
 		             ,'spMFCreatePublicSharedLink'
 					 ,'Checking module access for CLR procdure  spMFCreatePublicSharedLinkInternal'			  
+
+Set @DebugText = ''
+Set @DebugText = @DefaultDebugText + @DebugText
+Set @Procedurestep = 'process wrapper '
+
+IF @debug > 0
+	Begin
+		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+	END
 
 			EXEC spMFCreatePublicSharedLinkInternal @VaultSettings,@Xml ,@OutPutXML Output
 
 			SET @XmlOut = @OutPutXML
 
+Set @DebugText = ''
+Set @DebugText = @DefaultDebugText + @DebugText
+Set @Procedurestep = 'Wrapper output '
+
+IF @debug > 0
+	BEGIN
+         SELECT CAST(@XmlOut AS XML)
+		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+	END
 
 				
 				Create table #TmpLink
@@ -251,6 +320,14 @@ Date        Author     Description
 
 				Exec(@Query)
 
+Set @DebugText = ''
+Set @DebugText = @DefaultDebugText + @DebugText
+Set @Procedurestep = 'Update table'
+
+IF @debug > 0
+	Begin
+		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+	END
 
 
 				--Link='http://192.168.0.150/SharedLinks.aspx?accesskey='+TL.AccessKey+'&VaultGUID=E3DB829A-CDFE-4492-88C1-3E7B567FBD59'
@@ -289,7 +366,17 @@ Date        Author     Description
 		
  
 		 drop table #TmpLink
-		End
+		END
+        
+        Set @DebugText = ''
+        Set @DebugText = @DefaultDebugText + @DebugText
+        Set @Procedurestep = 'Completed '
+        
+        IF @debug > 0
+        	Begin
+        		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+        	END
+        
 
  End try
  begin CATCH

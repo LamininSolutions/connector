@@ -91,6 +91,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-03-02  LC         Remove check for required workflows, check is included in spMFClassTableStats
 2020-11-07  LC         Resolve issue with duplicate columns and multilookup datatype
 2020-10-22  LC         set datetime conversion to 102 (ansi)
 2020-10-22  LC         Required workflow check is only performed on updated objects
@@ -1073,60 +1074,7 @@ COMMIT TRAN
                 END;
             END;
 
-            ---------------------------------------------------------------
-            --Task 1052
-            --If IsWorkflowEnforced = 1 and object workflow_ID is null  then 
-            --set workflow to Workflow in MFClass_Workflow_ID
-            ----------------------------------------------------------------
-            SELECT @ProcedureStep = 'validate workflow required';
-
-            DECLARE @WorkflowPropColumnName NVARCHAR(100);
-            DECLARE @RequiredWorkflow_MFID INT;
-            DECLARE @rowcount INT;
-
-            SELECT @WorkflowPropColumnName = ColumnName
-            FROM dbo.MFProperty
-            WHERE MFID = 38;
-
-            SELECT @RequiredWorkflow_MFID = w.MFID
-            FROM dbo.MFClass              c
-                INNER JOIN dbo.MFWorkflow w
-                    ON c.MFWorkflow_ID = w.ID
-            WHERE c.IsWorkflowEnforced = 1
-                  AND c.TableName = @TableName;
-
-            IF @RequiredWorkflow_MFID IS NOT NULL
-            BEGIN
-                SET @Query
-                    = N'UPDATE t SET Process_ID = 4
-                    from ' + QUOTENAME(@TableName) + N' t
-                    inner join ' + @TempObjectList + ' tl
-                    on t.objid = tl.objid
-					  where isnull(t.' + @WorkflowPropColumnName + N',0) <>  '
-                      + CAST(@RequiredWorkflow_MFID AS NVARCHAR(10)) + N';';
-
-                IF @Debug > 0
-                    SELECT @Query;
-
-                EXEC sys.sp_executesql @Query;
-
-                SET @rowcount = @@RowCount
-
-                IF (@rowcount > 0)
-                BEGIN
-                    RAISERROR(
-                                 'Proc: %s Step: %s ErrorInfo %s ',
-                                 10,
-                                 1,
-                                 'spMFUpdateTableInternal',
-                                 'Checking required workflow: ',
-                                 ' Workflow ID is not equal to required workflow ID'
-                             );
-                END;
-            END;
-
-            --end worklfow required
-            ----------------------------------------
+              ----------------------------------------
             --Drop temporary tables
             ----------------------------------------
             SET @Params = N'@TableID int';

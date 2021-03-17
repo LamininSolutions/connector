@@ -4,7 +4,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateMFilesToMFSQL', -- nvarchar(100)
-    @Object_Release = '4.9.25.67',            -- varchar(50)
+    @Object_Release = '4.9.26.68',            -- varchar(50)
     @UpdateFlag = 2;
 
 -- smallint
@@ -158,6 +158,11 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-03-17  LC         include audit statusflag =1 into incremental update
+2021-03-17  LC         resolve issue where objid for exist for class in two objecttypes
+2021-03-16  LC         Remove object where class has changed from audit table
+2021-03-11  LC         fix objlist error when both class and audit objid is null
+2021-03-10  LC         fix updatechangehistory when control table empty
 2021-01-07  LC         Include override to recheck any class objects not in Audit
 2020-09-04  LC         Resolve bug with full update 
 2020-08-23  LC         replace get max objid with index update
@@ -488,7 +493,7 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
                                                    'Exception'
                                            END;
                     SET @LogTypeDetail = N'Debug';
-                    SET @LogTextDetail = N' Batch updates completed ';
+                    SET @LogTextDetail = N' Audit Batch updates completed ';
                     SET @LogColumnName = N'';
                     SET @LogColumnValue = N'';
 
@@ -507,7 +512,8 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
                     -------------------------------------------------------------
                     -- object history update full update
                     -------------------------------------------------------------         
-                    IF
+              SET @ProcedureStep = 'Update object change history'
+              IF
                     (
                         SELECT ISNULL(COUNT(id),0)
                         FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc
@@ -518,8 +524,8 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
                         EXEC dbo.spMFUpdateObjectChangeHistory @MFTableName = @MFTableName, -- nvarchar(200)
                             @WithClassTableUpdate = 0,                                      -- int
                             @Objids = NULL,                                                 -- nvarchar(max)
-                            @ProcessBatch_ID = 0,                                           -- int
-                            @Debug = 0;                                                     -- smallint
+                            @ProcessBatch_ID = @ProcessBatch_ID,                                           -- int
+                            @Debug = @debug;                                                     -- smallint
                     END;
                 END;
 
@@ -575,6 +581,8 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
                         @Debug = @debug;                                 -- smallint
                 END;
 
+                SET @ProcedureStep = 'Get max objid'
+
                 SELECT @Tobjid = MAX(mah.ObjID)
                 FROM dbo.MFAuditHistory AS mah
                 WHERE mah.Class = @Class_ID;
@@ -582,7 +590,7 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
                 SET @Tobjid = ISNULL(@Tobjid, 0) + 500;
                 SET @DebugText = N'Max Objid %i';
                 SET @DebugText = @DefaultDebugText + @DebugText;
-                SET @ProcedureStep = N'Update M-Files';
+                SET @ProcedureStep = N'Update from M-Files ';
 
                 IF @debug > 0
                 BEGIN
@@ -595,7 +603,7 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
                       AND au.StatusFlag <> @StatusFlag_0_Identical
                       AND au.ObjectType <> 9;
 
-                SET @LogColumnName = N'Status flag not 0:  ';
+                SET @LogColumnName = N' Items to update: ';
                 SET @LogColumnValue = CAST(@rowcount AS NVARCHAR(256));
                 SET @LogStatusDetail = CASE
                                            WHEN
@@ -624,11 +632,6 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
                     @debug = @debug;
 
                 -------------------------------------------------------------
-                -- object versions updated
-                -------------------------------------------------------------
-
-
-                -------------------------------------------------------------
                 -- Get list of objects to update
                 -------------------------------------------------------------
                 IF @rowcount > 0
@@ -653,14 +656,14 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
                     SELECT au.ObjID,
                         au.StatusFlag
                     FROM dbo.MFAuditHistory au
-                    WHERE au.UpdateFlag = 1
-                          AND au.Class = @Class_ID;
+                    WHERE (au.UpdateFlag = 1 OR au.StatusFlag IN (1,3))
+                          AND au.Class = @Class_ID AND au.ObjectType = @ObjectType_ID;
 
                     SET @rowcount = @@RowCount;
 
                     IF @debug > 0
                     BEGIN
-                        SET @DebugText = @DefaultDebugText + N' %i Object list record(s) ';
+                        SET @DebugText = @DefaultDebugText + N' %i Objects ';
 
                         RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @rowcount);
                     END;
@@ -669,25 +672,22 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
 -- insert objids for update where objid is in class table but not in audit table
 -------------------------------------------------------------
                    SET @ProcedureStep = 'Objects not in Audit Table ' 
-                   SET @SQL =  
-                    N'INSERT #ObjIdList
-                    (
-                        ObjId,
-                        Flag
-                    )
-                    SELECT cl.objid, 1
+                  SET @SQLParam = N'@Class_ID int, @ObjectType_ID int'
+                  SET @SQL =  
+                    N'INSERT #ObjIdList (  ObjId, Flag ) SELECT cl.objid, 1
                     FROM ' + quotename(@MFTableName) + ' AS cl
                     LEFT JOIN dbo.MFAuditHistory AS mah
-                    ON cl.objid = mah.objid AND mah.Class = @Class_id 
-                    WHERE mah.objid IS null'
+                    ON cl.objid = mah.objid AND mah.Class = @Class_id and mah.ObjectType = @ObjectType_ID
+                    WHERE mah.objid IS null and cl.objid is not null'
 
-                    EXEC sp_executeSQL @SQL, N'@Class_ID int', @Class_ID
+                    EXEC sp_executeSQL @Stmt = @SQL, @Param = @SQLparam , @Class_id = @Class_ID, @objectType_ID = @ObjectType_ID
 
                      SET @rowcount = @@RowCount;
 
                     IF @debug > 0
                     BEGIN
-                        SET @DebugText = @DefaultDebugText + N' %i  ';
+                       
+                        SET @DebugText = @DefaultDebugText + N'count  %i  ';
 
                         RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @rowcount);
                     END;
@@ -703,7 +703,7 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
                     CREATE TABLE #ObjIdGroups
                     (
                         GroupNumber INT PRIMARY KEY,
-                        ObjIds NVARCHAR(4000)
+                        ObjIds NVARCHAR(max)
                     );
 
                     INSERT #ObjIdGroups
@@ -844,11 +844,11 @@ ON t2.objid = cte.objid
                                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                             END;
 
-                            EXEC dbo.spMFUpdateObjectChangeHistory @MFTableName = @MFTableName, -- nvarchar(200)
-                                @WithClassTableUpdate = 0,                                      -- int
-                                @Objids = @ObjIds_toUpdate,                                     -- nvarchar(max)
-                                @ProcessBatch_ID = 0,                                           -- int
-                                @Debug = @debug;                                                -- smallint
+                            EXEC dbo.spMFUpdateObjectChangeHistory @MFTableName = @MFTableName, 
+                               @WithClassTableUpdate = 0,                                      
+                                @Objids = @ObjIds_toUpdate,                                     
+                                @ProcessBatch_ID = @ProcessBatch_ID,                                           
+                                @Debug = @debug;                                                
                         END; -- get history
 
                         SET @DebugText = N'';
@@ -901,7 +901,13 @@ ON t2.objid = cte.objid
                 -------------------------------------------------------------
                 -- Catch all - get history for items not included in batch update
                 -------------------------------------------------------------
-                IF @WithObjectHistory = 1
+                 IF
+                    (
+                        SELECT ISNULL(COUNT(id),0)
+                        FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc
+                        WHERE mochuc.MFTableName = @MFTableName
+                    ) > 0
+                    AND @WithObjectHistory = 1      
                 BEGIN
                     SET @sqlParam = N'@Class_ID int, @ObjIds_toUpdate nvarchar(max) output';
                     SET @sql

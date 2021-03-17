@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTable',
     -- nvarchar(100)
-    @Object_Release = '4.8.25.67',
+    @Object_Release = '4.8.27.68',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -139,10 +139,13 @@ When using a filter (e.g. for a single object) to update the table with Update m
 
 This procedure will not remove destroyed objects from the class table.  Use spMFUpdateMFilestoMFSQL identify and remove destroyed object.
 
+This procedure will not remove objects from the class table where the class of the object was changed in M-Files.  Use spMFUpdateMFilestoMFSQL to identify and remove these objects from the class table.
+
 Deleted objects will only be removed if they are included in the filter 'Objids'.  Use spMFUpdateMFilestoMFSQL to identify deleted objects in general identify and update the deleted objects in the table.
 
 Deleted objects in M-Files will automatically be removed from the class table unless @RetainDeletions is set to 1.
 
+The valid range of real datatype properties for uploading from SQL to M-Files is -1,79E27 and 1,79E27
 Examples
 ========
 
@@ -213,6 +216,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-03-15  LC         fix changing of class in the same object type in MF
+2021-03-11  LC         update maximum valid number range to between -1,79E27 and 1,79E27
 2021-01-31  LC         Fix bug on insert new into audithistory
 2020-11-28  LC         Improve collection of property ids
 2020-11-28  LC         Resolve issue when fail message
@@ -231,6 +236,7 @@ Date        Author     Description
 2020-02-27  LC         Resolve issue with open XML_Docs
 2020-01-06  LC         Resolve issue: variable is null: @RetainDeletions
 2020-01-06  LC         Resolving performance bug when filtering on objids  
+2019-12-31	DEV2	   New output parameter add in spMFCreateObjectInternal to return the checkout objects.
 2019-10-01  LC         Allow for rounding where float has long decimals
 2019-09-02  LC         Fix conflict where class table has property with 'Name' as the name V53
 2019-08-24  LC         Fix label of audithistory table inserts
@@ -275,7 +281,6 @@ Date        Author     Description
 2015-04-23  DEV2       Removing Last modified & Last modified by from Update data
 2015-04-16  DEV2       Adding update table details to MFUpdateHistory table
 2015-04-08  DEV2       Deleting property value from M-Files (Task 57)
-2019-12-31	DEV2	   New output parameter add in spMFCreateObjectInternal to return the checkout objects.
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -912,7 +917,7 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
                             = @Query
                               + N'Union All
  select ID,  Objid, MFversion, ExternalID, ColName as ColumnName, 
- CAST(CAST(colvalue AS DECIMAL(18,4)) AS VARCHAR(4000)) AS ColValue from ' + QUOTENAME(@MFTableName)
+ CAST(CAST(colvalue AS Decimal(32,4)) AS VARCHAR(4000)) AS ColValue from ' + QUOTENAME(@MFTableName)
                               + N' t
         unpivot
         (
@@ -1638,6 +1643,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
     IF @Debug > 9
         RAISERROR('Proc: %s Step: %s ObjectVerDetails ', 10, 1, @ProcedureName, @ProcedureStep);
 
+
     -----------------------------------------------------
     --Process Wrapper Method
     -----------------------------------------------------
@@ -1903,17 +1909,29 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
         END;
 
         IF @Debug > 0
-            EXEC (N'SELECT * FROM ' + @TempStatusList + '');
+        Begin
+            EXEC (N'SELECT * FROM ' + @TempStatusList + '');         
+        END
+
+        -------------------------------------------------------------
+        -- get objects that has changed class without being deleted
+        -------------------------------------------------------------
+        SET @Params = N'@RemoveOtherClass int output, @ClassID int'
+         SET @vquery = N'SELECT @RemoveOtherClass = @RemoveOtherClass + count(*) FROM ' + @TempStatusList + ' where classID <> @ClassID '
+            EXEC sp_executeSQL @vquery, @params, @RemoveOtherClass OUTPUT, @classID;
 
         -------------------------------------------------------------
         -- insert object with class changed into status list
         -------------------------------------------------------------
         SET @ProcedureStep = 'Reset rows not in class';
 
-        IF @RemoveOtherClass > 1
+        IF @RemoveOtherClass > 0
         BEGIN
             -- get records with other class in class_id and set to deleted
             SET @Count = 0;
+
+IF @debug > 0
+SELECT @RemoveOtherClass AS count_of_OtherClassObjects;
 
             DECLARE @RemoveClassObjids NVARCHAR(MAX);
 
@@ -1975,6 +1993,9 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
 
             DECLARE @OtherMFTableName NVARCHAR(100);
 
+            IF EXISTS(SELECT t.TABLE_NAME FROM INFORMATION_SCHEMA.TABLES AS t WHERE t.TABLE_NAME = @OtherMFTableName)
+            Begin
+
             SET @Query
                 = N' SELECT TOP 1
                 @OtherMFTableName = mc.TableName
@@ -2007,6 +2028,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
                     @Count OUTPUT,
                     @Update_IDOut;
 
+END --delete from other table
                 SET @DebugText = N' Delete rows with other classes %i';
                 SET @DebugText = @DefaultDebugText + @DebugText;
 
@@ -2014,6 +2036,8 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
                 BEGIN
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
                 END;
+
+                
             END; --update table for other class
         END;
     END;
@@ -2524,12 +2548,12 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
         = N'
         UPDATE mah WITH (UPDLOCK, SERIALIZABLE)
         SET mah.StatusFlag = CASE 
-         WHEN sl.status = ''1'' THEN 0
+         WHEN sl.status = ''1'' and mah.statusFlag <> 4 THEN 0
         WHEN sl.status = ''2'' THEN 3
         WHEN sl.status in (''3'',''NotInClass'') THEN 4
         end,
             mah.StatusName = CASE 
-            WHEN sl.status = ''1'' THEN ''Identical''
+            WHEN sl.status = ''1'' and mah.statusFlag <> 4 THEN ''Identical''
              WHEN sl.Status = ''2'' THEN ''Checked out''
             WHEN sl.Status = ''3'' then ''Deleted''
             WHEN sl.Status = ''NotInClass'' THEN ''Not in Class'' 

@@ -115,6 +115,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-03-15  LC         Set default schema for MFmodule
 2021-01-06  LC         Debug module 2 license
 2020-12-31  LC         update message for license expired
 2020-12-05  LC         Rework core logic and introduce new supporting procedure
@@ -247,7 +248,7 @@ BEGIN TRY
             SELECT OBJECT_ID('..MFModule')
         ) IS NULL
         BEGIN
-            CREATE TABLE MFModule
+            CREATE TABLE dbo.MFModule
             (
                 Module NVARCHAR(20),
                 license NVARCHAR(400),

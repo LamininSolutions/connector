@@ -197,9 +197,9 @@ BEGIN TRY
 						-----------------------------------------------------------------
 						-- Checking module access for CLR procdure  spMFCreateObjectInternal
 						------------------------------------------------------------------
-						--EXEC [dbo].[spMFCheckLicenseStatus] 'spMFCreateObjectInternal'
-						--					,@ProcedureName
-						--					,@ProcedureStep;
+						EXEC [dbo].[spMFCheckLicenseStatus] 'spMFCreateObjectInternal'
+											,@ProcedureName
+											,@ProcedureStep;
 
 						SET @ProcedureStep = 'Prepare Table ';
         SET @LogTypeDetail = 'Status';
@@ -226,7 +226,6 @@ BEGIN TRY
 						exec spMFGetUnManagedObjectDetails 
 						                           @ExternalRepositoryObjectIDs,
 												   @VaultSettings,
-												-- 'test,00Q184mbRi8=,localhost,Sample Vault,ncacn_ip_tcp,2266,3,',
 												   @Result out
 
 		

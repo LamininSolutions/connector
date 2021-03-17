@@ -6,7 +6,7 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
 
 EXEC Setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTable_ObjIds_GetGroupedList', -- nvarchar(100)
-    @Object_Release = '4.8.23.64', -- varchar(50)
+    @Object_Release = '4.9.26.68', -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
 
@@ -40,7 +40,7 @@ GO
 
 ALTER PROCEDURE [dbo].[spMFUpdateTable_ObjIds_GetGroupedList]
     (
-       @ObjIds_FieldLenth SMALLINT = 3950
+       @ObjIds_FieldLenth SMALLINT = 3900
 	  ,@Debug SMALLINT = 0
 	)
 AS
@@ -86,6 +86,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-03-10  LC         set default field length to 3900
 2020-12-11  LC         fix bug related to number of objids in list
 2020-09-08  Lc         resolve number of objids in batch
 2020-04-08  LC         Resolve issue with #objidlist not exist 
@@ -128,13 +129,18 @@ CREATE TABLE #ObjIdList ( [ObjId] INT )
 
  --   IF (SELECT OBJECT_ID('tempdb..#objidlist')) IS NOT NULL
  --   Begin
+    --SELECT  @NumberofGroups = ( SELECT  COUNT(ISNULL(objid,0))
+    --                            FROM    #ObjIdList
+    --                          ) / ( @ObjIds_FieldLenth --ObjIds fieldlenth
+    --                                / ( SELECT  MAX(LEN([ObjId])) + 2
+    --                                    FROM    #ObjIdList
+    --                                  ) --avg size of each item in csv list including comma
+    --                                );	
     SELECT  @NumberofGroups = ( SELECT  COUNT(ISNULL(objid,0))
                                 FROM    #ObjIdList
-                              ) / ( @ObjIds_FieldLenth --ObjIds fieldlenth
-                                    / ( SELECT  MAX(LEN([ObjId])) + 2
-                                        FROM    #ObjIdList
-                                      ) --avg size of each item in csv list including comma
-                                    );			
+                              ) / 500
+                                    ;	
+    
 
 	SET @NumberofGroups = ISNULL(NULLIF(@NumberofGroups,0),1)
 		IF @Debug > 0

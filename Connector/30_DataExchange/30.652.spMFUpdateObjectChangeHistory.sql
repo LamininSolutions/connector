@@ -382,25 +382,25 @@ BEGIN
                 -------------------------------------------------------------
                 -- Validate columns in control table
                 -------------------------------------------------------------
-
-
                 IF @Debug > 0
                 BEGIN
-                SELECT *
-                FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc;
+                    SELECT *
+                    FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc;
+
                     SELECT PropertyIDS = @Property_IDs;
 
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
                 IF @Property_IDs IS NULL
-                Begin
-                                SET @DebugText = N':Invalid Column in dbo.MFObjectChangeHistoryUpdateControl ';
-                SET @DebugText = @DefaultDebugText + @DebugText;
-                SET @ProcedureStep = N'Validate columns for history  ';
+                BEGIN
+                    SET @DebugText = N':Invalid Column in dbo.MFObjectChangeHistoryUpdateControl ';
+                    SET @DebugText = @DefaultDebugText + @DebugText;
+                    SET @ProcedureStep = N'Validate columns for history  ';
 
-                       RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
-                END
+                    RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+                END;
+
                 -------------------------------------------------------------
                 -- Update table
                 -------------------------------------------------------------
@@ -594,37 +594,35 @@ FROM ' +            QUOTENAME(@MFTableName) + N' t
                 END;
 
                 IF @rowcount > 0
-                Begin
-                --SELECT FullHistory = @IsFullHistory,
-                --       StartDate = @StartDate;
-                EXEC @return_value = dbo.spMFGetHistory @MFTableName = @MFTableName, -- nvarchar(128)
-                    @Process_id = @Process_ID,                                       -- int
-                    @ColumnNames = @ColumnNames,                                     -- nvarchar(4000)
-                    @SearchString = NULL,                                            -- nvarchar(4000)
-                    @IsFullHistory = @IsFullHistory,                                 -- bit
-                    @NumberOFDays = @NumberOFDays,                                   -- int
-                    @StartDate = @StartDate,                                         -- datetime
-                    @Update_ID = @Update_ID OUTPUT,                                  -- int
-                    @ProcessBatch_id = @ProcessBatch_ID OUTPUT,                      -- int
-                    @Debug = @Debug;                                                 -- int
+                BEGIN
+                    --SELECT FullHistory = @IsFullHistory,
+                    --       StartDate = @StartDate;
+                    EXEC @return_value = dbo.spMFGetHistory @MFTableName = @MFTableName, -- nvarchar(128)
+                        @Process_id = @Process_ID,                                       -- int
+                        @ColumnNames = @ColumnNames,                                     -- nvarchar(4000)
+                        @SearchString = NULL,                                            -- nvarchar(4000)
+                        @IsFullHistory = @IsFullHistory,                                 -- bit
+                        @NumberOFDays = @NumberOFDays,                                   -- int
+                        @StartDate = @StartDate,                                         -- datetime
+                        @Update_ID = @Update_ID OUTPUT,                                  -- int
+                        @ProcessBatch_id = @ProcessBatch_ID OUTPUT,                      -- int
+                        @Debug = @Debug;                                                 -- int
 
-     IF @debug > 0
-     SELECT @return_value AS ReturnValue;
+                    IF @Debug > 0
+                        SELECT @return_value AS ReturnValue;
 
-                IF  @return_value <> 1
-                Begin
-                 SET @DebugText = N': spMFGetHistory failed return value ' + CAST(@return_value AS VARCHAR(5));
-                SET @DebugText = @DefaultDebugText + @DebugText;
-                    RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
-                END --ifdebug
+                    IF @return_value <> 1
+                    BEGIN
+                        SET @DebugText = N': spMFGetHistory failed return value ' + CAST(@return_value AS VARCHAR(5));
+                        SET @DebugText = @DefaultDebugText + @DebugText;
 
-                  END --if rowcount > 0
+                        RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+                    END; --ifdebug
+                END; --if rowcount > 0
 
                 SET @DebugText = @MFTableName + N' records updated: ' + CAST(@rowcount AS VARCHAR(10));
                 SET @DebugText = @DefaultDebugText + @DebugText;
                 SET @ProcedureStep = N'Get history ';
-
-               
 
                 IF @Debug > 0
                 BEGIN

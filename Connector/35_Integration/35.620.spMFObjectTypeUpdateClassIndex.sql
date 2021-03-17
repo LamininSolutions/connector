@@ -59,6 +59,7 @@ Date        Author     Description
 2018-13-21  LC         add feature to get reference of all objects in Vault
 2020-08-13  LC         update assemblies to set date formats to local culture
 2020-08-22  LC         update to take account of new deleted column
+2021-03-17  LC         Set updatestatus = 1 when not matched
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -261,6 +262,7 @@ BEGIN
                    ,MFVersion
                    ,StatusFlag
                    ,StatusName
+                   ,UpdateFlag
                
                 )
                 VALUES
@@ -270,7 +272,8 @@ BEGIN
                 ELSE 1 END
                 ,CASE WHEN s.Object_Deleted = 'true' THEN 'Deleted in MF'
                 WHEN s.CheckedOutTo > 0 THEN 'Checked Out'
-                ELSE 'Not matched' END)
+                ELSE 'Not matched' END
+                ,CASE WHEN s.Object_Deleted = 'true' THEN 0 ELSE 1 end)
                  ;
 
                 

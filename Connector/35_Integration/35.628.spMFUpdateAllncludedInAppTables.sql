@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateAllncludedInAppTables', -- nvarchar(100)
-    @Object_Release = '4.7.20.60',                    -- varchar(250)
+    @Object_Release = '4.9.27.68',                    -- varchar(250)
     @UpdateFlag = 2;                                  -- smallint
 GO
 
@@ -117,6 +117,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-03-17  LC         remove step to reset audit history to null if full 
+2021-03-17  LC         set history update flag to not update if control is empty
 2020-06-24  LC         Add additional debugging
 2020-06-06  LC         Add exit if unable to connect to vault
 2020-03-06  LC         Include spMFUpdateChangeHistory through spMFUpdateMfilestoSQL
@@ -285,7 +287,7 @@ BEGIN TRY
             TableName VARCHAR(100),
             MFID INT,
             TableLastModified DATETIME,
-            HistoryUpdate BIT
+            HistoryUpdate int
         );
 
         INSERT INTO #TableList
@@ -334,12 +336,15 @@ BEGIN TRY
         -------------------------------------------------------------
         SELECT @ProcedureStep = N'Loop to update tables';
 
+        DECLARE @HistoryUpdate int
+        
         WHILE @Row IS NOT NULL
         BEGIN
             SELECT @id = @Row;
 
                 SELECT @MFTableName = TableName,
-                    @MFID           = MFID
+                    @MFID           = MFID,
+                    @historyUpdate = HistoryUpdate
                 FROM #TableList
                 WHERE ID = @id;
         
@@ -347,8 +352,8 @@ BEGIN TRY
             BEGIN
                 SELECT @ProcedureStep = N'Delete audit history';
 
-                DELETE FROM dbo.MFAuditHistory
-                WHERE Class = @MFID;
+                --DELETE FROM dbo.MFAuditHistory
+                --WHERE Class = @MFID;
             END;
 
             DECLARE @MFLastUpdateDate SMALLDATETIME,
@@ -358,13 +363,13 @@ BEGIN TRY
 
             SELECT @StartTime = GETUTCDATE();
 
-            IF ISNULL(@MFTableName,'') <> ''
+            IF ISNULL(@MFTableName,'') <> '' 
             BEGIN
             
             EXEC dbo.spMFUpdateMFilesToMFSQL @MFTableName = @MFTableName,
                 @MFLastUpdateDate = @MFLastUpdateDate OUTPUT,
                 @UpdateTypeID = @UpdateTypeID,
-                @WithObjectHistory = 1,
+                @WithObjectHistory = @HistoryUpdate,
                 @Update_IDOut = @Update_IDOut OUTPUT,
                 @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
                 @debug = 0;

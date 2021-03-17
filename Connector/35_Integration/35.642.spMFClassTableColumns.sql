@@ -415,27 +415,6 @@ SELECT cte.ColumnType,
     INNER JOIN @SpecialColumns  mc
     ON cts.ColumnName = mc.name
 
-    --UPDATE cts
-    --SET ColumnType = CASE WHEN Property_MFID IS NULL THEN sp.ColType
-    --ELSE ColumnType end
-    --, cts.Property = mp.name, cts.Property_MFID = mp.mfid
-    --FROM @SpecialProperties AS sp
-    --INNER JOIN dbo.MFProperty AS mp
-    --ON sp.mfid = mp.mfid
-    --INNER JOIN ##spMFClasstablecolumns cts
-    --ON cts.ColumnName = mp.ColumnName
-
-    --    UPDATE cts
-    --SET ColumnType = CASE WHEN ColumnType IS NULL THEN sp.ColType
-    --ELSE ColumnType end
-    --, cts.Property = mp.name, cts.Property_MFID = mp.mfid
-    --FROM @SpecialProperties AS sp
-    --INNER JOIN dbo.MFProperty AS mp
-    --ON sp.mfid = mp.mfid
-    --INNER JOIN ##spMFClasstablecolumns cts
-    --ON cts.ColumnName = SUBSTRING(mp.ColumnName,1,LEN(mp.ColumnName)-3)
-    --WHERE ColumnType IS null
-
     --catch all
   UPDATE cts
    SET ColumnType = 'Additional Property', cts.AdditionalProperty = 1
