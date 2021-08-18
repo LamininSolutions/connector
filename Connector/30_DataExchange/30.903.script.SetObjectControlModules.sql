@@ -112,6 +112,9 @@ ON cte.name = tgr.name) s
 ON t.[Schema] = s.[schema] AND t.Name = s.name
 WHEN MATCHED THEN UPDATE SET
 t.Module =  s.Module
+,t.[object_id]= s.[object_id]
+,t.[type] = s.[type]
+,t.modify_date = s.modify_date
 WHEN NOT MATCHED
 THEN INSERT
 (

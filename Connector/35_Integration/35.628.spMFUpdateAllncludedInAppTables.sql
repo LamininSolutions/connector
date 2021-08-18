@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateAllncludedInAppTables', -- nvarchar(100)
-    @Object_Release = '4.9.27.68',                    -- varchar(250)
+    @Object_Release = '4.9.27.70',                    -- varchar(250)
     @UpdateFlag = 2;                                  -- smallint
 GO
 
@@ -42,6 +42,7 @@ ALTER PROCEDURE dbo.spMFUpdateAllncludedInAppTables
     @UpdateMethod INT = 1,
     @RemoveDeleted INT = 1, --1 = Will remove all the deleted objects when this process is run
     @IsIncremental INT = 1, -- set to 0 to initialise or rebuild all the tables
+    @SendClassErrorReport INT = 0,
     @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug SMALLINT = 0
 )
@@ -117,6 +118,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-08-04  LC         add parameter to allow suppress of control report, default 0
+2021-04-01  LC         add control report for updates
 2021-03-17  LC         remove step to reset audit history to null if full 
 2021-03-17  LC         set history update flag to not update if control is empty
 2020-06-24  LC         Add additional debugging
@@ -412,6 +415,16 @@ BEGIN TRY
             );
         END;
 
+        -------------------------------------------------------------
+        -- Send error report
+        -------------------------------------------------------------
+     IF @SendClassErrorReport = 1
+     Begin
+     EXEC dbo.spMFClassTableStats 
+    @IncludeOutput = 1,
+    @SendReport = 1,
+    @Debug = 0
+    end
         -------------------------------------------------------------
         --END PROCESS
         -------------------------------------------------------------

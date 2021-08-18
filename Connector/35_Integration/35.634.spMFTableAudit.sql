@@ -7,7 +7,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFTableAudit', -- nvarchar(100)
-    @Object_Release = '4.8.23.64',   -- varchar(50)
+    @Object_Release = '4.9.27.69',   -- varchar(50)
     @UpdateFlag = 2;                 -- smallint
 GO
 
@@ -51,7 +51,7 @@ ALTER PROCEDURE dbo.spMFTableAudit
     @OutofSync INT = 0 OUTPUT,          -- > 0 eminent Sync Error when update from SQL to MF is processed
     @ProcessErrors INT = 0 OUTPUT,      -- > 0 unfixed errors on table
     @ProcessBatch_ID INT = NULL OUTPUT,
-    @Debug SMALLINT = 0                 -- use 2 for listing of full tables during debugging
+    @Debug SMALLINT = 0                 -- use 102 for listing of full tables during debugging
 )
 AS
 /*rST**************************************************************************
@@ -136,6 +136,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-04-01  LC         Add statusflag for Collections
 2020-09-08  LC         Update to include status code 5 object does not exist
 2020-09-04  LC         Add update locking and commit to improve performance
 2020-08-22  LC         update to take into account new deleted column
@@ -612,7 +613,7 @@ BEGIN TRY
 4 =  Deleted SQL to be updated : WHEN isnull(ao.[Deleted],'True' and isnull(t.DeletedColumn,'False')
 5 =  In SQL Not in audit table : N t.[MFVersion] is null and ao.[MFVersion] is not null   
 6 = Not yet process in SQL : t.id IS NOT NULL AND t.objid IS NULL
- 
+9 = Object is collection : ObjectType = 9 
 */
             SET @ProcedureStep = N' set id and flags ';
 
@@ -620,6 +621,7 @@ BEGIN TRY
                 = N'UPDATE ao
 SET ao.[ID] = t.id
 ,StatusFlag = CASE 
+WHEN ao.ObjectType = 9 then 9
 WHEN isnull(ao.CheckedOutTo,0) <> 0 then 3
 WHEN ISNULL(ao.Deleted,''False'') = ''True''  THEN 4
 WHEN ao.[LatestCheckedInVersion] < ISNULL(t.[MFVersion],-1) THEN 2
@@ -814,6 +816,8 @@ SET targ.RecID = Src.ID,
                                 'Not in Class'
                             WHEN src.StatusFlag = 6 THEN
                                 'Not yet processed in SQL'
+WHEN src.StatusFlag = 9 THEN
+                                'Document Collection'
                         END,
                         targ.UpdateFlag =  CASE
                             WHEN ISNULL(src.StatusFlag, 0) <> 0 THEN
@@ -871,6 +875,8 @@ SELECT
                                 'Not in Class'
                             WHEN src.StatusFlag = 6 THEN
                                 'Not yet processed in SQL'
+                            WHEN src.StatusFlag = 9 THEN
+                                'Document Collection'
                         END,
                          1
 FROM  #AllObjects AS src 
@@ -939,13 +945,14 @@ WHERE targ.id IS null
                 @Process_id_1      INT,
                 @NewSQL            INT;
 
-            --EXEC [dbo].[spMFClassTableStats] @ClassTableName = @MFTableName -- nvarchar(128)
-            --                                ,@Flag = 0             -- int
-            --                                ,@IncludeOutput = 1    -- int
-            --                                ,@Debug = 0            -- smallint
+ IF (SELECT OBJECT_ID('tempdb..##spMFclassTableStats')) IS null
+ BEGIN
 
-            --SELECT @MFNotInSQL = MFNotInSQL, @OutofSync = SyncError, @ProcessErrors = MFError + SQLError, @Process_id_1 = Process_id_1  FROM ##spmfclasstablestats
-            --WHERE TableName = @MFTableName
+ EXEC [dbo].[spMFClassTableStats] @IncludeOutput = 1, @ClassTableName = @MFTableName    
+                                            ,@Debug = 0            
+END
+            SELECT @MFNotInSQL = MFNotInSQL-Collections, @OutofSync = SyncError, @ProcessErrors = MFError + SQLError, @Process_id_1 = Process_id_Not_0  FROM ##spmfclasstablestats
+            WHERE TableName = @MFTableName
             SELECT @LaterInMF = COUNT(ISNULL(id,0))
             FROM dbo.MFAuditHistory AS mah
             WHERE mah.SessionID = @SessionIDOut

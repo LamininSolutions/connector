@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFCheckAndUpdateAssemblyVersion',
     -- nvarchar(100)
-    @Object_Release = '4.8.24.65',
+    @Object_Release = '4.9.27.70',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -60,7 +60,6 @@ Parameters
     - Default = 0
     - 1 = Standard Debug Mode
 
-
 Purpose
 =======
 
@@ -71,12 +70,16 @@ Additional Info
 
 This procedure is normally used in a SQL Agent or powershell utility to schedule to check at least once day.  It can also be run manually at any time, especially after a M-Files upgrade on the SQL server.
 
+This procedure calls spMFGetMFilesAssemblyVersion that will return the M-Files Desktop version on the SQL server.
+
+An entry is made in the table MFupdateHistory when a version change is detected or an error is found.
+
 Take into account the time diffence between M-Files automatically upgrading and the scheduled time for the job as any procedures using the assemblies in this time gap will is likely to fail.
 
 Warnings
 ========
 
-This procedure will fail if the SQL Server and M-Files Server have different M-Files versions.
+When the MFversion could not be found the procedure will not attempt to upgrade the assemblies. This will cause the connector to fail.
 
 Examples
 ========
@@ -90,6 +93,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-08-11  LC         Improve control when version could not be found
 2020-10-27  LC         Improve error message
 2019-08-30  JC         Added documentation
 2019-07-25  LC         Add more debug and error trapping, fix issue to prevent update
@@ -155,22 +159,24 @@ BEGIN
         WHERE Name = 'MFVersion';
 
         IF @IsVersionMisMatch = 1
-           AND @MFilesVersion <> @MFilesOldVersion
+           AND @MFilesVersion <> @MFilesOldVersion OR @MFilesVersion <> 'No version found'
         BEGIN
             SET @ProcedureStep = N' Update Matched version ';
 
             UPDATE dbo.MFSettings
-            SET Value = ISNULL(@MFilesVersion, '')
+            SET Value = ISNULL(@MFilesVersion, 'No version found')
             WHERE Name = 'MFVersion';
 
             INSERT INTO dbo.MFUpdateHistory
             (
                 Username,
                 VaultName,
-                UpdateMethod
+                UpdateMethod,
+                ObjectDetails,
+                UpdateStatus
             )
             VALUES
-            (@Username, @VaultName, 1);
+            (@Username, @VaultName, -1, 'New MFversion '+@MFilesVersion,'Updated');
 
             SELECT @Update_ID = @@Identity;
 
@@ -184,15 +190,28 @@ BEGIN
             SELECT @DBName = DB_NAME();
 
             --	Select @ScriptFilePath=cast(Value as varchar(250)) from MFSettings where Name='AssemblyInstallPath'
-            EXEC dbo.spMFUpdateAssemblies @MFilesVersion;
+          IF ISNULL(@MFilesVersion,'No version found') <> 'No version found'
+          EXEC dbo.spMFUpdateAssemblies @MFilesVersion;
         END;
     END TRY
     BEGIN CATCH
         SET @ProcedureStep = N'Catch matching version error ';
 
         UPDATE dbo.MFSettings
-        SET Value = ISNULL(@MFilesOldVersion,'')
+        SET Value = ISNULL(@MFilesOldVersion,'No version found')
         WHERE Name = 'MFVersion';
+
+          INSERT INTO dbo.MFUpdateHistory
+            (
+                Username,
+                VaultName,
+                UpdateMethod,
+                ObjectDetails,
+                UpdateStatus
+            )
+            VALUES
+            (@Username, @VaultName, -1, 'Version Update Error '+@MFilesVersion,'Error');
+
 
         INSERT INTO dbo.MFLog
         (

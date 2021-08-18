@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFClassTableStats', -- nvarchar(100)
-    @Object_Release = '4.8.26.68',        -- varchar(50)
+    @Object_Release = '4.8.27.69',        -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
 GO
@@ -45,6 +45,7 @@ ALTER PROCEDURE dbo.spMFClassTableStats
     @WithReset INT = 0,
     @WithAudit INT = 0,
     @IncludeOutput INT = 0,
+    @SendReport INT = 0,
     @Debug SMALLINT = 0
 )
 AS
@@ -72,6 +73,9 @@ Parameters
     - 1 = will include running spmftableaudit and updating info from MF
   @IncludeOutput int (optional)
     set to 1 to output result to a table ##spMFClassTableStats
+  @SendReport int (optional)
+    - Default = 0
+    - When set to 1, and IncludeOutput is set to 1 then a email report will be sent if when any off the error columns are not null.
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
@@ -93,13 +97,16 @@ Column                 Description
 ClassID                MFID of the class
 TableName              Name of Class table
 IncludeInApp           IncludeInApp Flag
+MissingTable           Will show a 1 when includedInApp = 1 and the table is not in the database
 SQLRecordCount         Totals records in SQL (Note that this is not necessarily the same as the total per M-Files)
 MFRecordCount          Total records in M-Files including deleted objects. 
                        This result is derived from the last time that spMFTableAudit procedure was run to produce a list
                        of the objectversions of all the objects for a specific class. 
-MFNotInSQL             Total record in M-Files not yet updated in SQL. This excludes deleted objects in M-Files which are recorded in MFAuditTable with statusflag = 4
+MFNotInSQL             Total record in M-Files not yet updated in SQL. This excludes deleted objects in M-Files which are recorded in MFAuditTable with statusflag = 4.  It indicates that and update should be run.
+SQLNotInMF             Count of records in class table not in MFAuditHistory. This may include new records in SQL, not yet pushed to M-Files.
 Templates              Total records with IsTemplate Flag.  These records are excluded from the the class table
-Deleted                Total for Deleted flag set to 1 plus deleted in M-Files and not in class table
+Collections            Total number of collections in class.  Note that MFSQL Connector does exclude all collections
+Deleted                Total deleted in M-Files from MFAuditHistory.  
 CheckedOut             Total number of records from MFAuditHistory that is checked out for the class 
 RequiredWorkflowError  Total number of records with empty workflow where workflow is required in class definition
 SyncError              Total Synchronization errors (process_id = 2)
@@ -107,8 +114,8 @@ Process_ID_not_0       Total of records with process_id <> 0 this includes the e
                        excluded from an @updatemethod = 1 routine
 MFError                Total of records with process_id = 3 as MFError
 SQLError               Total of records with process_id =4 as SQL Error
-LastModifed            Most recent date that SQL updated a record in the table
-MFLastModified         Most recent that an update was made in M-Files on the record
+LastModifed            Most recent date that SQL updated a record in the table. This is shown in local time
+MFLastModified         Most recent that an update was made in M-Files on the record. This is shown in UTC
 SessionID              ID  of the latest spMFTableAudit procedure execution.
 =====================  =====================================================================================================
 
@@ -117,8 +124,37 @@ Warnings
 
 The MFRecordCount results of spMFClassTableStats is only accurate based on the last execution of spMFTableAudit for a particular class table.
 
-Examples
-========
+Corrective Action
+=================
+
+If MissingTable = 1 then run spMFCreateTable or set IncludeInApp column to null
+If MFnotInSQL > 0 then rerun the update of class table
+If SQLNotInMF > 0 then run spMFClasstableStats @WithAudit = 1
+If CheckedOut > 0 then check in records and rerun the update of class table
+If RequiredWorkflowError > 0 then update objects with the required workflow, or remove required workflow from the class table definition.
+If SyncError > 0 then investigate the objects in the class table. Manually reset the process_id to 0, rerun update from M-Files or setup Sync presidence
+If Process_ID_not_0 or MFError or SQLError > 0 then investigate the objects process_id and why the updating failed.  There could be many different reasons depending on the underlying process.
+
+Use the following view to explore the MFAuditHistory
+
+.. code:: sql
+
+   SELECT * FROM dbo.MFvwAuditSummary
+
+Usage
+=====
+
+This procedure can be built into other routines to trigger a report when the update has failed. Add the following as an additional step in the agent for spMFUpdateAllIncludedInApp to trigger a report to monitor the completion of the update procedure.
+
+.. code:: sql
+
+   EXEC dbo.spMFClassTableStats 
+    @IncludeOutput = 1,
+    @SendReport = 1,
+    @Debug = 0
+
+Additional Examples
+===================
 
 .. code:: sql
 
@@ -153,12 +189,27 @@ To include updating object information from M-files.
        ,@IncludeOutput = 1
        ,@WithAudit = 1
 
+-----
+
+To produce an error report
+
+.. code:: sql
+
+   EXEC dbo.spMFClassTableStats 
+    @IncludeOutput = 1,
+    @SendReport = 1,
+    @Debug = 0
+
 Changelog
 =========
 
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-04-14  LC         Resolve issue with specifying a table name
+2021-04-08  LC         Add check that table exists
+2021-04-01  LC         Add column to report on number of collections 
+2021-04-01  LC         Add parameter and option to send error report
 2021-03-11  LC         Add column to report on number of templates
 2021-03-11  LC         fix calculation of deleted objects
 2021-03-02  LC         Add column to report on records without required workflow
@@ -208,6 +259,8 @@ DECLARE @WorkflowColumn NVARCHAR(100);
 DECLARE @RequiredWorkflow INT;
 DECLARE @ClassPropertyColumn NVARCHAR(100);
 DECLARE @NotInMF INT;
+DECLARE @Collections INT;
+DECLARE @MissingTable SMALLINT;
 
 DECLARE @ClassIDs AS TABLE
 (
@@ -251,12 +304,14 @@ CREATE TABLE ##spMFClassTableStats
     ClassID INT PRIMARY KEY NOT NULL,
     TableName VARCHAR(100),
     IncludeInApp SMALLINT,
+    MissingTable SMALLINT DEFAULT(0),
     SQLRecordCount INT,
     MFRecordCount INT,
     MFNotInSQL INT,
     SQLNotInMF INT
         DEFAULT (0),
     Templates INT,
+    Collections INT,
     Deleted INT,
     CheckedOut INT,
     RequiredWorkflowError INT,
@@ -302,13 +357,25 @@ IF @Debug > 0
     SELECT *
     FROM ##spMFClassTableStats;
 
+--validate table exists
+
+UPDATE smcts 
+SET smcts.MissingTable = 1
+FROM ##spMFClassTableStats AS smcts
+INNER JOIN dbo.MFClass AS mc
+ON smcts.TableName = mc.TableName
+left JOIN INFORMATION_SCHEMA.TABLES AS t
+ON mc.TableName = t.TABLE_NAME
+WHERE mc.IncludeInApp IS NOT NULL AND t.TABLE_NAME IS null
+
 SELECT @ID = MIN(t.ClassID)
 FROM ##spMFClassTableStats AS t;
 
 WHILE @ID IS NOT NULL
 BEGIN
     SELECT @TableName = t.TableName,
-        @IncludeInApp = ISNULL(t.IncludeInApp, 0)
+        @IncludeInApp = ISNULL(t.IncludeInApp, 0),
+        @MissingTable = t.MissingTable
     FROM ##spMFClassTableStats AS t
     WHERE t.ClassID = @ID;
 
@@ -323,6 +390,41 @@ BEGIN
             @RequiredWorkflow AS requiredworkflow,
             @ClasspropertyColumn AS ClassProperty
             ;
+        -------------------------------------------------------------
+        -- Include table audit
+        -------------------------------------------------------------
+        DECLARE @SQLCount INT,
+            @ToObjid      INT;
+
+        SELECT @SQLCount = smcts.SQLRecordCount
+        FROM ##spMFClassTableStats AS smcts
+        WHERE smcts.ClassID = @ID;
+
+        SELECT @ToObjid = @SQLCount + 5000;
+
+        IF @WithAudit = 1 --AND @IncludeInApp > 0
+        BEGIN
+            DECLARE @SessionIDOut INT,
+                @NewObjectXml     NVARCHAR(MAX),
+                @DeletedInSQL     INT,
+                @UpdateRequired   BIT,
+                @OutofSync        INT,
+                @ProcessErrors    INT,
+                @ProcessBatch_ID  INT;
+
+            EXEC dbo.spMFTableAudit @MFTableName = @TableName,
+                @MFModifiedDate = '2000-01-01',
+                --  @ObjIDs = ?,
+                @SessionIDOut = @SessionIDOut OUTPUT,
+                @NewObjectXml = @NewObjectXml OUTPUT,
+                @DeletedInSQL = @DeletedInSQL OUTPUT,
+                @UpdateRequired = @UpdateRequired OUTPUT,
+                @OutofSync = @OutofSync OUTPUT,
+                @ProcessErrors = @ProcessErrors OUTPUT,
+                @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
+                @Debug = 0;
+ 
+ END; -- include table audit
 
     -------------------------------------------------------------
     -- audit table validation
@@ -357,7 +459,7 @@ BEGIN
 
     SET @ProcedureStep = N'Prepare stats';
 
-    IF @IncludeInApp > 0
+    IF @IncludeInApp > 0 AND @MissingTable = 0
     BEGIN
         SET @params = N'@Debug smallint, @RequiredWorkflow int';
         SET @SQL
@@ -442,41 +544,6 @@ print ''' + @TableName + N' has not been created'';
         FROM ##spMFClassTableStats AS smcts
         WHERE smcts.ClassID = @ID;
 
-        -------------------------------------------------------------
-        -- Include table audit
-        -------------------------------------------------------------
-        DECLARE @SQLCount INT,
-            @ToObjid      INT;
-
-        SELECT @SQLCount = smcts.SQLRecordCount
-        FROM ##spMFClassTableStats AS smcts
-        WHERE smcts.ClassID = @ID;
-
-        SELECT @ToObjid = @SQLCount + 5000;
-
-        IF @WithAudit = 1
-        BEGIN
-            DECLARE @SessionIDOut INT,
-                @NewObjectXml     NVARCHAR(MAX),
-                @DeletedInSQL     INT,
-                @UpdateRequired   BIT,
-                @OutofSync        INT,
-                @ProcessErrors    INT,
-                @ProcessBatch_ID  INT;
-
-            EXEC dbo.spMFTableAudit @MFTableName = @TableName,
-                @MFModifiedDate = '2000-01-01',
-                --  @ObjIDs = ?,
-                @SessionIDOut = @SessionIDOut OUTPUT,
-                @NewObjectXml = @NewObjectXml OUTPUT,
-                @DeletedInSQL = @DeletedInSQL OUTPUT,
-                @UpdateRequired = @UpdateRequired OUTPUT,
-                @OutofSync = @OutofSync OUTPUT,
-                @ProcessErrors = @ProcessErrors OUTPUT,
-                @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
-                @Debug = 0;
- 
- END; -- include table audit
 
  -------------------------------------------------------------
  -- audit table dependent updates
@@ -504,7 +571,9 @@ where ah.objid is null;';
         FROM ##spMFClassTableStats AS smcts
         WHERE smcts.ClassID = @ID;
 
-
+SELECT @Collections = COUNT(*) FROM MFAuditHistory AS mah WITH (NOLOCK)
+        WHERE mah.Class = @ID
+        AND mah.ObjectType = 9;
 
   SELECT @NotINSQL = COUNT(*)
         FROM dbo.MFAuditHistory AS mah WITH (NOLOCK)
@@ -513,7 +582,8 @@ where ah.objid is null;';
 
         UPDATE smcts
         SET smcts.MFRecordCount = @MFCount,
-            smcts.MFNotInSQL = @NotINSQL
+            smcts.MFNotInSQL = @NotINSQL,
+            smcts.Collections = @Collections
         FROM ##spMFClassTableStats AS smcts
         WHERE smcts.ClassID = @ID;
 
@@ -553,7 +623,7 @@ where ah.objid is null;';
 
     SELECT @ID = MIN(t.ClassID)
     FROM ##spMFClassTableStats AS t
-    WHERE t.ClassID > @ID;
+    WHERE t.ClassID > @ID AND ( t.TableName = @ClassTableName OR @ClassTableName IS NULL);
 
     IF @Debug > 0
         SELECT @ID AS nextID;
@@ -565,8 +635,40 @@ BEGIN
     FROM ##spMFClassTableStats
     WHERE ISNULL(SQLRecordCount, -1) <> -1;
 
-    DROP TABLE ##spMFClassTableStats;
+   -- DROP TABLE ##spMFClassTableStats;
 END;
+
+IF @SendReport = 1 AND (SELECT COUNT(*) FROM ##spMFClassTableStats where MFNotInSQL > 0 OR SQLNotInMF <> 0 or CheckedOut <> 0 or RequiredWorkflowError <> 0 or SyncError <> 0 or Process_ID_not_0 <> 0 or MFError <> 0 or SQLError <> 0) > 0
+
+BEGIN
+
+
+DECLARE @TableBody   NVARCHAR(MAX)
+DECLARE @Mailitem_ID INT, @Body NVARCHAR(MAX)
+DECLARE @ToEmail NVARCHAR(100);
+DECLARE @MessageTitle NVARCHAR(100);
+DECLARE @Footer NVARCHAR(400);
+   
+EXEC dbo.spMFConvertTableToHtml @SqlQuery = 'Select * from ##spMFClassTableStats where  IncludeInApp = 1 and (MFNotInSQL > 0 OR  SQLNotInMF <> 0 or CheckedOut <> 0 or RequiredWorkflowError <> 0 or SyncError <> 0 or Process_ID_not_0 <> 0 or MFError <> 0 or SQLError <> 0 or MissingTable > 0)',
+    @TableBody = @TableBody OUTPUT,
+    @Debug = 0
+
+SELECT @Footer = '<BR><p>Produced by MFSQL Connector</p>'
+SELECT @Body = '<p>The class tables in the following report is not up to date or is showing errors.  Consult https://doc.lamininsolutions.com/mfsql-connector/procedures/spMFClassTableStats.html for corrective action. </p> <BR> ' + @TableBody + @Footer
+
+SELECT @ToEmail = CAST(Value AS NVARCHAR(100)) FROM mfsettings WHERE name = 'SupportEmailRecipient'
+SET @MessageTitle =   QUOTENAME(DB_NAME()) + ' : Class Table Error Report'
+
+EXEC dbo.spMFSendHTMLBodyEmail @Body = @Body,
+    @MessageTitle = @MessageTitle,
+    @FromEmail = null,
+    @ToEmail = @ToEmail,
+    @CCEmail = null,
+    @Mailitem_ID = @Mailitem_ID OUTPUT,
+    @Debug = 0
+
+END
+
 
 RETURN 1;
 GO

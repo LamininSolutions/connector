@@ -263,7 +263,13 @@ BEGIN
 SET @ProcedureStep = 'insert table into ##columns'
 
       SET @Query = 'SELECT * INTO ##columns FROM ( ' + @SqlQuery + ') Temp'
-      EXECUTE(@Query)
+  
+  IF @debug > 0
+  SELECT @Query;
+  
+  EXECUTE(@Query)
+
+
 
     SELECT @Column = @Column + 'ISNULL( CONVERT( VARCHAR(MAX),' + QUOTENAME(name ) + ',1)  ,'' '')' + ' AS TD , '
        --SELECT @Column = @Column + QUOTENAME(name) + ' AS TD, '

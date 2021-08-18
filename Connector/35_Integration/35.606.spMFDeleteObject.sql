@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFDeleteObject' -- nvarchar(100)
-                                    ,@Object_Release = '4.8.25.66'     -- varchar(50)
+                                    ,@Object_Release = '4.9.27.69'     -- varchar(50)
                                     ,@UpdateFlag = 2;                  -- smallint
 GO
 IF EXISTS
@@ -121,7 +121,7 @@ Deleting and object
 .. code:: sql
 
     DECLARE @return_value int, @Output nvarchar(2000)
-    SELECT @Output =N'0'
+
     EXEC @return_value = [dbo].[spMFDeleteObject]
          @ObjectTypeId =128,-- OBJECT MFID
          @objectId =4700,-- Objid of record
@@ -129,8 +129,7 @@ Deleting and object
          @DeleteWithDestroy = 0
     SELECT @Output as N'@Output'
     SELECT'Return Value'= @return_value
-    SELECT @Output =N'0'
-    GO
+
 
 Delete object versions
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -181,6 +180,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-08-15  LC         Remove incorrect license check
+2021-05-05  LC         Align single delete object without class table with wrapper
 2020-12-08  LC         Change status messages and validate different methods
 2020-04-28  LC         Update documentation for Object Versions
 2019-08-30  JC         Added documentation
@@ -340,7 +341,7 @@ BEGIN
         ------------------------------------------------------
         --Validating Module for calling CLR Procedure
         ------------------------------------------------------
-        EXEC [dbo].[spMFCheckLicenseStatus] 'spMFDeleteObjectInternal'
+        EXEC [dbo].[spMFCheckLicenseStatus] 'spMFDeleteObjectListInternal'
                                            ,'spMFDeleteObject'
                                            ,'Deleting object';
 
@@ -351,16 +352,30 @@ BEGIN
         SET @ProcedureStep = 'Wrapper result';
 
         SELECT @objectVersion = CASE WHEN @DeleteWithDestroy = 1 AND @ObjectVersion <> -1 THEN -1 ELSE @objectVersion END    
+         DECLARE @XML XML;
+         DECLARE @XMLinput NVARCHAR(MAX);
+         DECLARE @XMLout NVARCHAR(MAX)
 
-        EXEC [dbo].[spMFDeleteObjectInternal] @VaultSettings
-                                             ,@ObjectTypeId
-                                             ,@objectId
-                                             ,@DeleteWithDestroy
-                                             ,@ObjectVersion
-                                             ,@Output OUTPUT;
+         SET @XML =
+    (
+        SELECT @ObjectTypeId AS [ObjectDeleteItem/@ObjectType_ID],
+            @objectId            [ObjectDeleteItem/@ObjId],
+            @objectVersion        [ObjectDeleteItem/@MFVersion],
+            @DeleteWithDestroy         AS [ObjectDeleteItem/@Destroy]      
+        FOR XML PATH(''), ROOT('ObjectDeleteList'))
+
+
+        SET @XMLinput = CAST(@XML AS NVARCHAR(MAX))
+       
+        EXEC dbo.spMFDeleteObjectListInternal @VaultSettings = @VaultSettings,
+            @XML = @XMLinput,
+            @XMLOut = @XMLOut OUTPUT
+
+            IF @debug > 0
+            SELECT @XMLout;
 
         --      PRINT @Output + ' ' + CAST(@objectId AS VARCHAR(100))
-        EXEC [sys].[sp_xml_preparedocument] @Idoc OUTPUT, @Output;
+        EXEC [sys].[sp_xml_preparedocument] @Idoc OUTPUT, @XMLOut;
 
         SELECT @StatusCode = [xmlfile].[StatusCode]
               ,@Message    = [xmlfile].[Message]
@@ -442,6 +457,7 @@ END
                                                   ,@LogProcedureStep = @ProcedureStep
                                                   ,@debug = 0;
 
+        SELECT @output = @Message
         RETURN @StatusCode;
     END TRY
     BEGIN CATCH

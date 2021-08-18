@@ -283,10 +283,10 @@ BEGIN
         SET @DebugText = @DefaultDebugText + @DebugText;
         SET @ProcedureStep = 'check Table Name: ';
 
-        IF EXISTS (SELECT 1 FROM dbo.MFClass WHERE TableName = @TableName)
+        IF EXISTS (SELECT 1 FROM dbo.MFClass WHERE TableName = @TableName) 
         BEGIN
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @TableName);
-
+        
             -------------------------------------------------------------
             -- Get deleted column name
             -------------------------------------------------------------
@@ -554,13 +554,13 @@ BEGIN
 
 
                 IF @Debug > 0
+                Begin
                     SELECT *
                     FROM #Filelist AS f;
 
-                BEGIN
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
-
+                
                 -------------------------------------------------------------
                 -- Add values of columns for each object
                 -------------------------------------------------------------
@@ -590,14 +590,15 @@ INNER JOIN #Filelist AS f
 ON t.ObjID = f.objid'
 END
 
-IF @debug > 0
-PRINT @vquery;
+--IF @debug > 0
+--PRINT @vquery;
 
 EXEC (@vquery)
 
 IF @debug > 0
+begin
 SELECT * FROM #Filelist AS f;
-
+end
 -------------------------------------------------------------
 -- Replace folder special characters
 -------------------------------------------------------------
@@ -608,7 +609,9 @@ f.Pathproperty_L3 = dbo.fnMFReplaceSpecialCharacter(f.Pathproperty_L3)
 FROM #Filelist AS f
 
 IF @debug > 0
+begin
 SELECT * FROM #Filelist AS f;
+END
 
 Set @DebugText = ''
 Set @DebugText = @DefaultDebugText + @DebugText
@@ -720,8 +723,8 @@ end
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
-                          IF @Debug > 0
-                                PRINT @vquery;
+                          --IF @Debug > 0
+                          --      PRINT @vquery;
                 ;
 
                 SET @ProcedureStep = 'Insert into #ExportFiles';
@@ -774,9 +777,8 @@ end
                 SET @DebugText = @DefaultDebugText + @DebugText;
 
                 IF @Debug > 0
-                    SELECT CAST(@XML AS XML) inputXML;
-
-                BEGIN
+                 BEGIN
+                    SELECT CAST(@XML AS XML) inputXML;              
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
@@ -885,12 +887,20 @@ end
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
+                IF @Debug > 10
+                BEGIN
+                    SELECT * FROM #ExportFiles AS ef
+                    INNER JOIN #Filelist  AS ef2
+                    ON ef.ObjID = ef2.ObjID 
+                END;
+
+
                 SET @ProcedureStep = ' Update table MFExportfilehistory ';
 
                 MERGE INTO dbo.MFExportFileHistory t
                 USING
                 (
-                    SELECT ef.ClassID,
+                    SELECT distinct ef.ClassID,
                         ef.ObjID,
                         ef.ObjType,
                         ef.MFVersion,
@@ -912,7 +922,7 @@ end
                         ef2.PathProperty_L3 AS subFolder_3
                     FROM #ExportFiles AS ef
                     INNER JOIN #Filelist  AS ef2
-                    ON ef.ObjID = ef2.ObjID
+                    ON ef.ObjID = ef2.ObjID 
                 ) S
                 ON t.ClassID = S.ClassID
                    AND t.ObjID = S.ObjID
@@ -967,8 +977,8 @@ end
 									From ' + @TableName + N' MFT 
 									where process_id = @process_ID';
 
-                IF @Debug > 0
-                    PRINT @vquery;
+                --IF @Debug > 0
+                --    PRINT @vquery;
 
                 EXEC sys.sp_executesql @vquery, N'@process_id int', @Process_id;
 

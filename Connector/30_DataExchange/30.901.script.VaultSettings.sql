@@ -53,22 +53,22 @@ Select  @MFAuthenticationType_ID = id from MFAuthenticationType mat where mat.Au
 
 EXECUTE @RC = [dbo].[spMFSettingsForVaultUpdate] 
    @Username = @username
- ,  @password = @Password
+-- ,  @password = @Password
  , @NetworkAddress = @NetworkAddress
   ,@Vaultname = @Vaultname
   ,@MFProtocolType_ID = @MFProtocolType_ID
   ,@Endpoint = @EndPointInt
   ,@MFAuthenticationType_ID = @MFAuthenticationType_ID
   ,@Domain = @Domain
-  ,@VaultGUID = @VaultGUID
-  ,@ServerURL = @ServerURL
+--  ,@VaultGUID = @VaultGUID
+--  ,@ServerURL = @ServerURL
  
-/*IF EXISTS(SELECT * FROM sys.objects AS o WHERE o.name = 'spMFDecrypt')
+IF EXISTS(SELECT * FROM sys.objects AS o WHERE o.name = 'spMFDecrypt')
 BEGIN
 EXECUTE @RC = [dbo].[spMFSettingsForVaultUpdate] 
   @Password = @password
 END
-*/
+
 
  --EXEC dbo.spMFSettingsForDBUpdate @MFInstallationPath = @MFInstallationPath,       
  --                                 @MFilesVersion = @MFilesVersion ,            

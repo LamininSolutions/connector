@@ -2,15 +2,16 @@
 
 /*
 Migration script for  Settings
-
+select * from mfsettings
 to check for existing entries and migrate the new settings definition into the existing table
 
 Last Modified: 
 2019-1-9	lc	Exclude MFversion from begin overwritten from SQL, show message when installing manually
 2019-1-26	lc	fix futher bug on MFVersion not being updated when version changed.
+2021-4-7    lc  fix bug to not overright existing entries when package is installed
 */
 
-
+SET NOCOUNT ON;
 SET NUMERIC_ROUNDABORT OFF;
 GO
 SET ANSI_PADDING, ANSI_WARNINGS, CONCAT_NULL_YIELDS_NULL, ARITHABORT, QUOTED_IDENTIFIER, ANSI_NULLS, NOCOUNT ON;
@@ -38,19 +39,28 @@ BEGIN TRANSACTION;
 IF ISNULL(@rc,0) = 0
 BEGIN
 
+--IF (SELECT object_id('Tempdb..##Settings_temp'))IS NOT NULL
+--DROP TABLE ##Settings_temp;
 
-IF (SELECT object_id('Tempdb..##Settings_temp'))IS NOT NULL
-DROP TABLE ##Settings_temp;
+IF (SELECT object_id('Tempdb..##Settings_Default'))IS NOT NULL
+DROP TABLE ##Settings_Default;
 
-SELECT  *
-INTO    [#Settings_temp]
-FROM    [dbo].[MFSettings];
+CREATE TABLE ##Settings_Default
+ (
+              [id] [INT] IDENTITY(1, 1)
+                         NOT NULL ,
+              [source_key] [NVARCHAR](20) NULL ,
+              [Name] [VARCHAR](50) NOT NULL ,
+              [Description] [VARCHAR](500) NULL ,
+              [Value] [SQL_VARIANT] NOT NULL ,
+              [Enabled] [BIT] NOT NULL);
 
 
-TRUNCATE TABLE [dbo].[MFSettings];
+--SELECT  *
+--INTO    [##Settings_temp]
+--FROM    [dbo].[MFSettings];
 
-
-INSERT  [dbo].[MFSettings]
+INSERT  ##Settings_Default
         ( [source_key], [Name], [Description], [Value], [Enabled] )
 VALUES  ( N'Email', N'SupportEmailRecipient', N'Email account for recipient of automated support mails',
           N'{varITSupportEmail}', 1 ),
@@ -81,41 +91,101 @@ VALUES  ( N'Email', N'SupportEmailRecipient', N'Email account for recipient of a
 ('MF_Default', 'LastMetadataStructureID', 'Latest Metadata structure ID', '1', 1),
 ('MF_Default', 'MFUserMessagesEnabled', 'Enable Update of User Messages in M-Files', '0', 1)
 
-IF '{varMFVersion}' <> (SELECT CAST(VALUE AS NVARCHAR(100)) FROM MFSETTINGS WHERE Name = 'MFVersion')
-BEGIN
-RAISERROR('MF Version in MFSettings differ from Installation package - package version is applied',10,1)
-END
- 
+--IF '{varMFVersion}' <> (SELECT CAST(VALUE AS NVARCHAR(100)) FROM MFSETTINGS WHERE Name = 'MFVersion')
+--BEGIN
+--RAISERROR('MF Version in MFSettings differ from Installation package - package version is applied',10,1)
+--END
+
+;
+
+--TRUNCATE TABLE [dbo].[MFSettings];
+;
+
+--insert default values if MFsettings are null
+;
+WITH cte AS
+(
+ SELECT name FROM ##Settings_Default AS st
+ except
+ SELECT name FROM MFSettings  AS sd
+ )
+ INSERT INTO dbo.MFSettings
+ (
+     source_key,
+     Name,
+     Description,
+     Value,
+     Enabled
+ )
+ SELECT st.source_key,
+     cte.Name,
+     st.Description,
+     st.Value,
+     st.Enabled FROM cte
+     INNER JOIN ##Settings_Default AS st
+     ON cte.name = st.name;
 
 
-UPDATE  [s]
-SET     [s].[Value] = [st].[Value]
-FROM    [dbo].[MFSettings] [s]
-INNER JOIN [#Settings_temp] [st] ON [s].[Name] = [st].[Name]
-WHERE st.name NOT IN ('MFVersion')
+     UPDATE ms
+     SET ms.value = sd.value
+     FROM dbo.MFSettings AS ms
+     INNER JOIN ##Settings_Default AS sd
+     ON ms.name = sd.name
+     WHERE ms.name IN ('MFVersion','App_Database')
+
+----insert non default rows from mfsettings
+--;
+--WITH cte AS
+--(
+-- SELECT name FROM ##Settings_temp AS st
+-- except
+-- SELECT name FROM ##Settings_Default AS sd
+-- )
+-- INSERT INTO dbo.MFSettings
+-- (
+--     source_key,
+--     Name,
+--     Description,
+--     Value,
+--     Enabled
+-- )
+-- SELECT st.source_key,
+--     cte.Name,
+--     st.Description,
+--     st.Value,
+--     st.Enabled FROM cte
+--     INNER JOIN ##Settings_temp AS st
+--     ON cte.name = st.name;
+
+
+--UPDATE  [s]
+--SET     [s].[Value] = [st].[Value]
+--FROM    [dbo].[MFSettings] [s]
+--INNER JOIN [#Settings_temp] [st] ON [s].[Name] = [st].[Name]
+--WHERE st.name NOT IN ('MFVersion')
 
 --SELECT * FROM [dbo].[MFSettings] AS [s]
 
 --migrate custom settings 
-INSERT  INTO [dbo].[MFSettings]
-        ( [source_key]
-        , [Name]
-        , [Description]
-        , [Value]
-        , [Enabled]
-        )
-        SELECT  [st].[source_key]
-              , [st].[Name]
-              , [st].[Description]
-              , [st].[Value]
-              , [st].[Enabled]
-        FROM    [dbo].[MFSettings] [s]
-        FULL OUTER JOIN [#Settings_temp] [st] ON [s].[Name] = [st].[Name]
-        WHERE   [s].[Name] IS NULL;
+--INSERT  INTO [dbo].[MFSettings]
+--        ( [source_key]
+--        , [Name]
+--        , [Description]
+--        , [Value]
+--        , [Enabled]
+--        )
+--        SELECT  [st].[source_key]
+--              , [st].[Name]
+--              , [st].[Description]
+--              , [st].[Value]
+--              , [st].[Enabled]
+--        FROM    [dbo].[MFSettings] [s]
+--        FULL OUTER JOIN [#Settings_temp] [st] ON [s].[Name] = [st].[Name]
+--        WHERE   [s].[Name] IS NULL;
 /*
 SELECT  * FROM    MFSettings;
 */
-DROP TABLE [#Settings_temp];
+DROP TABLE [##Settings_Default];
 
 END
 

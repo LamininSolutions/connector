@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFGetLicense', -- nvarchar(100)
-    @Object_Release = '4.9.25.67',
+    @Object_Release = '4.9.27.68',
     @UpdateFlag = 2;
 GO
 
@@ -110,6 +110,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-04-08  LC         Add check to validate connection
 2021-01-06  LC         Fix bug with checking module 2 license
 2020-12-04  LC         Create procedure to aid spMFChecklicense status
 ==========  =========  ========================================================
@@ -165,8 +166,20 @@ BEGIN
         BEGIN
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END;
+-------------------------------------------------------------
+-- Validate connection
+-------------------------------------------------------------
+  EXEC @return_value = dbo.spMFConnectionTest 
+  SET @DebugText = N'No Connection';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = 'Validate connection:  ';
 
-        -------------------------------------------------------------
+        IF @return_value = 0
+        BEGIN
+            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+        END;
+
+  -------------------------------------------------------------
         -- Get settings
         -------------------------------------------------------------
         SELECT @VaultSettings = dbo.FnMFVaultSettings();

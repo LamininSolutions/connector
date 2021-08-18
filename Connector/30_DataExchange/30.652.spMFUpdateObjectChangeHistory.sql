@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateObjectChangeHistory', -- nvarchar(100)
-    @Object_Release = '4.7.18.58',
+    @Object_Release = '4.9.27.68',
     @UpdateFlag = 2;
 GO
 
@@ -42,6 +42,7 @@ ALTER PROCEDURE dbo.spMFUpdateObjectChangeHistory
     @MFTableName NVARCHAR(200) = NULL,
     @WithClassTableUpdate INT = 1,
     @Objids NVARCHAR(MAX) = NULL,
+    @IsFullHistory INT = 0,
     @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug SMALLINT = 0
 )
@@ -146,6 +147,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-04-02  LC         Add parameter for IsFullHistory
 2020-06-26  LC         added additional exception management
 2020-05-06  LC         Validate the column in control table
 2020-03-06  LC         Add MFTableName and objids - run per table
@@ -270,15 +272,20 @@ BEGIN
         DECLARE @params NVARCHAR(MAX);
         DECLARE @Process_ID INT = 5;
         DECLARE @ColumnNames NVARCHAR(4000);
-        DECLARE @RC INT;
-        DECLARE @IsFullHistory BIT = 1;
+        DECLARE @RC INT;      
         DECLARE @NumberOFDays INT;
         DECLARE @StartDate DATETIME; --= DATEADD(DAY,-1,GETDATE())
         DECLARE @ID INT;
         DECLARE @MFID INT;
         DECLARE @ObjectType_ID INT;
         DECLARE @Property_IDs NVARCHAR(MAX);
+        DECLARE @MFLastModifiedDateColumn NVARCHAR(100);
 
+        -------------------------------------------------------------
+        -- get last modified date column
+        -------------------------------------------------------------
+
+        SELECT @MFLastModifiedDateColumn = columnname FROM dbo.MFProperty WHERE mfid = 21 --last modified
         -------------------------------------------------------------
         -- Create table update list
         -------------------------------------------------------------
@@ -330,17 +337,16 @@ BEGIN
         FROM dbo.MFObjectChangeHistoryUpdateControl AS mochuc
             INNER JOIN dbo.MFClass                  AS mc
                 ON mochuc.MFTableName = mc.TableName
-        WHERE mochuc.MFTableName = @MFTableName
-              OR @MFTableName IS NULL
-        GROUP BY mochuc.MFTableName;
+        WHERE mochuc.MFTableName = mochuc.MFTableName
+         GROUP BY mochuc.MFTableName , mochuc.ColumnNames;
 
         SET @DebugText = N'';
         SET @DebugText = @DefaultDebugText + @DebugText;
-        SET @ProcedureStep = N'Get updatelist';
+        SET @ProcedureStep = N'Updatelist';
 
         IF @Debug > 0
         BEGIN
-            SELECT *
+            SELECT 'Updatelist',*
             FROM @UpdateList AS ul;
 
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
@@ -365,10 +371,6 @@ BEGIN
                 END;
 
                 -------------------------------------------------------------
-                -- Reset variables
-                -------------------------------------------------------------
-                SET @StartDate = NULL;
-                -------------------------------------------------------------
                 -- Get table details
                 -------------------------------------------------------------
                 SET @ProcedureStep = N'Get Table variables';
@@ -379,6 +381,29 @@ BEGIN
                 FROM @UpdateList AS htu
                 WHERE htu.ID = @ID;
 
+                
+                -------------------------------------------------------------
+                -- Reset variables
+                -------------------------------------------------------------
+                EXEC dbo.spMFClassTableStats @ClassTableName = @MFTableName,              
+                    @IncludeOutput = 1
+
+             --   SELECT * FROM ##spmfClassTableStats
+
+                SELECT @StartDate = MFLastModified FROM ##spmfclassTableStats WHERE TableName = @MFTableName
+                SELECT @StartDate = CASE WHEN @IsFullHistory = 0 THEN 
+                @StartDate
+                ELSE '2000-01-01' END;
+               
+               Set @DebugText = convert(nvarchar(25), @Startdate, 100)
+               Set @DebugText = @DefaultDebugText + @DebugText
+               Set @Procedurestep = 'Get start date'
+               
+               IF @debug > 0
+               	Begin
+               		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+               	END
+               
                 -------------------------------------------------------------
                 -- Validate columns in control table
                 -------------------------------------------------------------
@@ -445,17 +470,6 @@ WHERE process_id = ' + CAST(@Process_ID AS VARCHAR(10)) + N';';
 
                 --end with Table update
 
-                -------------------------------------------------------------
-                -- Get @startDate
-                -------------------------------------------------------------
-                SET @ProcedureStep = N'Get Start date ';
-                SET @DebugText = N'';
-                SET @DebugText = @DefaultDebugText + @DebugText;
-
-                IF @Debug > 0
-                BEGIN
-                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-                END;
 
                 SELECT @MFID       = mc.MFID,
                     @ObjectType_ID = ot.MFID
@@ -464,107 +478,118 @@ WHERE process_id = ' + CAST(@Process_ID AS VARCHAR(10)) + N';';
                         ON mc.MFObjectType_ID = ot.ID
                 WHERE mc.TableName = @MFTableName;
 
-                --               SELECT * FROM dbo.MFObjectChangeHistory AS moch
-                SELECT @StartDate = MAX(moch.LastModifiedUtc)
-                FROM dbo.MFObjectChangeHistory AS moch
-                WHERE moch.ObjectType_ID = @ObjectType_ID
-                      AND moch.Class_ID = @MFID
-                      AND moch.Property_ID IN
-                          (
-                              SELECT Item FROM dbo.fnMFSplitString(@Property_IDs, ',')
-                          );
+                ----               SELECT * FROM dbo.MFObjectChangeHistory AS moch
+                --SELECT @StartDate = MAX(moch.LastModifiedUtc)
+                --FROM dbo.MFObjectChangeHistory AS moch
+                --WHERE moch.ObjectType_ID = @ObjectType_ID
+                --      AND moch.Class_ID = @MFID
+                --      AND moch.Property_ID IN
+                --          (
+                --              SELECT Item FROM dbo.fnMFSplitString(@Property_IDs, ',')
+                --          );
 
                 SELECT @StartDate = DATEADD(DAY, -1, ISNULL(@StartDate, '2000-01-01'));
 
-                SELECT @IsFullHistory = CASE
-                                            WHEN @StartDate > '2000-01-01' THEN
-                                                0
-                                            ELSE
-                                                1
-                                        END;
+                --SELECT @IsFullHistory = CASE
+                --                            WHEN @StartDate > '2000-01-01' THEN
+                --                                0
+                --                            ELSE
+                --                                1
+                --                        END;
 
-                SET @ProcedureStep = N'Get from date ';
-                SET @DebugText = CAST(@StartDate AS NVARCHAR(30));
-                SET @DebugText = @DefaultDebugText + @DebugText;
+                --SET @ProcedureStep = N'Get from date ';
+                --SET @DebugText = CAST(@StartDate AS NVARCHAR(30));
+                --SET @DebugText = @DefaultDebugText + @DebugText;
 
-                IF @Debug > 0
-                BEGIN
-                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-                END;
-
+                --IF @Debug > 0
+                --BEGIN
+                --    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                --END;
                 -------------------------------------------------------------
-                -- Get count of class table records, if > 10 000 then batch history update
+                -- Update class table with last update date for object change history
                 -------------------------------------------------------------
-                SET @params = N'@Count int output';
-                SET @sql = N'SELECT @count = COUNT(*) FROM ' + QUOTENAME(@MFTableName) + N' t;';
+                SET @params = N'@Process_ID int, @StartDate nvarchar(100)';
+                SET @sql = N'Update t set process_id = 0 FROM ' + QUOTENAME(@MFTableName) + N' t
+                where process_Id <> 0; 
+                Update t set process_id = @process_id FROM ' + QUOTENAME(@MFTableName) + N' t
+                where '+@MFLastModifiedDateColumn+ N' > @StartDate;'             
+                ;
 
-                EXEC sys.sp_executesql @sql, @params, @count OUTPUT;
+                EXEC sys.sp_executesql @sql, @params, @Process_ID, @StartDate;
 
-                SET @DebugText
-                    = N'Full history : ' + CAST(@IsFullHistory AS NVARCHAR(30)) + N' Total records: '
-                      + CAST(@count AS NVARCHAR(10));
-                SET @DebugText = @DefaultDebugText + @DebugText;
+--                -------------------------------------------------------------
+--                -- Get count of class table records, if > 10 000 then batch history update
+--                -------------------------------------------------------------
+--                SET @params = N'@Count int output';
+--                SET @sql = N'SELECT @count = COUNT(*) FROM ' + QUOTENAME(@MFTableName) + N' t;';
 
-                --               SET @ProcedureStep = N'Updating change history ';
-                IF @Debug > 0
-                BEGIN
-                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-                END;
+--                EXEC sys.sp_executesql @sql, @params, @count OUTPUT;
 
-                -------------------------------------------------------------
-                -- Set objects to update in batch mode with batch size of ???
-                -------------------------------------------------------------
-                SET @DebugText = N'';
-                SET @DebugText = @DefaultDebugText + @DebugText;
-                SET @ProcedureStep = N'Get objids ';
+--                SET @DebugText
+--                    = N'Full history : ' + CAST(@IsFullHistory AS NVARCHAR(30)) + N' Total records: '
+--                      + CAST(@count AS NVARCHAR(10));
+--                SET @DebugText = @DefaultDebugText + @DebugText;
 
-                IF @Debug > 0
-                BEGIN
-                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-                END;
+--                --               SET @ProcedureStep = N'Updating change history ';
+--                IF @Debug > 0
+--                BEGIN
+--                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+--                END;
 
-                IF @Objids IS NOT NULL
-                BEGIN
-                    SET @params = N'@Process_id int, @ObjIds nvarchar(max)';
-                    SET @sql
-                        = N'
-UPDATE t
-SET Process_ID = @Process_ID
-FROM ' +            QUOTENAME(@MFTableName)
-                          + N' t
-where objid in (Select item from dbo.fnMFSplitString(@objIds,'',''))
-;'                  ;
+--                -------------------------------------------------------------
+--                -- Set objects to update in batch mode with batch size of ???
+--                -------------------------------------------------------------
+--                SET @DebugText = N'';
+--                SET @DebugText = @DefaultDebugText + @DebugText;
+--                SET @ProcedureStep = N'Get objids ';
 
-                    --PRINT @SQL
-                    EXEC sys.sp_executesql @sql, @params, @Process_ID, @Objids;
+--                IF @Debug > 0
+--                BEGIN
+--                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+--                END;
 
-                    SET @DebugText = N'Filtered ' + ISNULL(@Objids, '');
-                    SET @DebugText = @DefaultDebugText + @DebugText;
+--                IF @Objids IS NOT NULL
+--                BEGIN
+--                    SET @params = N'@Process_id int, @ObjIds nvarchar(max)';
+--                    SET @sql
+--                        = N'
+--UPDATE t
+--SET Process_ID = @Process_ID
+--FROM ' +            QUOTENAME(@MFTableName)
+--                          + N' t
+--where objid in (Select item from dbo.fnMFSplitString(@objIds,'',''))
+--;'                  ;
 
-                    IF @Debug > 0
-                    BEGIN
-                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-                    END;
-                END;
-                ELSE
-                BEGIN
-                    SET @params = N'@Process_id int';
-                    SET @sql = N'
-UPDATE t
-SET Process_ID = @Process_ID
-FROM ' +            QUOTENAME(@MFTableName) + N' t
-;'                  ;
+--                    --PRINT @SQL
+--                    EXEC sys.sp_executesql @sql, @params, @Process_ID, @Objids;
 
-                    EXEC sys.sp_executesql @sql, @params, @Process_ID;
+--                    SET @DebugText = N'Filtered ' + ISNULL(@Objids, '');
+--                    SET @DebugText = @DefaultDebugText + @DebugText;
 
-                    SET @DebugText = N'All objects ';
-                    SET @DebugText = @DefaultDebugText + @DebugText;
+--                    IF @Debug > 0
+--                    BEGIN
+--                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+--                    END;
+--                END;
+--                ELSE
+--                BEGIN
+--                    SET @params = N'@Process_id int';
+--                    SET @sql = N'
+--UPDATE t
+--SET Process_ID = @Process_ID
+--FROM ' +            QUOTENAME(@MFTableName) + N' t
+--;'                  ;
 
-                    IF @Debug > 0
-                    BEGIN
-                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-                    END;
-                END;
+--                    EXEC sys.sp_executesql @sql, @params, @Process_ID;
+
+--                    SET @DebugText = N'All objects ';
+--                    SET @DebugText = @DefaultDebugText + @DebugText;
+
+--                    IF @Debug > 0
+--                    BEGIN
+--                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+--                    END;
+--                END;
 
                 --end else all objids   
                 -------------------------------------------------------------
@@ -597,16 +622,16 @@ FROM ' +            QUOTENAME(@MFTableName) + N' t
                 BEGIN
                     --SELECT FullHistory = @IsFullHistory,
                     --       StartDate = @StartDate;
-                    EXEC @return_value = dbo.spMFGetHistory @MFTableName = @MFTableName, -- nvarchar(128)
-                        @Process_id = @Process_ID,                                       -- int
-                        @ColumnNames = @ColumnNames,                                     -- nvarchar(4000)
-                        @SearchString = NULL,                                            -- nvarchar(4000)
-                        @IsFullHistory = @IsFullHistory,                                 -- bit
-                        @NumberOFDays = @NumberOFDays,                                   -- int
-                        @StartDate = @StartDate,                                         -- datetime
-                        @Update_ID = @Update_ID OUTPUT,                                  -- int
-                        @ProcessBatch_id = @ProcessBatch_ID OUTPUT,                      -- int
-                        @Debug = @Debug;                                                 -- int
+                    EXEC @return_value = dbo.spMFGetHistory @MFTableName = @MFTableName, 
+                        @Process_id = @Process_ID,                                       
+                        @ColumnNames = @ColumnNames,                                     
+                        @SearchString = NULL,                                            
+                        @IsFullHistory = @IsFullHistory,                                
+                        @NumberOFDays = @NumberOFDays,                                  
+                        @StartDate = @StartDate,                                         
+                        @Update_ID = @Update_ID OUTPUT,                                  
+                        @ProcessBatch_id = @ProcessBatch_ID OUTPUT,                      
+                        @Debug = @Debug;                                                 
 
                     IF @Debug > 0
                         SELECT @return_value AS ReturnValue;

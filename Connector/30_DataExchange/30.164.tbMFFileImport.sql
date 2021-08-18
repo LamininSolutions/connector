@@ -9,13 +9,13 @@ Columns
 
 ID int (primarykey, not null)
   SQL primary key
-FileName varchar(100)
+FileName nvarchar(100)
   File name
-FileUniqueRef varchar(100)
+FileUniqueRef nvarchar(100)
   Full file path
 CreatedOn datetime (not null)
   Date of import
-SourceName varchar(100)
+SourceName nvarchar(100)
   fixme description
 TargetClassID int
   fixme description
@@ -51,6 +51,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-08-03  LC         Change datatype of varchar to nvarchar
 2019-09-07  JC         Added documentation
 ==========  =========  ========================================================
 
@@ -66,7 +67,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFFileImport', -- nvarchar(100)
-    @Object_Release = '4.3.9.48', -- varchar(50)
+    @Object_Release = '4.3.27.70', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
 /*------------------------------------------------------------------------------------------------
@@ -96,10 +97,10 @@ IF NOT EXISTS (	  SELECT	[name]
 	      CREATE TABLE MFFileImport
 		   (
 		      [ID] INT IDENTITY(1,1) NOT NULL,
-			  [FileName] VARCHAR(100),
-			  [FileUniqueRef] VARCHAR(100),
+			  [FileName] NVARCHAR(100),
+			  [FileUniqueRef] NVARCHAR(100),
 			  [CreatedOn] DATETIME DEFAULT ( GETDATE()) NOT NULL,
-			  [SourceName] VARCHAR(100),
+			  [SourceName] NVARCHAR(100),
 			  [TargetClassID] INT,
 			  [MFCreated] DATETIME,
 			  [MFLastModified] DATETIME,

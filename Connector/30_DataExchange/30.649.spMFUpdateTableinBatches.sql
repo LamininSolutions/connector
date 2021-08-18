@@ -6,7 +6,7 @@ GO
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTableinBatches', -- nvarchar(100)
-    @Object_Release = '4.8.23.64',             -- varchar(50)
+    @Object_Release = '4.9.27.69',             -- varchar(50)
     @UpdateFlag = 2;                           -- smallint
 GO
 
@@ -151,6 +151,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-05-03  LC         Fix bug to include first record of each batch
 2020-09-24  LC         Set updatetable objids to include unmatched versions
 2020-09-23  LC         Fix batch size calculation
 2020-09-04  LC         Fix null count or set operation
@@ -500,11 +501,11 @@ SELECT @MFLastModifiedDate = (SELECT isnull(MAX(' + QUOTENAME(@lastModifiedColum
                     @MaxRow      AS MaxRow;
 
             IF @StartRow IS NOT NULL
-               AND @ToObjid > @StartRow
+               AND @ToObjid >= @StartRow
             BEGIN
 
                 --while loop
-                WHILE @StartRow < @MaxRow
+                WHILE @StartRow <= @MaxRow
                 BEGIN
                     SET @StartTime = GETDATE();
                     SET @objids = NULL;

@@ -7,6 +7,7 @@ MODIFICATIONS
 2019-1-9	lc	add additional controls to validate MFversion, exist when not exist.
 2019-1-11	LC	IF version in mfsettings is different from installer then use installer 
 add parameter to set MFVersion
+2021-4-01   LC  get master db owner and set DB to default owner
  
 */
 
@@ -127,11 +128,15 @@ END;
 IF @CLRInstallationFlag = 1
 BEGIN
 
+DECLARE @DBowner sysname
+SELECT @DBowner = SUSER_SNAME(owner_sid) 
+FROM sys.databases WHERE name = 'master' 
+
 IF(SELECT SUSER_SNAME(owner_sid) 
-FROM sys.databases WHERE name = @DBName ) <> 'sa'
+FROM sys.databases WHERE name = @DBName ) <> @DBowner
  Begin
- SET @Msg = 'Change database owner to sa'
-    EXEC sys.sp_changedbowner 'sa';
+ SET @Msg = 'Change database owner to ' + @DBowner
+    EXEC sys.sp_changedbowner @DBowner;
     RAISERROR('%s', 10, 1, @Msg);
     END
 

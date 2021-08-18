@@ -87,7 +87,7 @@ Additional Info
 
 This procedure will only run if metadata structure changes were made. It is therefore useful to add this procedure as a scheduled agent, or as part of key procedures to keep the structure aligned.
 
-Set @ISResetAll = 1 only when custom settings in SQL should be reset to the defaults.  The following custom settings in the metadata tables. 
+Using this procedure will not overwrite custom settings in the structure tables. The custom columns include: 
 
 ================  ====================
 Table             Customisable columns
@@ -103,6 +103,8 @@ MFValuelistItems  Owner_AppRef
 
 This procedure can also be used to reset all the metadata, but retain
 the custom settings in the Tables when the default is used or @ISResetAll = 0.
+
+Set @ISResetAll = 1 only when custom settings in SQL should be reset to the defaults.  The following custom settings in the metadata tables. 
 
 Setting the parameter @WithClassTableReset = 1 will drop and recreate all class tables where IncludeInApp = 1.  This is particularly usefull during testing or development to reset the class tables. This parameter is set to 0 by default.
 

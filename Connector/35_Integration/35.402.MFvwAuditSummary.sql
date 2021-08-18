@@ -76,19 +76,22 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-03-27  LC         Add object type in view to catch collections
 2020-03-27  LC         Add documentation
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
 
 
-SELECT TOP 500 mc.name AS Class, mc.mfid AS Class_ID,  [mc].[TableName], mah.[StatusName], mah.[StatusFlag], COUNT(*) AS [Count]
+SELECT TOP 1000  mot.mfid AS ObjectType_ID, mot.name AS ObjectType, mc.name  AS Class, mc.mfid AS Class_ID,  [mc].[TableName], mah.[StatusName], mah.[StatusFlag], COUNT(*) AS [Count]
 
 FROM [dbo].[MFAuditHistory] AS [mah]
 INNER JOIN [dbo].[MFClass] AS [mc]
 ON mc.mfid = mah.[Class] 
+INNER JOIN dbo.MFObjectType AS mot
+ON mah.ObjectType = mot.mfid
 
-GROUP BY mc.name, mc.mfid, mah.[StatusName], [mc].[TableName], mah.[StatusFlag]
+GROUP BY mot.mfid, mot.name, mc.name, mc.mfid, mah.[StatusName], [mc].[TableName], mah.[StatusFlag]
 ORDER BY mc.name DESC
 
 

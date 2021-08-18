@@ -146,16 +146,19 @@ This procedure can be used to show all the comments  or the last 5 comments made
     DECLARE @StartDate DATETIME --= DATEADD(DAY,-1,GETDATE())
     DECLARE @ProcessBatch_id INT
     DECLARE @Debug INT = 0
+    DECLARE @Update_ID int
 
     EXECUTE @RC = [dbo].[spMFGetHistory]
-    @TableName
-    ,@Process_id
-    ,@ColumnNames
-    ,@IsFullHistory
-    ,@NumberOFDays
-    ,@StartDate
-    ,@ProcessBatch_id OUTPUT
-    ,@Debug
+    @MFTableName = @TableName,
+    @Process_id = @Process_id,
+    @ColumnNames = @ColumnNames,
+    @SearchString = null,
+    @IsFullHistory = @IsFullHistory,
+    @NumberOFDays = @NumberOFDays,
+    @StartDate = @StartDate,
+    @Update_ID = @Update_ID OUTPUT,
+    @ProcessBatch_id = @ProcessBatch_id OUTPUT,
+    @Debug = @Debug
 
     SELECT * FROM [dbo].[MFProcessBatch] AS [mpb] WHERE [mpb].[ProcessBatch_ID] = @ProcessBatch_id
     SELECT * FROM [dbo].[MFProcessBatchDetail] AS [mpbd] WHERE [mpbd].[ProcessBatch_ID] = @ProcessBatch_id
@@ -275,7 +278,7 @@ BEGIN
         SET @LogStatus = N'Initiate';
         SET @StartTime = GETUTCDATE();
 
-        EXECUTE @RC = dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_id OUTPUT,
+        EXECUTE @RC = dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_id,
             @ProcessType = @ProcessType,
             @LogType = @LogType,
             @LogText = @LogText,
@@ -302,7 +305,7 @@ BEGIN
         --Validate properties GET PropertyIDS as comma separated string  
         ----------------------------------------------------------------------
         SET @ProcedureStep = 'Validate column : ';
-        SET @LogTypeDetail = N'Message';
+        SET @LogTypeDetail = N'Debug';
         SET @LogStatusDetail = N'Started';
         SET @StartTime = GETUTCDATE();
 
@@ -332,9 +335,6 @@ BEGIN
         SELECT @ID = MIN(ID)
         FROM #TempProperty;
 
-        IF @Debug > 0
-            SELECT *
-            FROM #TempProperty AS tp;
 
         -------------------------------------------------------------
         -- Validation of column
@@ -387,14 +387,14 @@ BEGIN
         BEGIN -- error invalid column
             SET @ProcedureStep = 'Invalid columns: ';
 
-            
-            SELECT @DebugText = COALESCE(ColumnName + ',', '')
+            SELECT @DebugText = ''
+            SELECT @DebugText = COALESCE(@ColumnNames + ',', '') + ColumnName
             FROM #TempProperty
             WHERE IsValidProperty = 0;
 
-            SET @DebugText = @DefaultDebugText + @DebugText;
+            SET @DebugText = @DefaultDebugText + ISNULL(@DebugText,'');
 
-            IF @debug > 0
+            IF @debug > 0 
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END; --end error invalid column
 
@@ -411,6 +411,9 @@ BEGIN
               (
                   SELECT ListItem FROM dbo.fnMFParseDelimitedString(@ColumnNames, ',')
               );
+
+              IF @debug > 0
+              SELECT @ColumnNames AS columnnames, @PropertyIDs AS propertyids;
 
         SELECT @rowcount = COUNT(*)
         FROM dbo.fnMFParseDelimitedString(@ColumnNames, ',');

@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTable',
     -- nvarchar(100)
-    @Object_Release = '4.8.27.68',
+    @Object_Release = '4.8.27.70',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -54,9 +54,9 @@ ALTER PROCEDURE dbo.spMFUpdateTable
     @ObjIDs NVARCHAR(MAX) = NULL,
     @Update_IDOut INT = NULL OUTPUT,
     @ProcessBatch_ID INT = NULL OUTPUT,
-    @SyncErrorFlag BIT = 0,          -- note this parameter is auto set by the operation 
-    @RetainDeletions BIT = 0,
-                                     --   ,@UpdateMetadata BIT = 0
+    @SyncErrorFlag BIT = 0,     -- note this parameter is auto set by the operation 
+    @RetainDeletions BIT = 0,  --   @UpdateMetadata BIT = 0
+    @IsDocumentCollection BIT = 0,  -- =1 will process only document collections for the class
     @Debug SMALLINT = 0
 )
 AS
@@ -99,6 +99,9 @@ Parameters
   @RetainDeletions (optional)
     - Default = 0
     - Set to 1 to keep deleted items in M-Files in the SQL table shown as "deleted" or the label of property 27 with the date time of the deletion.
+  @IsDocumentCollection (optional)
+    - Default = 0 (use default object type for the class)
+    - Set to 1 to process objects with object type 9 (document collection) for the class.
   @Debug (optional)
     - Default = 0
     - 1 = Standard Debug Mode
@@ -119,6 +122,8 @@ A number of procedures is included in the Connector that use this procedure incl
 - spMFUpdateTableinBatches
 - spMFUpdateAllIncludedInAppTables
 - spMFUpdateItembyItem
+
+By default the object type of the class will get the object type from the MFclass Table (using the default object type of the class).  To process Document collection objects for the class, the @IsDocumentCollection must be set to 1.  
 
 Prerequisites
 =============
@@ -146,6 +151,7 @@ Deleted objects will only be removed if they are included in the filter 'Objids'
 Deleted objects in M-Files will automatically be removed from the class table unless @RetainDeletions is set to 1.
 
 The valid range of real datatype properties for uploading from SQL to M-Files is -1,79E27 and 1,79E27
+
 Examples
 ========
 
@@ -188,7 +194,17 @@ Execute the core procedure with all parameters
 
     SELECT  'Return Value' = @return_value
 
-    GO
+Process document collection type objects for the class
+
+----
+
+.. code:: sql
+
+    EXEC dbo.spMFUpdateTable @MFTableName = 'MFOtherDocument',
+        @UpdateMethod = 1,
+        @IsDocumentCollection = 1,
+        @Debug = 101
+
 
 Update from and to M-Files with all optional parameters set to default.
 
@@ -216,6 +232,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-06-21  LC         Modify proc to include document collections
+2021-04-14  LC         fix timestamp datatype bug
 2021-03-15  LC         fix changing of class in the same object type in MF
 2021-03-11  LC         update maximum valid number range to between -1,79E27 and 1,79E27
 2021-01-31  LC         Fix bug on insert new into audithistory
@@ -502,7 +520,7 @@ BEGIN TRY
     FROM dbo.MFClass
     WHERE TableName = @MFTableName; --SUBSTRING(@TableName, 3, LEN(@TableName))
 
-    SELECT @ObjectId = MFID
+    SELECT @ObjectId = CASE WHEN @IsDocumentCollection = 1 THEN 9 ELSE MFID end
     FROM dbo.MFObjectType
     WHERE ID = @ObjectIdRef;
 
@@ -932,7 +950,7 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
                             = @Query
                               + N'Union All
  select ID,  Objid, MFversion, ExternalID, ColName as ColumnName, 
- convert(varchar(4000),(convert(datetime,colvalue))) AS ColValue from ' + QUOTENAME(@MFTableName)
+ convert(nvarchar(4000),FORMAT(convert(datetime,Colvalue,102), ''yyyy-MM-dd hh:mm:ss.fff'' )) AS ColValue from ' + QUOTENAME(@MFTableName)
                               + N' t
         unpivot
         (

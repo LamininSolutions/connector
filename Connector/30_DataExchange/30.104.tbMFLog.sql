@@ -38,65 +38,23 @@ Indexes
 idx\_MFLog\_id
   - LogID
 
-Used By
-=======
+Usage
+=====
 
-- MFvwLogTableStats
-- spMFAddCommentForObjects
-- spMFAliasesUpsert
-- spMFChangeClass
-- spMFCheckAndUpdateAssemblyVersion
-- spMFCreateAllLookups
-- spMFCreatePublicSharedLink
-- spMFCreateTable
-- spMFCreateValueListLookupView
-- spMFCreateWorkflowStateLookupView
-- spMFDeleteAdhocProperty
-- spMFDeleteHistory
-- spMFDeleteObjectList
-- spMFDeploymentDetails
-- spMFDropAndUpdateMetadata
-- spMFExportFiles
-- spMFGetDeletedObjects
-- spMFGetHistory
-- spMFGetMetadataStructureVersionID
-- spMFGetMfilesLog
-- spMFGetObjectvers
-- spMFInsertClass
-- spMFInsertClassProperty
-- spMFInsertLoginAccount
-- spMFInsertObjectType
-- spMFInsertProperty
-- spMFInsertUserAccount
-- spMFInsertUserMessage
-- spMFInsertValueList
-- spMFInsertValueListItems
-- spMFInsertWorkflow
-- spMFInsertWorkflowState
-- spMFLogError\_EMail
-- spMFLogProcessSummaryForClassTable
-- spMFProcessBatch\_EMail
-- spMFProcessBatchDetail\_Insert
-- spMFSearchForObject
-- spMFSearchForObjectbyPropertyValues
-- spMFSynchronizeClasses
-- spMFSynchronizeFilesToMFiles
-- spmfSynchronizeLookupColumnChange
-- spMFSynchronizeMetadata
-- spMFSynchronizeProperties
-- spMFSynchronizeSpecificMetadata
-- spMFSynchronizeUnManagedObject
-- spMFSynchronizeValueListItemsToMFiles
-- spmfSynchronizeWorkFlowSateColumnChange
-- spMFSynchronizeWorkflowsStates
-- spMFTableAudit
-- spMFUpdateAllncludedInAppTables
-- spMFUpdateItemByItem
-- spMFUpdateMFilesToMFSQL
-- spMFUpdateTable
-- spMFUpdateTableinBatches
-- spMFUpdateTableInternal
+SQL errors when a procedure runs will update MFLog table with details of the error.  If Database Mail have been setup the entry in the table will trigger sending an email to the support address in the MFSettings table.
 
+The records in the MFLog table will only show the last 90 days of errors if the agent to delete log history is running.
+
+Errors can be back tracked from this table
+
+To get support send an email to support@lamininsolutions.com and include the following:
+
+   - screenshot of the error
+   - details of the actual error from the MFlog table. Copy and past the result of the query below to your email to show the full text
+
+..code:: sql
+
+SELECT TOP 5 ErrorMessage, CreateDate FROM MFlog ORDER BY logid desc
 
 Changelog
 =========
@@ -104,6 +62,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-04-08  LC         Update documentation
 2019-09-07  JC         Added documentation
 ==========  =========  ========================================================
 

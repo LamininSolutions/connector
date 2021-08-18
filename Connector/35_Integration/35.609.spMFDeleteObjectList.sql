@@ -5,7 +5,7 @@ GO
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFDeleteObjectList', -- nvarchar(100)
-    @Object_Release = '4.8.25.66',         -- varchar(50)
+    @Object_Release = '4.9.27.70',         -- varchar(50)
     @UpdateFlag = 2;                       -- smallint
 GO
 
@@ -42,6 +42,7 @@ ALTER PROC dbo.spMFDeleteObjectList
     @TableName NVARCHAR(100),
     @Process_id INT,
     @DeleteWithDestroy BIT = 0,
+    @RetainDeletions BIT = 0,
     @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug INT = 0
 )
@@ -65,6 +66,9 @@ Parameters
   @DeleteWithDestroy
     - Default = 0 (no)
 	- Set to 1 to destroy the object in M-Files
+  @RetainDeletions
+    - Default = 0 (no)
+	- Set to 1 to retain the objected objects in the class table
   @ProcessBatch_ID (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @Debug (optional)
@@ -80,6 +84,29 @@ Prerequisites
 =============
 
 Set process_id of objects to be deleted in the class table prior to running the delete procedure.
+
+Additional info
+===============
+
+The return value from M-Files for the deletions include a status code and result message.  The return values are logged in the MFUpdateHistory table.
+
+The following status codes are used:
+
+ - 1 = Success object deleted
+ - 2 = Success object version destroyed
+ - 3 = Success object destroyed
+ - 4 = Failed to destroy, object not found
+ - 5 = Failed to delete, object not found
+ - 6 = Failed to remove version, version not found
+
+Use the parameter RetainDeletions = 1 to retain the deletions in the class table. The timestamp for the deletion will show in the deleted column.
+
+The updated version and deleted state of the deleted record is also shown in the MFAuditHistory table.
+
+Warning
+=======
+
+Deletions showing in the class table will be removed when the update procedure is run withoput retain deletions.  The next time this procedure is run showing deletions, all the deletions will be shown again in the class table. 
 
 Examples
 ========
@@ -113,12 +140,22 @@ Examples
 						  , 5
 						  , 1
 
+    -- to retain deleted records in class table for use in a third party update procedure
+   
+    EXEC [spMFDeleteObjectList] @tableName = 'MFCustomer'
+						  , @Process_ID = 5
+						  , @DeleteWithDestroy = 0
+                          , @RetainDeletions = 1
+
 Changelog
 =========
 
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-06-08  LC         Remove object from class table if not found
+2021-06-08  LC         Fix bug to remove item on deletion from class table
+2021-06-08  LC         Fix entry in MFUpdateHistory on completion of deletion
 2020-12-08  LC         Reset mfversion to -1 when deleting and destroying
 2020-12-03  LC         Fix bug when object is destroyed
 2020-10-06  LC         Modified to process delete operation in batch
@@ -515,22 +552,22 @@ ORDER BY objid ASC;';
             -------------------------------------------------------------
             -- Summarise errors
             -------------------------------------------------------------
-            DECLARE @Success INT,
-                @DelErrors   INT,
-                @NotExist    INT,
+            DECLARE @Success INT = 0,
+                @DelErrors   INT = 0,
+                @NotExist    INT = 0,
                 @FailErrors  INT = 0;
 
             SELECT @Success = COUNT(*)
             FROM #DeletedResult AS dr
-            WHERE dr.statusCode = 1;
+            WHERE dr.statusCode in (1,2,3);
 
             SELECT @NotExist = COUNT(*)
             FROM #DeletedResult AS dr
-            WHERE dr.statusCode = 4;
+            WHERE dr.statusCode = 5;
 
             SELECT @DelErrors = COUNT(*)
             FROM #DeletedResult AS dr
-            WHERE dr.statusCode IN ( 2, 3 );
+            WHERE dr.statusCode IN ( 4,6);
 
             SET @DebugText
                 = N' Not Exist: ' + CAST(ISNULL(@NotExist, 0) AS VARCHAR(10)) + N' Other errors: '
@@ -552,26 +589,45 @@ ORDER BY objid ASC;';
                                END
             WHERE Id = @Update_ID;
 
+
             -------------------------------------------------------------
-            -- remove records that does not exist
+            -- Update Class table
             -------------------------------------------------------------
-            IF @NotExist > 0
-            BEGIN
-                SET @ProcedureStep = N'Removed records that does not exist :';
+
+                SET @ProcedureStep = N'Reset records in class table';
                 SET @sql
                     = N'
             Begin tran
-            Delete FROM ' + QUOTENAME(@MFTableName)
-                      + N' 
-                      where objid in (Select dr.objid from 
-             #DeletedResult dr
-            WHERE dr.statusCode = 4);
+            Update t
+            Set process_id = 0
+            FROM ' + QUOTENAME(@MFTableName)
+                      + N' t
+                     inner join #DeletedResult dr
+                     on dr.objid = t.objid;
             Commit tran';
 
-                EXEC sys.sp_executesql @Stmt = @sql;
+            EXEC(@SQL);
 
-                SET @DebugText = CAST(ISNULL(@NotExist, 0) AS NVARCHAR(10));
-                SET @DebugText = @DefaultDebugText + @DebugText;
+            SET @ProcedureStep = N'Update class table for deleted records';
+
+            DECLARE @Update_IDOut INT
+            DECLARE @objids NVARCHAR(MAX)
+
+            SELECT @objids = STUFF((SELECT ',' + CAST(dr.objid AS NVARCHAR(10)) FROM #DeletedResult AS dr
+            FOR XML PATH('')),1,1,'')
+                        
+            EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName,
+                @UpdateMethod = 1,
+                @ObjIDs = @Objids,
+                @Update_IDOut = @Update_IDOut OUTPUT,
+                @ProcessBatch_ID = @ProcessBatch_ID,
+                @RetainDeletions = @RetainDeletions,
+                @Debug = 0
+
+       
+            ---------------------------------------------------------------
+            ---- remove records that does not exist
+            ---------------------------------------------------------------
 
                 IF @Debug > 0
                 BEGIN
@@ -583,6 +639,7 @@ ORDER BY objid ASC;';
             -- Report failed errors
             -------------------------------------------------------------
             SET @Params = N'@FailErrors int output, @process_id int';
+      
             SET @DebugText
                 = N' Deleted count ' + CAST(@count AS NVARCHAR(100)) + N' Failed : '
                   + CAST(@FailErrors AS NVARCHAR(100));
@@ -596,15 +653,14 @@ ORDER BY objid ASC;';
             SET @ProcedureStep = N'Failed processing';
 
             UPDATE dbo.MFUpdateHistory
-            SET UpdateStatus = 'Failed'
+            SET UpdateStatus = 'Completed'
             WHERE Id = @Update_ID;
 
-            SET @LogTextDetail = N'Not all selected records for Deletion was processed, check class table';
+            SET @LogTextDetail = N' Deleted count ' + CAST(@count AS NVARCHAR(100)) + N' Failed : '
+                  + CAST(@FailErrors AS NVARCHAR(100));
             SET @LogTypeDetail = N'Status';
-            SET @LogStatusDetail = N'Failed';
             SET @ProcedureStep = N'Delete Records';
-            SET @LogTypeDetail = N'Status';
-            SET @LogStatusDetail = N'Failed';
+            SET @LogStatusDetail = N'Completed';
             SET @LogColumnName = N'';
             SET @LogColumnValue = N'';
 
@@ -644,7 +700,6 @@ commit tran';
             BEGIN
                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
             END;
-        END; -- no records to process
     END; -- if @XMLout is null
 
     SET @ProcedureStep = N'Delete Records';

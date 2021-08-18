@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTableInternal', -- nvarchar(100)
-    @Object_Release = '4.8.24.66',            -- varchar(250)
+    @Object_Release = '4.9.27.68',            -- varchar(250)
     @UpdateFlag = 2;
 -- smallint
 GO
@@ -91,6 +91,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-04-14  LC         Fix timestamp datatype bug
 2021-03-02  LC         Remove check for required workflows, check is included in spMFClassTableStats
 2020-11-07  LC         Resolve issue with duplicate columns and multilookup datatype
 2020-10-22  LC         set datetime conversion to 102 (ansi)
@@ -758,8 +759,11 @@ Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
                             + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),0)  ,'
                         WHEN DATA_TYPE = 'DATETIME' THEN
                             '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME)
-                            + ' = DATEADD(MINUTE,DATEDIFF(MINUTE,getUTCDATE(),Getdate()), CONVERT(DATETIME,NULLIF(t.'
-                            + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),102 )),'
+                            --+ ' = DATEADD(MINUTE,DATEDIFF(MINUTE,getUTCDATE(),Getdate()), CONVERT(DATETIME,NULLIF(t.'
+                            --+ REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),102 ))
+                           + '=  CONVERT(DATETIME,NULLIF(t.'
+                            + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),102 )
+                            ,'
                         WHEN DATA_TYPE = 'BIT' THEN
                             '' + QUOTENAME(@TableName) + '.' + QUOTENAME(COLUMN_NAME) + ' =(CASE WHEN ' + 't.'
                             + QUOTENAME(COLUMN_NAME) + ' = ''1'' THEN  CAST(''1'' AS BIT)  WHEN t.'

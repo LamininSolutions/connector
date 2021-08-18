@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateExplorerFileToMFiles',
     -- nvarchar(100)
-    @Object_Release = '4.9.26.67',
+    @Object_Release = '4.9.27.70',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -130,6 +130,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-08-03  LC         Fix truncate string bug
+2021-05-21  LC         improve handling of files on network drive
 2020-12-31  LC         Improve error handling in procedure
 2020-12-31  LC         Update datetime handling in mffileexport
 2019-08-30  JC         Added documentation
@@ -319,7 +321,7 @@ BEGIN
                     = N'Select @ObjID = Objid, @Count = count(*) FROM ' + QUOTENAME(@MFTableName) + N' WHERE ID = '
                       + CAST(@SQLID AS VARCHAR(10)) + ' Group by Objid';
                 
-      --          PRINT @SQL
+           --     PRINT @SQL
                 EXEC sys.sp_executesql @Sql, @Params, @Objid OUTPUT, @Count OUTPUT, @SQLID;
 
                 IF @count > 0 --SQLid is found
@@ -327,7 +329,6 @@ BEGIN
                 SELECT @objid = CASE WHEN @objid > 0 THEN @objid ELSE NULL
                 end
 
-                SELECT COUNT(*) FROM dbo.MFContractOrAgreement AS mcoa WHERE id = 14
 
                 SELECT @ObjIDs = CASE WHEN @objid IS NULL THEN 'null' ELSE CAST(@Objid AS VARCHAR(4000)) end;
 
@@ -347,8 +348,8 @@ BEGIN
                 IF @Objid IS NOT NULL
                 BEGIN
                     SET @ProcedureStep = 'Update from MF';
-                    SET @Params = N'@Objid int';
-                    SET @Sql = N'UPDATE ' + QUOTENAME(@MFTableName) + N' SET [Process_ID] = 0 WHERE objid = @Objid';
+                    SET @Params = N'@sqlid int';
+                    SET @Sql = N'UPDATE ' + QUOTENAME(@MFTableName) + N' SET [Process_ID] = 0 WHERE id = @sqlid';
 
                     EXEC sys.sp_executesql @Sql, @Params, @Objid;
 
@@ -364,7 +365,7 @@ BEGIN
                 BEGIN
                     SET @ProcedureStep = 'Create new object into MF';
                     SET @Params = N'@Objid int';
-                    SET @Sql = N'UPDATE ' + QUOTENAME(@MFTableName) + N' SET [Process_ID] = 1, single_file = 1, WHERE objid = @Objid';
+                    SET @Sql = N'UPDATE ' + QUOTENAME(@MFTableName) + N' SET [Process_ID] = 1, single_file = 1 WHERE objid = @Objid';
 
                     EXEC sys.sp_executesql @Sql, @Params, @Objid;
 
@@ -408,12 +409,13 @@ BEGIN
                     @lastModified OUTPUT;
 
                 IF @Debug > 0
+                begin
                     SELECT @Objid      AS Objid,
                         @ObjIDs        AS Objids,
                         @ObjectVersion AS Version,
                         @CreateDate    AS CreateDate,
                         @lastModified  AS LastModified;
-
+                        end
                 -----------------------------------------------------
                 --Creating the xml 
                 ----------------------------------------------------
@@ -778,10 +780,12 @@ BEGIN
                 WHERE ObjID = 0;
 
                 IF @Debug > 0
+                begin
                     SELECT *
                     FROM #TempFileDetails AS tfd
                     WHERE tfd.ObjID = @Objid;
-
+                    END
+                    
                 SET @ProcedureStep = 'Update / insert record in MFFileImport';
 
                 IF EXISTS
@@ -825,7 +829,7 @@ BEGIN
                         FileCheckSum,
                         ImportError
                     )
-                    SELECT FileName,
+                    SELECT SUBSTRING(FileName,1,100),
                         FileUniqueRef,
                         GETDATE(),
                         @MFTableName,
@@ -898,6 +902,17 @@ BEGIN
                     @ObjIDs = @ObjIDs,
                     @Update_IDOut = @Update_IDOut OUTPUT,
                     @ProcessBatch_ID = @ProcessBatch_id OUTPUT;
+
+                    SET @Sql = N'
+                    UPDATE mc
+SET mc.Single_File = 1, mc.Process_ID = 1
+FROM ' + QUOTENAME(@MFTablename) + ' AS mc
+WHERE mc.FileCount IS NOT NULL AND Single_File = 0 AND Update_ID = ' +CAST(ISNULL(@Update_IDOut,0) AS NVARCHAR)
+
+EXEC(@SQL);
+
+EXEC dbo.spMFUpdateTableinBatches @MFTableName = @MFTableName,
+    @UpdateMethod = 0
 
             END --SQLID is valid
             ELSE
