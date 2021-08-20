@@ -1,3 +1,4 @@
+
 /*rST**************************************************************************
 
 ==============
@@ -10,14 +11,14 @@ Columns
 ID int (primarykey, not null)
   SQL Primary Key
 ProtocolType nvarchar(250)
-  fixme description
+  MF protocol internal id
 MFProtocolTypeValue nvarchar(200)
-  fixme description
+  Protocol description
 
 Additional Info
 ===============
 
-Allow for HTTPS and localhost protocol Types and flexible port endpoints.
+Allow for HTTPS and localhost protocol Types and flexible port end points.
 
 Used By
 =======

@@ -32,49 +32,47 @@ GO
 Alter procedure [dbo].[spMFDeleteHistory](
 @DeleteBeforeDate DATETIME 
 )
-as
-/*******************************************************************************
-  ** Desc:  The purpose of this procedure is to delete all records in MFlog,MFUpdateHistory,MFAuditHistory till the given date  
-  **  
-  ** Version: 2.0.2.5
-  **
-  ** Processing Steps:
-  **					1.delete the records in MFLog
-                         2.delete the records in MFUpdateHistory
-					3.delete the records in MFAuditHistory
-  **
-  ** Parameters and acceptable values: 					
-  **					@DeleteBeforeDate        DATETIME
-  **			       
-  ** Restart:
-  **					Restart at the beginning.  No code modifications required.
-  ** 
-  ** Tables Used:                 					  
-  **					
-  **
-  ** Return values:		
-  **					
-  **
-  ** Called By:			
-  **
-  ** Calls:           
-  **					NONE
-  **														
-  **
-  ** Author:			Kishore
-  ** Date:				28-07-2016
+AS
+/*rST**************************************************************************
 
-  Change history
+=================
+spMFDeleteHistory
+=================
 
-  2016-11-10 LC Add ProcessBatch and ProcessBatchDetail to delete
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @DeleteBeforeDate
+    - earliest date for retention of logs
 
-  ******************************************************************************/
-  SET NOCOUNT on
+Purpose
+=======
+
+The purpose of this procedure is to delete all records in MFlog,MFUpdateHistory,MFAuditHistory till the given date  
+Additional Info
+===============
+
+This procedure is built into an agent to run it on a schedule
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2020-09-12  LC         Add documentation
+2016-11-10  LC         Add ProcessBatch and ProcessBatchDetail to delete
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
+SET NOCOUNT on
 BEGIN
 
 delete from MFLog where CreateDate < = @DeleteBeforeDate 
 delete from MFUpdateHistory where CreatedAt < = @DeleteBeforeDate
-delete from MFAuditHistory where [TranDate] < = @DeleteBeforeDate
+--delete from MFAuditHistory where [TranDate] < = @DeleteBeforeDate
 DELETE FROM [dbo].[MFProcessBatchDetail] WHERE [MFProcessBatchDetail].[CreatedOn] < = @DeleteBeforeDate
 DELETE FROM [dbo].[MFProcessBatch] WHERE [MFProcessBatch].[CreatedOn] < = @DeleteBeforeDate
 
