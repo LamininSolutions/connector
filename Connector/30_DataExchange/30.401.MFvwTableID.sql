@@ -26,24 +26,40 @@ AS
 	GO
 SET NOEXEC OFF;
 	GO	
-/*
--- ============================================= 
--- Author: leRoux Cilliers, Laminin Solutions
--- Create date: 2018-2
-
--- Description:	Internally used view to regulate unique table names, used with fnMFVariableTableName
--- Revision History:  
--- YYYYMMDD Author - Description 
--- =============================================
-
-*/		
+		
 ALTER VIEW dbo.MFvwTableID
 AS
 
-/*************************************************************************
-STEP 
-NOTES
-*/
+/*rST**************************************************************************
+
+============
+MFvwTableID
+============
+
+Purpose
+=======
+
+Internally used view to regulate unique table names, used with fnMFVariableTableName
+
+Examples
+========
+
+.. code:: sql
+
+    Select * from MFvwTableID
+    
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2020-03-27  LC         Add documentation
+2018-08-15  LC         Create view
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
 
 select newid() as new_id
 
