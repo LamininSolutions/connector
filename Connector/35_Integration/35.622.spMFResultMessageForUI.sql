@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFResultMessageForUI' -- nvarchar(100)
-                                    ,@Object_Release = '4.2.7.46'            -- varchar(50)
+                                    ,@Object_Release = '4.9.27.71'            -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
 GO
@@ -188,6 +188,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-08-25  LC         Resolve bug with null count
 2021-02-26  LC         Fix issue with duration
 2019-08-30  JC         Added documentation
 2018-12-02  LC         Fix bug for returning more than one result in query
@@ -498,7 +499,7 @@ SET @DebugText = '';
                 = @Message + ' |  | ' + 'Class Name: ' + ISNULL(@ClassName, '(null)') + ': '
                   + ISNULL(@DetailStatus, '(status unknown)') + ' | ' + ISNULL(@DetailLogText, '(null)') + ' | '
                   + 'Duration: ' + CONVERT(VARCHAR(25), @DetailDuration) + ' Count: '
-                  + CAST(@RecordCount AS VARCHAR(10));
+                  + CAST(ISNULL(@RecordCount,0) AS VARCHAR(10));
 
             --+ CAST(RIGHT('0' + CAST(FLOOR((COALESCE(@DetailDuration, 0) / 60) / 60) AS VARCHAR(8)), 2) + ':'
             --       + RIGHT('0' + CAST(FLOOR(COALESCE(@DetailDuration, 0) / 60) AS VARCHAR(8)), 2) + ':'

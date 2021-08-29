@@ -197,6 +197,11 @@ BEGIN
 					
 					IF @Debug > 0
 					SELECT @TestResult;
+
+                    --DECLARE @MFilesVersion NVARCHAR(100)
+                    --SELECT @MFilesVersion= CAST(value AS NVARCHAR(100)) FROM mfsettings WHERE name = 'MFVersion'
+                    --IF @TestResult = 0
+                    --EXEC dbo.spMFCheckAndUpdateAssemblyVersion @Debug = 0;
 			-------------------------------------------------------------
 			--END PROCESS
 			-------------------------------------------------------------

@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateItemByItem', -- nvarchar(100)
-    @Object_Release = '4.9.27.68',         -- varchar(50)
+    @Object_Release = '4.9.27.71',         -- varchar(50)
     @UpdateFlag = 2;                       -- smallint
 GO
 
@@ -43,6 +43,7 @@ GO
 ALTER PROCEDURE dbo.spMFUpdateItemByItem
     @MFTableName VARCHAR(100),
     @WithTableAudit SMALLINT = 0,
+    @RetainDeletions bit = 0,
     @SingleItems BIT = 1, --1 = processed one by one
     @SessionIDOut INT = NULL OUTPUT,
     @Debug SMALLINT = 0
@@ -61,6 +62,8 @@ Parameters
     Name of table to be updated
   @WithTableAudit bit (optional) 
     Default = 0, if set to 1 then a table audit will be performed and only non processed items will be included
+  @RetainDeletions bit (optional)
+    - Default = 0; deletions removed by default, set to 1 to retain deletions in class table  
   @SingleItems bit (optional)
     - Default = 1; processed one-by-one, this is always the case   
   @SessionIDOut int (output)
@@ -105,6 +108,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-08-26  LC         fix return value to 1 for success
+2021-08-26  LC         Add parameter for RetainDeletions
 2021-03-27  LC         Change parameters
 2021-03-27  LC         Add option to perform table audit
 2021-03-09  LC         Update documentation
@@ -232,6 +237,7 @@ BEGIN
             EXEC @ReturnValue = dbo.spMFUpdateTable @MFTableName = @MFTableName, 
                 @UpdateMethod = 1,                                                                                     
                 @ObjIDs = @Objids, 
+                @RetainDeletions = @RetainDeletions,
                 @ProcessBatch_ID = @ProcessBatch_ID,
                 @Debug = 0;
 
@@ -284,7 +290,7 @@ IF @debug > 0
             );
         END;
 
-
+        RETURN 1
         SET NOCOUNT OFF;
     END TRY
     BEGIN CATCH
