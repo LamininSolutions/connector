@@ -4,7 +4,7 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].
 GO
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFvwMetadataStructure', -- nvarchar(100)
-    @Object_Release = '4.9.25.67', -- varchar(50)
+    @Object_Release = '4.9.27.71', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
 
@@ -85,6 +85,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-09-01  LC         Add valuelist_Class_MFID
 2020-12-20  LC         Add MFDatatype_ID
 2020-08-22  LC         Deleted column change to localisation
 2020-07-08  LC         Add Valuelist Table name to columns
@@ -106,7 +107,8 @@ Date        Author     Description
              CASE WHEN mvl.mfid = 0 THEN NULL ELSE  [mvl].[MFID] END AS Valuelist_MFID ,
 			CASE WHEN mvl.[RealObjectType] = 1 AND mvl.mfid = 0 THEN null ELSE mvl.[RealObjectType]  end AS IsObjectType,
             case when mvl.[RealObjectType] = 1 AND mvl.mfid > 0 then  mcmot.TableName else null end  as Valuelist_TableName,
-            [ValuelistOwner].[Name] AS Valuelist_Owner ,
+            case when mvl.[RealObjectType] = 1 AND mvl.mfid > 0 then  mcmot.MFID else null end  as Valuelist_Class_MFID,
+           [ValuelistOwner].[Name] AS Valuelist_Owner ,
             [mvl].[OwnerID] AS Valuelist_Owner_MFID ,
             [ValuelistOwner].[Alias] AS Valuelist_OwnerAlias ,
             [mc].[Name] AS Class ,

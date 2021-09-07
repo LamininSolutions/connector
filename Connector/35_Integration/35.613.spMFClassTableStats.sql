@@ -560,16 +560,15 @@ print ''' + @TableName + N' has not been created'';
             = N'
         Select @NotinMF = count(*) from ' + QUOTENAME(@TableName)
               + N' t
-left join MFAuditHistory ah
+left join MFAuditHistory ah WITH (NOLOCK)
 on t.objid = ah.objid and t.' + @ClassPropertyColumn + N' = ah.class
-where ah.objid is null;';
+where ah.[Objid] is null;';
 
         EXEC sys.sp_executesql @SQL, @params, @NotInMF OUTPUT;
 
-        UPDATE smcts
-        SET smcts.SQLNotInMF = @NotInMF
-        FROM ##spMFClassTableStats AS smcts
-        WHERE smcts.ClassID = @ID;
+        IF @debug > 0
+        SELECT @NotInMF AS notinMF
+        PRINT @SQL;
 
 SELECT @Collections = COUNT(*) FROM MFAuditHistory AS mah WITH (NOLOCK)
         WHERE mah.Class = @ID
@@ -581,8 +580,9 @@ SELECT @Collections = COUNT(*) FROM MFAuditHistory AS mah WITH (NOLOCK)
               AND mah.StatusFlag IN ( 1, 5 ); -- templates and other records not in SQL
 
         UPDATE smcts
-        SET smcts.MFRecordCount = @MFCount,
-            smcts.MFNotInSQL = @NotINSQL,
+        SET smcts.MFRecordCount = ISNULL(@MFCount,0),
+            smcts.MFNotInSQL = ISNULL(@NotINSQL,0),
+            smcts.SQLNotInMF = ISNULL(@NotInMF,0),
             smcts.Collections = @Collections
         FROM ##spMFClassTableStats AS smcts
         WHERE smcts.ClassID = @ID;
@@ -614,6 +614,7 @@ SELECT @Collections = COUNT(*) FROM MFAuditHistory AS mah WITH (NOLOCK)
             SET @SQL
                 = N'Update t set process_ID=0 from ' + QUOTENAME(@TableName)
                   + N' t where process_ID = 2
+
 		update ##spMFClassTableStats set SyncError = 0 where TableName = ''' + @TableName + N'''
 		'   ;
 
