@@ -2828,7 +2828,7 @@ AS EXTERNAL NAME
 
 
 
---EXEC dbo.spMFDeploymentDetails 
+EXEC dbo.spMFDeploymentDetails 
 
 SET NOCOUNT OFF;
 RETURN 0;
