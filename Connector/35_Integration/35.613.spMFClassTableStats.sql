@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFClassTableStats', -- nvarchar(100)
-    @Object_Release = '4.8.27.69',        -- varchar(50)
+    @Object_Release = '4.8.27.72',        -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
 GO
@@ -206,6 +206,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-10-07  LC         Resolve bug of showing query
 2021-04-14  LC         Resolve issue with specifying a table name
 2021-04-08  LC         Add check that table exists
 2021-04-01  LC         Add column to report on number of collections 
@@ -568,7 +569,7 @@ where ah.[Objid] is null;';
 
         IF @debug > 0
         SELECT @NotInMF AS notinMF
-        PRINT @SQL;
+  --      PRINT @SQL;
 
 SELECT @Collections = COUNT(*) FROM MFAuditHistory AS mah WITH (NOLOCK)
         WHERE mah.Class = @ID

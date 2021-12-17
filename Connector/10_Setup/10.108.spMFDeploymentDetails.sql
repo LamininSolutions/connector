@@ -5,7 +5,7 @@ SET NOCOUNT ON
 EXEC [setup].[spMFSQLObjectsControl]
 	@SchemaName = N'dbo'
   , @ObjectName = N'spMFDeploymentDetails' -- nvarchar(100)
-  , @Object_Release = '4.4.11.50'
+  , @Object_Release = '4.9.27.71'
   , @UpdateFlag = 2
 
 GO
@@ -33,8 +33,8 @@ GO
 SET NOEXEC OFF;
 GO
 ALTER PROCEDURE [dbo].[spMFDeploymentDetails]
-	(
-		@ProcessBatch_ID INT	  = NULL OUTPUT
+	(   @Type int  = 0
+	,	@ProcessBatch_ID INT	  = NULL OUTPUT
 	  , @Debug			 SMALLINT = 0
 	)
 AS
@@ -48,6 +48,10 @@ Return
   - 1 = Success
   - -1 = Error
 Parameters
+  @Int (optional)
+    used as input variable to set the type of update message
+     0 - default message
+     -1 - Failed
   @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @Debug smallint (optional)
@@ -66,6 +70,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-09-11  LC         Add parameter to set type of update
 2019-08-30  JC         Added documentation
 ==========  =========  ========================================================
 
@@ -189,7 +194,7 @@ Date        Author     Description
 			-------------------------------------------------------------
 			SET @DebugText = ''
 			Set @DebugText = @DefaultDebugText + @DebugText
-			Set @Procedurestep = ''
+			Set @Procedurestep = 'prepare insert'
 			
 			IF @debug > 0
 				Begin
@@ -234,7 +239,11 @@ SELECT @ConnectorVersion = MAX(Release) FROM setup.[MFSQLObjectsControl] AS [mco
                       DeployedBy ,
                       DeployedOn
 				    )
-            VALUES  ( 'Wrapper ' + CAST(ASSEMBLYPROPERTY('LSConnectMFilesAPIWrapper',
+            VALUES  ( 
+            CASE WHEN @Type = 0 THEN ''
+            WHEN @Type = -1 THEN 'Failed '
+            END + 
+            'Wrapper ' + CAST(ASSEMBLYPROPERTY('LSConnectMFilesAPIWrapper',
                                             'VersionMajor') AS NVARCHAR(3))
                       + '.'
                       + CAST(ASSEMBLYPROPERTY('LSConnectMFilesAPIWrapper',

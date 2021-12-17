@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFClassTableColumns',
     -- nvarchar(100)
-    @Object_Release = '4.9.26.67',
+    @Object_Release = '4.9.27.72',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -166,6 +166,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-10-08  LC         Fix missing table not identying if table deleted
+2021-09-30  LC         fix bug on multilookup data type change error 
 2021-01-31  LC         update to allow for multi language default columns
 2020-12-31  LC         rework logic to show column types
 2020-12-10  LC         update result to improve usage of the procedure
@@ -424,8 +426,11 @@ SELECT cte.ColumnType,
     UPDATE ##spMFClassTableColumns
     SET MissingColumn = 1
     FROM ##spMFClassTableColumns AS pc
+    LEFT JOIN INFORMATION_SCHEMA.Columns AS t
+    ON pc.ColumnName = t.COLUMN_NAME AND pc.TableName = t.TABLE_NAME
     WHERE pc.IncludedInApp IS NOT NULL
-          AND pc.column_DataType IS NULL;
+      AND t.COLUMN_NAME IS null
+          AND pc.MissingColumn IS NULL;
 
     UPDATE ##spMFClassTableColumns
     SET RedundantTable = 1
@@ -436,22 +441,24 @@ SELECT cte.ColumnType,
     UPDATE ##spMFClassTableColumns
     SET MissingTable = 1
     FROM ##spMFClassTableColumns AS pc
+    LEFT JOIN INFORMATION_SCHEMA.TABLES AS t
+    ON pc.TableName = t.TABLE_NAME
     WHERE pc.IncludedInApp IS NOT NULL
-          AND pc.column_DataType IS NULL
-          AND pc.MissingColumn IS NULL;
+      AND t.TABLE_NAME IS null
+          AND pc.MissingTable IS NULL;
 
     UPDATE ##spMFClassTableColumns
     SET ColumnDataTypeError = 1
     FROM ##spMFClassTableColumns AS pc
     WHERE pc.MFdataType_ID IN ( 1 )
-          AND pc.length <> 100
+          AND pc.[length] <> 100
           AND pc.IncludedInApp = 1;
 
     UPDATE ##spMFClassTableColumns
     SET ColumnDataTypeError = 1
     FROM ##spMFClassTableColumns AS pc
     WHERE pc.MFdataType_ID IN ( 10 )
-          AND pc.length <> 4000
+          AND pc.[length] <> 4000
           AND pc.IncludedInApp IS NOT NULL;
 
     UPDATE ##spMFClassTableColumns
@@ -469,6 +476,14 @@ SELECT cte.ColumnType,
           AND pc.column_DataType NOT IN( 'int','INTEGER')
           AND pc.IncludedInApp IS NOT NULL
      --     AND pc.ColumnType <> 'Lookup Lable Column';
+
+    UPDATE ##spMFClassTableColumns
+    SET ColumnDataTypeError = 1
+    -- SELECT *
+    FROM ##spMFClassTableColumns AS pc
+    WHERE pc.MFdataType_ID IN ( 10 )
+          AND pc.[length] IS null
+          AND pc.IncludedInApp IS NOT NULL
 
     IF @ErrorsOnly = 1
        AND @IsSilent = 0

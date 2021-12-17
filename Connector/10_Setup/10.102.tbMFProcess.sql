@@ -87,9 +87,9 @@ WHERE   ID IN ( 0, 1, 2, 3, 4 );
 
 INSERT  [dbo].[MFProcess]
         ( [ID], [Name], [Description], [ModifiedOn] )
-VALUES  ( 0, N'To M-Files', N'Set by Connector to show record updated by M-Files',
+VALUES  ( 0, N'From M-Files', N'Set by Connector to show record updated by M-Files',
           GETDATE() ),
-        ( 1, N'From M-Files', N'Set by user to show record to be updated to M-Files',
+        ( 1, N'To M-Files', N'Set by user to show record to be updated to M-Files',
           GETDATE() ),
         ( 2, N'SyncronisationError',
           N'Set by Connector to show Syncronisation errors', GETDATE() ),

@@ -1,10 +1,13 @@
 
-EXEC dbo.spMFDeploymentDetails 
+EXEC dbo.spMFDeploymentDetails @Type = 0
 
 SET NOCOUNT OFF;
 RETURN 0;
 END TRY
 BEGIN CATCH
+
+EXEC dbo.spMFDeploymentDetails @Type = -1
+
 	DECLARE @ErrorMessage NVARCHAR(4000)
     DECLARE @ErrorSeverity INT
     DECLARE @ErrorState INT

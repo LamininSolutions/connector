@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'MFvwClassTableColumns' -- nvarchar(100)
-                                    ,@Object_Release = '4.2.7.46'           -- varchar(50)
+                                    ,@Object_Release = '4.9.27.72'           -- varchar(50)
                                     ,@UpdateFlag = 2;                       -- smallint
 GO
 
@@ -82,12 +82,12 @@ Changelog
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
 
-
+2021-10-26  LC         Set max columns to 10000
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
 
-SELECT TOP 1000
+SELECT TOP 10000
        [mc].[TableName]
       ,CASE
            WHEN [mp2].[MFID] > 100

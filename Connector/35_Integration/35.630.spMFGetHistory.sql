@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFGetHistory',
     -- nvarchar(100)
-    @Object_Release = '4.8.27.68',
+    @Object_Release = '4.9.27.72',
     -- varchar(50)
     @UpdateFlag = 2;
 GO
@@ -72,7 +72,7 @@ Parameters
     - Set process_id in the class table for records to be selected
     - Use process_id not in (1-4) e.g. 5
   @ColumnNames nvarchar(4000)
-    - Comma delimited list of the columns to be included in the export
+    - The column (Property) to be included in the export 
   @IsFullHistory bit
     - Default = 1
     - 1 will include all the changes of the object for the specified column names
@@ -248,9 +248,45 @@ BEGIN
         DECLARE @return_value AS INT;
         DECLARE @RC INT;
         --  DECLARE @Update_ID INT;
+        DECLARE @Params NVARCHAR(MAX);
+        DECLARE @ID INT; --prop mfid;
+        DECLARE @VQuery NVARCHAR(MAX);
+        DECLARE @Filter NVARCHAR(MAX);
+        DECLARE @Result NVARCHAR(MAX);
+        DECLARE @Idoc INT;
+        DECLARE @Criteria VARCHAR(258);
+        DECLARE @BatchSize INT = 500;
+        DECLARE @MinBatchRow INT;
+        DECLARE @MaxBatchrow INT;
+        DECLARE @FromObjid INT;
+        DECLARE @ToObjid INT;
+        DECLARE @PropID INT;
+        DECLARE @propertyIDString NVARCHAR(100);
+        DECLARE @BeforeCount INT;
+           DECLARE @MFLastModifiedDateColumn NVARCHAR(100);
+        ---------------------------------------------------------------
+        --      Checking module access for CLR procdure  spMFGetHistoryInternal
+        ----------------------------------------------------------------
+        SET @DebugText = N'';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = 'Check License ';
+
+        IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        END;
+
+
+
+        -------------------------------------------------------------
+        -- get last modified date column
+        -------------------------------------------------------------
+        SELECT @MFLastModifiedDateColumn = ColumnName
+        FROM dbo.MFProperty
+        WHERE MFID = 21;
 
         ----------------------------------------------------------------------
-        --GET Vault LOGIN CREDENTIALS
+        --initialise entry in UpdateHistory
         ----------------------------------------------------------------------
         DECLARE @Username NVARCHAR(2000);
         DECLARE @VaultName NVARCHAR(2000);
@@ -308,124 +344,6 @@ BEGIN
         SET @LogTypeDetail = N'Debug';
         SET @LogStatusDetail = N'Started';
         SET @StartTime = GETUTCDATE();
-
-        IF
-        (
-            SELECT OBJECT_ID('tempdb..#TempProperty')
-        ) IS NOT NULL
-            DROP TABLE #TempProperty;
-
-        CREATE TABLE #TempProperty
-        (
-            ID INT IDENTITY(1, 1),
-            ColumnName NVARCHAR(200),
-            IsValidProperty BIT
-                DEFAULT (0)
-        );
-
-        INSERT INTO #TempProperty
-        (
-            ColumnName
-        )
-        SELECT LTRIM(ListItem)
-        FROM dbo.fnMFParseDelimitedString(@ColumnNames, ',');
-
-        DECLARE @ID INT;
-
-        SELECT @ID = MIN(ID)
-        FROM #TempProperty;
-
-
-        -------------------------------------------------------------
-        -- Validation of column
-        -------------------------------------------------------------
-        WHILE @ID IS NOT NULL
-        BEGIN --loop FOR validating column
-            DECLARE @PropertyName NVARCHAR(200);
-
-            SELECT @PropertyName = ColumnName
-            FROM #TempProperty
-            WHERE ID = @ID;
-
-            IF EXISTS
-            (
-                SELECT TOP 1
-                    *
-                FROM dbo.MFProperty WITH (NOLOCK)
-                WHERE ColumnName = @PropertyName
-            )
-            BEGIN --set validity
-                UPDATE #TempProperty
-                SET IsValidProperty = 1
-                WHERE ID = @ID;
-            END;
-
-            --end set validity
-            --ELSE
-            --Begin
-            --IF EXISTS
-            --(
-            --    SELECT TOP 1
-            --        *
-            --    FROM dbo.MFProperty WITH (NOLOCK)
-            --    WHERE ColumnName = @PropertyName + N'_ID'
-            --          AND MFDataType_ID IN ( 8, 9 )
-            --)
-            --BEGIN --reset column to include _ID
-            --    UPDATE #TempProperty
-            --    SET IsValidProperty = 1,
-            --        ColumnName = @PropertyName + N'_ID'
-            --    WHERE ID = @Counter;
-            --END; --end reset
-            --END; --end else
-            SET @ID =
-            (
-                SELECT MIN(tp.ID) FROM #TempProperty AS tp WHERE tp.ID > @ID
-            );
-        END; -- end loop for validating column
-
-        BEGIN -- error invalid column
-            SET @ProcedureStep = 'Invalid columns: ';
-
-            SELECT @DebugText = ''
-            SELECT @DebugText = COALESCE(@ColumnNames + ',', '') + ColumnName
-            FROM #TempProperty
-            WHERE IsValidProperty = 0;
-
-            SET @DebugText = @DefaultDebugText + ISNULL(@DebugText,'');
-
-            IF @debug > 0 
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-        END; --end error invalid column
-
-        SET @ColumnNames = NULL;
-        SET @ProcedureStep = ' Get validated columns: ';
-
-        SELECT @ColumnNames = COALESCE(@ColumnNames + ',', '') + ColumnName
-        FROM #TempProperty
-        WHERE IsValidProperty = 1;
-
-        SELECT @PropertyIDs = COALESCE(@PropertyIDs + ',', '') + CAST(MFID AS VARCHAR(20))
-        FROM dbo.MFProperty WITH (NOLOCK)
-        WHERE ColumnName IN
-              (
-                  SELECT ListItem FROM dbo.fnMFParseDelimitedString(@ColumnNames, ',')
-              );
-
-              IF @debug > 0
-              SELECT @ColumnNames AS columnnames, @PropertyIDs AS propertyids;
-
-        SELECT @rowcount = COUNT(*)
-        FROM dbo.fnMFParseDelimitedString(@ColumnNames, ',');
-
-        SET @DebugText = @ColumnNames;
-        SET @DebugText = @DefaultDebugText + @DebugText;
-
-        IF @Debug > 0
-        BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-        END;
-
         SET @LogTextDetail = N' Columns: ' + @ColumnNames;
         SET @LogColumnName = N' Count ';
         SET @LogColumnValue = CAST(@rowcount AS VARCHAR(10));
@@ -449,7 +367,8 @@ BEGIN
         ----------------------------------------------------------------------
         SET @ProcedureStep = 'GET ObjectType of class table ' + @MFTableName;
 
-        SELECT @ObjectType = OT.MFID, @Class_ID = cls.mfid
+        SELECT @ObjectType = OT.MFID,
+            @Class_ID      = CLS.MFID
         FROM dbo.MFClass                AS CLS
             INNER JOIN dbo.MFObjectType AS OT
                 ON CLS.MFObjectType_ID = OT.ID
@@ -476,10 +395,6 @@ BEGIN
         END;
 
         SET @StartTime = GETUTCDATE();
-
-        DECLARE @VQuery NVARCHAR(MAX),
-            @Filter     NVARCHAR(MAX);
-
         SET @Filter = N'where  Process_ID=' + CONVERT(VARCHAR(10), @Process_id);
 
         IF
@@ -490,17 +405,30 @@ BEGIN
 
         CREATE TABLE #TempObjIDs
         (
-            ObjID INT
+            TempTable_ID INT IDENTITY,
+            ObjID INT PRIMARY KEY
         );
 
         SET @VQuery = N'insert into #TempObjIDs(ObjID)  select [ObjID] 
 										 FROM  ' + @MFTableName + N'
-										  ' + @Filter + N'';
+										  ' + @Filter + N' ';
+
+        IF @IsFullHistory = 0 AND @StartDate IS NOT null
+        BEGIN
+        SET @VQuery = @Vquery + ' and '+ QUOTENAME(@MFLastModifiedDateColumn) + ' >= ''' + CAST(CONVERT(DATE, @StartDate) AS NVARCHAR(25)) + ''' ;';
+        END
 
         EXEC (@VQuery);
 
-        SELECT @rowcount = COUNT(*)
-        FROM #TempObjIDs AS toid;
+        SELECT @rowcount = @@RowCount;
+
+        IF @debug > 0
+        BEGIN
+          SELECT @FromObjid = MIN(toid.ObjID), @ToObjid = MAX(objid), @MaxBatchrow = MAX(toid.TempTable_ID)
+            FROM #TempObjIDs AS toid
+
+SELECT @MFTableName AS tablename, @FromObjid fromobjid, @ToObjid Toobjid, @MaxBatchrow AS Lastrow;
+end
 
         -------------------------------------------------------------
         -- set max length
@@ -528,13 +456,7 @@ BEGIN
         ---------------------------------------------------------------------
         --Calling spMFGetHistoryInternal  procedure to objects history
         ----------------------------------------------------------------------
-        DECLARE @Result NVARCHAR(MAX);
-        DECLARE @Idoc INT;
-
-        SET @ProcedureStep = 'Calling spMFGetHistoryInternal ';
-
-        DECLARE @Criteria VARCHAR(258);
-
+        SET @ProcedureStep = 'Set criteria ';
         SET @Criteria = CASE
                             WHEN @IsFullHistory = 1 THEN
                                 ' Full History '
@@ -542,22 +464,16 @@ BEGIN
                                  AND @NumberOFDays > 0 THEN
                                 ' For Number of days: ' + CAST(@NumberOFDays AS VARCHAR(5)) + ''
                             WHEN @IsFullHistory = 0
-                                 AND @NumberOFDays < 0
+                                 AND
+                                 (
+                                     @NumberOFDays < 0
+                                     OR @NumberOFDays IS NULL
+                                 )
                                  AND @StartDate <> '2000-01-01' THEN
                                 ' From date: ' + CAST((CONVERT(DATE, @StartDate)) AS VARCHAR(25)) + ''
                             ELSE
                                 ' No Criteria'
                         END;
-
-        DECLARE @Params NVARCHAR(MAX);
-
-        SET @VQuery
-            = N'SELECT @rowcount = COUNT(*) FROM ' + @MFTableName + N' where process_ID = '
-              + CAST(@Process_id AS VARCHAR(5)) + N'';
-        SET @Params = N'@RowCount int output';
-
-        EXEC sys.sp_executesql @VQuery, @Params, @RowCount = @rowcount OUTPUT;
-
         SET @LogTypeDetail = N'Debug';
         SET @LogStatusDetail = N'In progress';
         SET @LogTextDetail = N' Criteria:  ' + ISNULL(@Criteria, 'No criteria');
@@ -579,24 +495,6 @@ BEGIN
             @LogProcedureStep = @ProcedureStep,
             @debug = @Debug;
 
-        -- note that ability to use a search criteria is not yet active.
-
-        -----------------------------------------------------------------
-        -- Checking module access for CLR procdure  spMFGetHistoryInternal
-        ------------------------------------------------------------------
-        SET @DebugText = N'';
-        SET @DebugText = @DefaultDebugText + @DebugText;
-        SET @ProcedureStep = 'Check License ';
-
-        IF @Debug > 0
-        BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-        END;
-
-        EXEC dbo.spMFCheckLicenseStatus 'spMFGetHistory',
-            @ProcedureName,
-            @ProcedureStep;
-
         -------------------------------------------------------------
         -- Batch Get history
         -------------------------------------------------------------
@@ -609,351 +507,125 @@ BEGIN
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
-        DECLARE @BatchSize INT = 500;
-        DECLARE @MaxBatchrow INT;
+        SELECT @MinBatchRow = 1,
+            @MaxBatchrow    = MAX(toid.TempTable_ID)
+        FROM #TempObjIDs AS toid;
 
-        SET @MaxBatchrow =
-        (
-            SELECT MIN(toid.ObjID) FROM #TempObjIDs AS toid
-        );
+        --start of main loop
 
-        WHILE @MaxBatchrow < (SELECT MAX(toid.ObjID) + 1 FROM #TempObjIDs AS toid)
+        WHILE @MinBatchRow IS NOT NULL
         BEGIN; -- batching objids
+            ;
+
+IF @debug > 0
+SELECT @MFTableName AS tablename, @FromObjid fromobjid, @MinBatchRow AS nextstartrow, @ToObjid Toobjid, @MaxBatchrow AS Lastrow;
+
+
             WITH cte
             AS (SELECT TOP 500
                     toid.ObjID
                 FROM #TempObjIDs AS toid
-                WHERE toid.ObjID > @MaxBatchrow - 1)
+                WHERE toid.TempTable_ID > @MinBatchRow  -1 
+                ORDER BY toid.TempTable_ID)
             SELECT @ObjIDs = STUFF(
                              (
-                                 SELECT ',' + CAST(cte.ObjID AS VARCHAR(10))FROM cte FOR XML PATH('')
+                                 SELECT ',' + CAST(cte.ObjID AS VARCHAR(10))FROM cte ORDER BY objid FOR XML PATH('')
                              ),
                                       1,
                                       1,
                                       ''
                                   );
 
+            SELECT @FromObjid = MIN(fmpds.ListItem)
+            FROM dbo.fnMFParseDelimitedString(@ObjIDs, ',') AS fmpds;
+
+            SELECT @ToObjid = MAX(fmpds.ListItem)
+            FROM dbo.fnMFParseDelimitedString(@ObjIDs, ',') AS fmpds;
+
             IF @Debug > 0
             BEGIN
-                SELECT @ObjIDs AS ObjIDS;
+                SELECT @FromObjid AS FromObjid,
+                    @ToObjid      AS ToObjid;
             END;
 
             UPDATE dbo.MFUpdateHistory
-            SET ObjectDetails = @ObjIDs,
+            SET ObjectDetails = 'From ' + CAST(@FromObjid AS NVARCHAR(100)) + ' To ' + CAST(@ToObjid AS NVARCHAR(100))
+                                + '',
                 ObjectVerDetails = @PropertyIDs
             WHERE Id = @Update_ID;
 
-            SET @DebugText = N'';
+            SET @DebugText = N' %i';
             SET @DebugText = @DefaultDebugText + @DebugText;
-            SET @ProcedureStep = 'GetHistoryInternal ';
+            SET @ProcedureStep = 'GetHistoryInternal from objid ';
 
             IF @Debug > 0
             BEGIN
                 SELECT @ObjectType AS objecttype,
                     @ObjIDs        AS objids,
-                    @PropertyIDs   AS propertyids,
+                    @ColumnNames   AS propertyids,
                     @IsFullHistory AS IsfullHistory,
                     @StartDate     AS Startdate;
 
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @FromObjid);
+            END;
+
+            
+            SELECT @PropID = MFID
+            FROM dbo.MFProperty
+            WHERE ColumnName = @ColumnNames;
+
+
+            SELECT @propertyIDString = CAST(@PropID AS NVARCHAR(10));
+
+            IF @objids IS NOT null
+            Begin
+            EXEC dbo.spMFGetHistoryInternal @VaultSettings = @VaultSettings,
+                @ObjectType = @ObjectType,
+                @ObjIDs = @ObjIDs,
+                @PropertyIDs = @propertyIDString,
+                @SearchString = NULL,
+                @IsFullHistory = @IsFullHistory,
+                @NumberOfDays = @NumberOFDays,
+                @StartDate = @StartDate,
+                @Result = @Result OUTPUT;
+
+            IF @Debug > 0
+            BEGIN
+                SELECT CAST(@Result AS XML) AS ResultsAsXML;
+
+                SELECT @Result AS Results;
+            END;
+
+            IF (@Update_ID > 0)
+                UPDATE dbo.MFUpdateHistory
+                SET NewOrUpdatedObjectVer = @Result
+                WHERE Id = @Update_ID;
+
+                END
+
+            EXEC sys.sp_xml_preparedocument @Idoc OUTPUT, @Result;
+
+            SET @DebugText = N'';
+            SET @DebugText = @DefaultDebugText + @DebugText;
+            SET @ProcedureStep = 'Wrapper performed';
+
+            IF @Debug > 0
+            BEGIN
                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
             END;
 
-            DECLARE @PropertyList AS TABLE
-            (
-                ID INT
-            );
+            SELECT @rowcount = COUNT(*)
+            FROM
+            (SELECT fmss.Item FROM dbo.fnMFSplitString(@ObjIDs, ',') AS fmss ) list;
 
-            DECLARE @PropID INT;
-            DECLARE @propertyIDString NVARCHAR(100);
-
-            IF ISNULL(@PropertyIDs, '') = ''
-            BEGIN;
-                WITH cte
-                AS (SELECT mfms.Property_MFID property_ID
-                    FROM dbo.MFvwMetadataStructure AS mfms
-                    WHERE mfms.ObjectType_MFID = @ObjectType
-                          AND mfms.class_MFID = @Class_ID
-                    GROUP BY mfms.Property_MFID)
-                INSERT INTO @PropertyList
-                (
-                    ID
-                )
-                SELECT cte.property_ID
-                FROM cte;
-            END;
-            ELSE
-                INSERT INTO @PropertyList
-                (
-                    ID
-                )
-                SELECT fmpds.ListItem
-                FROM dbo.fnMFParseDelimitedString(@PropertyIDs, ',') AS fmpds;
-
-            SELECT @PropID = MIN(pl.ID)
-            FROM @PropertyList AS pl;
-
-            WHILE @PropID IS NOT NULL
-            BEGIN
-                SELECT @propertyIDString = CAST(@PropID AS NVARCHAR(10));
-
-                EXEC dbo.spMFGetHistoryInternal @VaultSettings = @VaultSettings,
-                    @ObjectType = @ObjectType,
-                    @ObjIDs = @ObjIDs,
-                    @PropertyIDs = @propertyIDString,
-                    @SearchString = NULL,
-                    @IsFullHistory = @IsFullHistory,
-                    @NumberOfDays = @NumberOFDays,
-                    @StartDate = @StartDate,
-                    @Result = @Result OUTPUT;
-
-                IF @Debug > 0
-                BEGIN
-                    SELECT CAST(@Result AS XML) AS ResultsAsXML;
-
-                    SELECT @Result AS Results;
-                END;
-
-                IF (@Update_ID > 0)
-                    UPDATE dbo.MFUpdateHistory
-                    SET NewOrUpdatedObjectVer = @Result
-                    WHERE Id = @Update_ID;
-
-                EXEC sys.sp_xml_preparedocument @Idoc OUTPUT, @Result;
-
-                SET @DebugText = N'';
-                SET @DebugText = @DefaultDebugText + @DebugText;
-                SET @ProcedureStep = 'Wrapper performed';
-
-                IF @Debug > 0
-                BEGIN
-                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-                END;
-
-                SELECT @rowcount = COUNT(*)
-                FROM
-                (SELECT fmss.Item FROM dbo.fnMFSplitString(@ObjIDs, ',') AS fmss ) list;
-
-                SET @LogTypeDetail = N'Debug';
-                SET @LogStatusDetail = N'Completed column: ' + CAST(@rowcount AS VARCHAR(10));
-                SET @LogTextDetail = N'Criteria:  ' + @Criteria;
-                SET @LogColumnName = N'Object Count';
-                SET @LogColumnValue = CAST(@rowcount AS VARCHAR(5));
-                SET @StartTime = GETUTCDATE();
-
-                EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_id,
-                    @LogType = @LogTypeDetail,
-                    @LogText = @LogTextDetail,
-                    @LogStatus = @LogStatusDetail,
-                    @StartTime = @StartTime,
-                    @MFTableName = @MFTableName,
-                    @Validation_ID = @Validation_ID,
-                    @ColumnName = @LogColumnName,
-                    @ColumnValue = @LogColumnValue,
-                    @Update_ID = @Update_ID,
-                    @LogProcedureName = @ProcedureName,
-                    @LogProcedureStep = @ProcedureStep,
-                    @debug = @Debug;
-
-                ----------------------------------------------------------------------------------
-                --Creating temp table #Temp_ObjectHistory for storing object history xml records
-                --------------------------------------------------------------------------------
-                SET @ProcedureStep = 'Creating temp table #Temp_ObjectHistory';
-
-                IF
-                (
-                    SELECT OBJECT_ID('tempdb..#Temp_ObjectHistory')
-                ) IS NOT NULL
-                    DROP TABLE #Temp_ObjectHistory;
-
-                CREATE TABLE #Temp_ObjectHistory
-                (
-                    RowNr INT IDENTITY,
-                    ObjectType_ID INT,
-                    Class_ID INT,
-                    ObjID INT,
-                    MFVersion INT,
-                    LastModifiedUTC NVARCHAR(100),
-                    -- LastModifiedUTC DATETIME,
-                    MFLastModifiedBy_ID INT,
-                    Property_ID INT,
-                    Property_Value NVARCHAR(300),
-                    CreatedOn DATETIME
-                );
-
-                INSERT INTO #Temp_ObjectHistory
-                (
-                    ObjectType_ID,
-                    Class_ID,
-                    ObjID,
-                    MFVersion,
-                    LastModifiedUTC,
-                    MFLastModifiedBy_ID,
-                    Property_ID,
-                    Property_Value,
-                    CreatedOn
-                )
-                SELECT ObjectType,
-                    ClassID,
-                    ObjID,
-                    Version,
-                    LastModifiedUTC,
-                    LastModifiedBy_ID,
-                    Property_ID,
-                    Property_Value,
-                    GETDATE()
-                FROM
-                    OPENXML(@Idoc, '/form/Object', 1)
-                    WITH
-                    (
-                        ObjectType INT '@ObjectType',
-                        ClassID INT '@ClassID',
-                        ObjID INT '@ObjID',
-                        Version INT '@Version',
-                        --      , [LastModifiedUTC] NVARCHAR(30) '../@LastModifiedUTC'
-                        LastModifiedUTC NVARCHAR(100) '@CheckInTimeStamp',
-                        --        LastModifiedUTC Datetime '../@CheckInTimeStamp',
-                        LastModifiedBy_ID INT '@LastModifiedBy_ID',
-                        Property_ID INT '@Property_ID',
-                        Property_Value NVARCHAR(300) '@Property_Value'
-                    )
-                    WHERE  '@Property_ID' IS NOT null ;
-
-                IF @Debug > 0
-                    SELECT *
-                    FROM #Temp_ObjectHistory AS toh;
-
-                IF @Idoc IS NOT NULL
-                    EXEC sys.sp_xml_removedocument @Idoc;
-
-                ----------------------------------------------------------------------------------
-                --Merge/Inserting records into the MFObjectChangeHistory from Temp_ObjectHistory
-                --------------------------------------------------------------------------------
-                SET @ProcedureStep = 'Update MFObjectChangeHistory';
-
-                DECLARE @BeforeCount INT;
-
-                SELECT @BeforeCount = COUNT(*)
-                FROM dbo.MFObjectChangeHistory;
-
-                MERGE INTO dbo.MFObjectChangeHistory AS t
-                USING
-                (SELECT * FROM #Temp_ObjectHistory AS toh) AS s
-                ON t.ObjectType_ID = s.ObjectType_ID
-                   AND t.Class_ID = s.Class_ID
-                   AND t.ObjID = s.ObjID
-                   AND t.MFVersion = s.MFVersion
-                   AND t.Property_ID = s.Property_ID
-                WHEN MATCHED THEN
-                    UPDATE SET
-                        --    t.LastModifiedUtc = dbo.fnMFTextToDate(s.LastModifiedUTC, '/'),
-                        t.LastModifiedUtc = CONVERT(DATETIME, s.LastModifiedUTC),
-                        --     t.LastModifiedUtc =s.LastModifiedUTC,
-                        t.Property_Value = s.Property_Value
-                WHEN NOT MATCHED BY TARGET THEN
-                    INSERT
-                    (
-                        ObjectType_ID,
-                        Class_ID,
-                        ObjID,
-                        MFVersion,
-                        LastModifiedUtc,
-                        MFLastModifiedBy_ID,
-                        Property_ID,
-                        Property_Value,
-                        CreatedOn
-                    )
-                    VALUES
-                    (   s.ObjectType_ID, s.Class_ID, s.ObjID, s.MFVersion, CONVERT(DATETIME, s.LastModifiedUTC),
-                        --dbo.fnMFTextToDate(s.LastModifiedUTC, '/'),
-                        --      s.LastModifiedUTC,
-                        s.MFLastModifiedBy_ID, s.Property_ID, s.Property_Value, s.CreatedOn);
-
-                -------------------------------------------------------------
-                -- Delete duplicate change records
-                -------------------------------------------------------------
-                DELETE dbo.MFObjectChangeHistory
-                WHERE ID IN
-                      (
-                          SELECT toh.ID
-                          FROM #Temp_ObjectHistory                 AS toh2
-                              INNER JOIN dbo.MFObjectChangeHistory AS toh
-                                  ON toh.ObjID = toh2.ObjID
-                                     AND toh.Class_ID = toh2.Class_ID
-                                     AND toh.Property_ID = toh2.Property_ID
-                                     AND toh.MFVersion = toh2.MFVersion
-                              INNER JOIN dbo.MFObjectChangeHistory AS moch
-                                  ON toh.ObjID = moch.ObjID
-                                     AND toh.Class_ID = moch.Class_ID
-                                     AND toh.Property_ID = moch.Property_ID
-                                     AND toh.Property_Value = moch.Property_Value
-                          WHERE toh.MFVersion = moch.MFVersion + 1
-                      );
-
-                SET @rowcount =
-                (
-                    SELECT COUNT(*) FROM dbo.MFObjectChangeHistory AS moch
-                ) - @BeforeCount;
-                -------------------------------------------------------------
-                -- Reset process_ID
-                -------------------------------------------------------------
-                SET @Params = N'@objids nvarchar(max)';
-                SET @ProcedureStep = 'Reset process_id';
-                SET @VQuery
-                    = N'
-					UPDATE t
-                    SET Process_ID = 0 
-                    From ' + QUOTENAME(@MFTableName)
-                      + N' t
-                    inner join (Select item from dbo.fnMFSplitString(@Objids,'','') )fmss
-                    on fmss.item = t.objid
-					WHERE process_ID = ' + CAST(@Process_id AS VARCHAR(5)) + N'';
-
-                --                  IF @debug > 0
-                --                  PRINT @VQuery;
-                EXEC sys.sp_executesql @VQuery, @Params, @ObjIDs;
-
-                --truncate table MFObjectChangeHistory
-                IF
-                (
-                    SELECT OBJECT_ID('tempdb..#Temp_ObjectHistory')
-                ) IS NOT NULL
-                    DROP TABLE #Temp_ObjectHistory;
-
-                                SELECT @PropID =
-            (
-                SELECT MIN(pl.ID) FROM @PropertyList AS pl WHERE pl.ID > @PropID
-            );
-        END; -- end processing CLR
-
-          SELECT @MaxBatchrow = @MaxBatchrow + 500;
-            END; -- end batch process
-
-            IF
-            (
-                SELECT OBJECT_ID('tempdb..#TempObjIDs')
-            ) IS NOT NULL
-                DROP TABLE #TempObjIDs;
-
-            SET @ProcessType = @ProcedureName;
-            SET @LogText = @ProcedureName + N' Ended ';
-            SET @LogStatus = N'Completed';
+            SET @LogTypeDetail = N'Debug';
+            SET @LogStatusDetail = N'Column: ' + CAST(@rowcount AS VARCHAR(10));
+            SET @LogTextDetail = N'Criteria:  ' + @Criteria;
+            SET @LogColumnName = N'Object Count';
+            SET @LogColumnValue = CAST(@rowcount AS VARCHAR(5));
             SET @StartTime = GETUTCDATE();
 
-            EXECUTE @RC = dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_id,
-                @ProcessType = @ProcessType,
-                @LogType = @LogType,
-                @LogText = @LogText,
-                @LogStatus = @LogStatus,
-                @debug = @Debug;
-
-            SET @LogTypeDetail = N'Message';
-            SET @LogTextDetail = N'History inserted in MFObjectChangeHistory';
-            SET @LogStatusDetail = N'Completed';
-            SET @Validation_ID = NULL;
-            SET @LogColumnValue = N'New History';
-            SET @LogColumnValue = CAST(@rowcount AS VARCHAR(5));
-
-            EXECUTE @RC = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_id,
+            EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_id,
                 @LogType = @LogTypeDetail,
                 @LogText = @LogTextDetail,
                 @LogStatus = @LogStatusDetail,
@@ -967,7 +639,227 @@ BEGIN
                 @LogProcedureStep = @ProcedureStep,
                 @debug = @Debug;
 
+            ----------------------------------------------------------------------------------
+            --Creating temp table #Temp_ObjectHistory for storing object history xml records
+            --------------------------------------------------------------------------------
+            SET @ProcedureStep = 'Creating temp table #Temp_ObjectHistory';
 
+            IF
+            (
+                SELECT OBJECT_ID('tempdb..#Temp_ObjectHistory')
+            ) IS NOT NULL
+                DROP TABLE #Temp_ObjectHistory;
+
+            CREATE TABLE #Temp_ObjectHistory
+            (
+                RowNr INT IDENTITY,
+                ObjectType_ID INT,
+                Class_ID INT,
+                ObjID INT,
+                MFVersion INT,
+                LastModifiedUTC NVARCHAR(100),
+                -- LastModifiedUTC DATETIME,
+                MFLastModifiedBy_ID INT,
+                Property_ID INT,
+                Property_Value NVARCHAR(300),
+                CreatedOn DATETIME
+            );
+
+            INSERT INTO #Temp_ObjectHistory
+            (
+                ObjectType_ID,
+                Class_ID,
+                ObjID,
+                MFVersion,
+                LastModifiedUTC,
+                MFLastModifiedBy_ID,
+                Property_ID,
+                Property_Value,
+                CreatedOn
+            )
+            SELECT ObjectType,
+                ClassID,
+                ObjID,
+                Version,
+                LastModifiedUTC,
+                LastModifiedBy_ID,
+                Property_ID,
+                Property_Value,
+                GETDATE()
+            FROM
+                OPENXML(@Idoc, '/form/Object', 1)
+                WITH
+                (
+                    ObjectType INT '@ObjectType',
+                    ClassID INT '@ClassID',
+                    ObjID INT '@ObjID',
+                    Version INT '@Version',
+                    --      , [LastModifiedUTC] NVARCHAR(30) '../@LastModifiedUTC'
+                    LastModifiedUTC NVARCHAR(100) '@CheckInTimeStamp',
+                    --        LastModifiedUTC Datetime '../@CheckInTimeStamp',
+                    LastModifiedBy_ID INT '@LastModifiedBy_ID',
+                    Property_ID INT '@Property_ID',
+                    Property_Value NVARCHAR(300) '@Property_Value'
+                )
+            WHERE '@Property_ID' IS NOT NULL;
+
+            IF @Debug > 0
+                SELECT *
+                FROM #Temp_ObjectHistory AS toh;
+
+            IF @Idoc IS NOT NULL
+                EXEC sys.sp_xml_removedocument @Idoc;
+
+            ----------------------------------------------------------------------------------
+            --Merge/Inserting records into the MFObjectChangeHistory from Temp_ObjectHistory
+            --------------------------------------------------------------------------------
+            SET @ProcedureStep = 'Update MFObjectChangeHistory';
+
+            SELECT @BeforeCount = COUNT(*)
+            FROM dbo.MFObjectChangeHistory;
+
+            BEGIN TRAN;
+
+            INSERT INTO dbo.MFObjectChangeHistory
+            (
+                ObjectType_ID,
+                Class_ID,
+                ObjID,
+                MFVersion,
+                LastModifiedUtc,
+                MFLastModifiedBy_ID,
+                Property_ID,
+                Property_Value,
+                CreatedOn
+            )
+            SELECT s.ObjectType_ID,
+                s.Class_ID,
+                s.ObjID,
+                s.MFVersion,
+                CONVERT(DATETIME, s.LastModifiedUTC),
+                s.MFLastModifiedBy_ID,
+                s.Property_ID,
+                s.Property_Value,
+                s.CreatedOn
+            FROM #Temp_ObjectHistory                AS s
+                LEFT JOIN dbo.MFObjectChangeHistory t
+                    ON t.ObjectType_ID = s.ObjectType_ID
+                       AND t.Class_ID = s.Class_ID
+                       AND t.ObjID = s.ObjID
+                       AND t.MFVersion = s.MFVersion
+                       AND t.Property_ID = s.Property_ID
+            WHERE t.ID IS NULL;
+
+            COMMIT TRAN;
+
+            SET @rowcount = @@RowCount;
+            SET @DebugText = N'';
+            SET @DebugText = @DefaultDebugText + @DebugText;
+            SET @ProcedureStep = 'Update history table';
+
+            IF @Debug > 0
+            BEGIN
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            END;
+
+            SET @LogTypeDetail = N'Debug';
+            SET @LogStatusDetail = N'Column: ' + CAST(@rowcount AS VARCHAR(10));
+            SET @LogTextDetail = N'Criteria:  ' + @Criteria;
+            SET @LogColumnName = N'Objects inserted';
+            SET @LogColumnValue = CAST(@rowcount AS VARCHAR(5));
+            SET @StartTime = GETUTCDATE();
+
+            EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_id,
+                @LogType = @LogTypeDetail,
+                @LogText = @LogTextDetail,
+                @LogStatus = @LogStatusDetail,
+                @StartTime = @StartTime,
+                @MFTableName = @MFTableName,
+                @Validation_ID = @Validation_ID,
+                @ColumnName = @LogColumnName,
+                @ColumnValue = @LogColumnValue,
+                @Update_ID = @Update_ID,
+                @LogProcedureName = @ProcedureName,
+                @LogProcedureStep = @ProcedureStep,
+                @debug = @Debug;
+
+            -------------------------------------------------------------
+            -- Reset process_ID
+            -------------------------------------------------------------
+            SET @Params = N'@objids nvarchar(max)';
+            SET @ProcedureStep = 'Reset process_id';
+            SET @VQuery
+                = N'
+					UPDATE t
+                    SET Process_ID = 0 
+                    From ' + QUOTENAME(@MFTableName)
+                  + N' t
+                    inner join (Select item from dbo.fnMFSplitString(@Objids,'','') )fmss
+                    on fmss.item = t.objid
+					WHERE process_ID = ' + CAST(@Process_id AS VARCHAR(5)) + N'';
+
+            --                  IF @debug > 0
+            --                  PRINT @VQuery;
+--            EXEC sys.sp_executesql @VQuery, @Params, @ObjIDs;
+
+            --truncate table MFObjectChangeHistory
+            IF
+            (
+                SELECT OBJECT_ID('tempdb..#Temp_ObjectHistory')
+            ) IS NOT NULL
+                DROP TABLE #Temp_ObjectHistory;
+
+            SELECT @MinBatchRow =
+            (
+                SELECT MIN(toid.TempTable_ID)
+                FROM #TempObjIDs AS toid
+                WHERE toid.TempTable_ID > @MinBatchRow + 500 
+            );
+
+            IF @MinBatchRow > @MaxBatchrow
+                SET @MinBatchRow = NULL;
+                ;
+        END; -- end batch process
+
+
+        IF
+        (
+            SELECT OBJECT_ID('tempdb..#TempObjIDs')
+        ) IS NOT NULL
+            DROP TABLE #TempObjIDs;
+
+        SET @ProcessType = @ProcedureName;
+        SET @LogText = @ProcedureName + N' Ended ';
+        SET @LogStatus = N'Completed';
+        SET @StartTime = GETUTCDATE();
+
+        EXECUTE @RC = dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_id,
+            @ProcessType = @ProcessType,
+            @LogType = @LogType,
+            @LogText = @LogText,
+            @LogStatus = @LogStatus,
+            @debug = @Debug;
+
+        SET @LogTypeDetail = N'Message';
+        SET @LogTextDetail = N'History inserted in MFObjectChangeHistory';
+        SET @LogStatusDetail = N'Completed';
+        SET @Validation_ID = NULL;
+        SET @LogColumnValue = N'New History';
+        SET @LogColumnValue = CAST(@rowcount AS VARCHAR(5));
+
+        EXECUTE @RC = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_id,
+            @LogType = @LogTypeDetail,
+            @LogText = @LogTextDetail,
+            @LogStatus = @LogStatusDetail,
+            @StartTime = @StartTime,
+            @MFTableName = @MFTableName,
+            @Validation_ID = @Validation_ID,
+            @ColumnName = @LogColumnName,
+            @ColumnValue = @LogColumnValue,
+            @Update_ID = @Update_ID,
+            @LogProcedureName = @ProcedureName,
+            @LogProcedureStep = @ProcedureStep,
+            @debug = @Debug;
 
         RETURN 1;
     END TRY
