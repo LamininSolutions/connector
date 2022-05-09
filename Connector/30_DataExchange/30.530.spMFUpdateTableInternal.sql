@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTableInternal', -- nvarchar(100)
-    @Object_Release = '4.9.27.68',            -- varchar(250)
+    @Object_Release = '4.9.29.74',            -- varchar(250)
     @UpdateFlag = 2;
 -- smallint
 GO
@@ -91,6 +91,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-03-24  LC         Add isolation levels and no lock to avoid locking
 2021-04-14  LC         Fix timestamp datatype bug
 2021-03-02  LC         Remove check for required workflows, check is included in spMFClassTableStats
 2020-11-07  LC         Resolve issue with duplicate columns and multilookup datatype
@@ -821,15 +822,21 @@ Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
             ----------------------------------------
             --prepare temp table for existing object
             ----------------------------------------
-            SELECT @TempUpdateQuery
-                = N'SELECT *
+  --modify tempupdatequery to avoid reading the entire class table
+  SELECT @TempUpdateQuery
+                = N';
+                with cte as
+                (SELECT * FROM ' + @TempObjectList + N' t )
+                SELECT cte.*
 							   INTO ' + @TempExistingObjects + N'
-							   FROM ' + @TempObjectList + N'
-							   WHERE ' + @TempObjectList
-                  + N'.[ObjID]  IN (
-									   SELECT [ObjiD]
-									   FROM [' + @TableName + N']
-									   )';
+							   FROM [' + @TableName + N'] t with (nolock)                             
+                               inner join cte
+                               on cte.objid = t.objid
+					--		   WHERE ' + @TempObjectList    + N'.[ObjID]  IN (
+				--					   SELECT [ObjiD]
+				--					   FROM [' + @TableName + N']
+				--					   )';
+                ;
 
             EXECUTE sys.sp_executesql @TempUpdateQuery;
 
@@ -854,7 +861,7 @@ Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
             SELECT @ProcedureStep = 'Determine count of records to Update';
 
             SET @Params = N'@Count int output';
-            SET @Query = N'SELECT @count = count(*)
+            SET @Query = N'SELECT @count = count(isnull(objid,0))
 		FROM  ' + @TempExistingObjects + N'';
 
             EXEC sys.sp_executesql @stmt = @Query,
@@ -888,6 +895,8 @@ Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
                 BEGIN
                     SELECT @UpdateQuery
                         = N'
+                        Begin tran
+                         SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 								UPDATE [' + @TableName + N']
 									SET ' + @UpdateColumns + N',LastModified = GETDATE(),Update_ID = '
                           + CAST(@Update_ID AS NVARCHAR(100)) + N', Process_ID=0           
@@ -895,12 +904,15 @@ Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
                           + N' as t
 									ON [' + @TableName
                           + N'].ObjID = 
-                                t.[ObjID]  AND [' + @TableName + N'].Process_ID = 2';
+                                t.[ObjID]  AND [' + @TableName + N'].Process_ID = 2
+                                commit
+                                ;';
                 END;
                 ELSE
                 BEGIN
                     SELECT @UpdateQuery
-                        = N'
+                        = N' Begin tran
+                         SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 								UPDATE [' + @TableName + N']
 									SET ' + @UpdateColumns + N',LastModified = GETDATE(),Update_ID = '
                           + CAST(@Update_ID AS NVARCHAR(100)) + N'
@@ -908,7 +920,9 @@ Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
                           + N' as t
 									ON [' + @TableName
                           + N'].ObjID = 
-                                t.[ObjID]  AND [' + @TableName + N'].Process_ID = 0';
+                                t.[ObjID]  AND [' + @TableName + N'].Process_ID = 0
+                                commit
+                                ;';
                 END;
 
                 ----------------------------------------

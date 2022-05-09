@@ -27,7 +27,7 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
 GO
 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',   @ObjectName = N'MFProcess', -- nvarchar(100)
-    @Object_Release = '2.0.2.7', -- varchar(50)
+    @Object_Release = '4.9.29.73', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 
 
@@ -83,19 +83,27 @@ PRINT SPACE(10) + 'INSERTING DATA INTO TABLE: MFProcess ';
 SET IDENTITY_INSERT [dbo].[MFProcess] ON; 
 
 DELETE  FROM [dbo].[MFProcess]
-WHERE   ID IN ( 0, 1, 2, 3, 4 );
+WHERE   ID IN ( 0, 1, 2, 3, 4,10,11,12,13 );
 
 INSERT  [dbo].[MFProcess]
         ( [ID], [Name], [Description], [ModifiedOn] )
-VALUES  ( 0, N'From M-Files', N'Set by Connector to show record updated by M-Files',
+VALUES  ( 1, N'From M-Files', N'Set by Connector to show record updated from M-Files',
           GETDATE() ),
-        ( 1, N'To M-Files', N'Set by user to show record to be updated to M-Files',
+        ( 0, N'To M-Files', N'Set by user to show record to be updated to M-Files',
           GETDATE() ),
         ( 2, N'SyncronisationError',
           N'Set by Connector to show Syncronisation errors', GETDATE() ),
         ( 3, N'MFError', N'Set by Connector to show record with MFiles error',
           GETDATE() ),
         ( 4, N'SQLError', N'Set by Connector to show record with SQL error',
+          GETDATE() ),
+          ( 10, N'Object Version', N'Set in procedure to get latest Object Version',
+          GETDATE() ),
+          ( 11, N'Version Change', N'Set in procedure to get object change history ',
+          GETDATE() ),
+          ( 12, N'Delete/Destroy', N'Set in procedure to Delete or Destroy object',
+          GETDATE() ),
+          ( 13, N'Undelete', N'Set in procedure to Undelete an object',
           GETDATE() );
 
 SET IDENTITY_INSERT [dbo].[MFProcess] OFF;

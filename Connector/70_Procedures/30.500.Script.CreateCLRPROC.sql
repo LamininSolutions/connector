@@ -371,7 +371,7 @@ CREATE PROCEDURE [dbo].[spMFGetObjectVersInternal]
 	@VaultSettings [nvarchar](4000),
 	@ClassID [int],
 	@dtModifieDateTime [datetime],
-	@MFIDs [nvarchar](4000),
+	@MFIDs [nvarchar](max),
 	@ObjverXML [nvarchar](max) OUTPUT,
     @DelObjverXML [nvarchar](max) OUTPUT
 WITH EXECUTE AS CALLER
@@ -2088,7 +2088,9 @@ PRINT SPACE(10) + '...Stored Procedure: create';
 EXEC (N'	 
 CREATE PROCEDURE [dbo].[spMFGetMetadataStructureVersionIDInternal]
 	@VaultSettings [nvarchar](4000),
-	@Result nvarchar(max) Output
+	@Result nvarchar(max) Output,
+	@ValidGuid nvarchar(max) Output
+
 WITH EXECUTE AS CALLER
 AS
 EXTERNAL NAME [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetMetadataStructureVersionID]
@@ -2360,6 +2362,57 @@ CREATE PROCEDURE [dbo].[spMFDeleteObjectListInternal]
     @XMLOut NVARCHAR(max) OUTPUT
 AS EXTERNAL NAME
     [LSConnectMFilesAPIWrapper].[MFilesWrapper].[DeleteObjectList];
+')
+ 
+
+ 
+  /*------------------------------------------------------------------------------------------------
+	Author: LC, Laminin Solutions
+	Create date: 2022-02
+	Database: 
+	Description: CLR procedure to undeletedelete list of ojects
+------------------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------------------
+  MODIFICATION HISTORY
+  ====================
+ 	DATE			NAME		DESCRIPTION
+	YYYY-MM-DD		{Author}	{Comment}
+	2
+------------------------------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------------------------
+  USAGE:
+  =====
+
+
+-- ---------------------------------------------------------------------------------------------*/
+ SET NOCOUNT ON 
+EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',     @ObjectName = N'spMFUnDeleteObjectListInternal', -- nvarchar(100)
+    @Object_Release = '4.9.29.73', -- varchar(50)
+    @UpdateFlag = 2 -- smallint
+
+
+IF EXISTS ( SELECT  1
+            FROM    INFORMATION_SCHEMA.ROUTINES
+            WHERE   ROUTINE_NAME = 'spMFUnDeleteObjectListInternal'--name of procedure
+                    AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
+                    AND ROUTINE_SCHEMA = 'dbo' )
+    BEGIN
+        PRINT SPACE(10) + '...Drop CLR Procedure';
+        DROP PROCEDURE [dbo].[spMFUnDeleteObjectInternal];
+		
+    END;
+	
+    
+PRINT SPACE(10) + '...Stored Procedure: create';
+	 
+     
+EXEC (N'
+CREATE PROCEDURE [dbo].[spMFUnDeleteObjectListInternal]
+    @VaultSettings NVARCHAR(4000) ,
+    @XML nvarchar(max),    
+    @XMLOut NVARCHAR(max) OUTPUT
+AS EXTERNAL NAME
+    [LSConnectMFilesAPIWrapper].[MFilesWrapper].[UnDeleteObjectList];
 ')
  
 

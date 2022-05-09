@@ -4,9 +4,9 @@ SET NOCOUNT ON;
 GO
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
-    @ObjectName = N'spMFDeleteObjectList', -- nvarchar(100)
-    @Object_Release = '4.9.27.70',         -- varchar(50)
-    @UpdateFlag = 2;                       -- smallint
+                                 @ObjectName = N'spMFDeleteObjectList', -- nvarchar(100)
+                                 @Object_Release = '4.9.29.73',         -- varchar(50)
+                                 @UpdateFlag = 2;                       -- smallint
 GO
 
 IF EXISTS
@@ -43,6 +43,7 @@ ALTER PROC dbo.spMFDeleteObjectList
     @Process_id INT,
     @DeleteWithDestroy BIT = 0,
     @RetainDeletions BIT = 0,
+    @Update_ID INT OUTPUT,
     @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug INT = 0
 )
@@ -69,8 +70,10 @@ Parameters
   @RetainDeletions
     - Default = 0 (no)
 	- Set to 1 to retain the objected objects in the class table
+  @Update_ID int (output)
+    - Referencing ID of the record in the MFUpdateHistory table
   @ProcessBatch_ID (optional, output)
-    Referencing the ID of the ProcessBatch logging table
+    - Referencing the ID of the ProcessBatch logging table
   @Debug (optional)
     - Default = 0
     - 1 = Standard Debug Mode
@@ -95,9 +98,9 @@ The following status codes are used:
  - 1 = Success object deleted
  - 2 = Success object version destroyed
  - 3 = Success object destroyed
- - 4 = Failed to destroy, object not found
- - 5 = Failed to delete, object not found
- - 6 = Failed to remove version, version not found
+ - 4 = Failed to destroy
+ - 5 = Failed to delete
+ - 6 = Failed to remove version
 
 Use the parameter RetainDeletions = 1 to retain the deletions in the class table. The timestamp for the deletion will show in the deleted column.
 
@@ -153,6 +156,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-02-10  LC         Add update ID to record deletions in history
+2021-12-20  LC         Pair connection test with accessing assembly
 2021-06-08  LC         Remove object from class table if not found
 2021-06-08  LC         Fix bug to remove item on deletion from class table
 2021-06-08  LC         Fix entry in MFUpdateHistory on completion of deletion
@@ -190,7 +195,7 @@ DECLARE @ProcessBatchSize INT = 250;
 -------------------------------------------------------------
 -- VARIABLES: MFSQL Processing
 -------------------------------------------------------------
-DECLARE @Update_ID INT;
+
 DECLARE @MFLastModified DATETIME;
 DECLARE @Validation_ID INT;
 
@@ -248,11 +253,11 @@ SET @ProcedureStep = N'Get Security Variables';
 DECLARE @Username NVARCHAR(2000);
 DECLARE @VaultName NVARCHAR(2000);
 DECLARE @VaultSettings NVARCHAR(400);
-DECLARE @UpdateMethod INT = 3;
+DECLARE @UpdateMethod INT;
 
 SELECT TOP 1
-    @Username  = Username,
-    @VaultName = VaultName
+       @Username = Username,
+       @VaultName = VaultName
 FROM dbo.MFVaultSettings;
 
 SELECT @VaultSettings = dbo.FnMFVaultSettings();
@@ -261,20 +266,8 @@ SELECT @VaultSettings = dbo.FnMFVaultSettings();
 -- Check connection to vault
 -------------------------------------------------------------
 DECLARE @IsUpToDate INT;
-
-SET @ProcedureStep = N'Connection test: ';
-
 DECLARE @TestResult INT;
-
-EXEC @return_value = dbo.spMFConnectionTest;
-
-IF @return_value <> 1
-BEGIN
-    SET @DebugText = N'Connection failed ';
-    SET @DebugText = @DefaultDebugText + @DebugText;
-
-    RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
-END;
+SET @ProcedureStep = N'Connection test: ';
 
 -------------------------------------------------------------
 -- Get deleted column name
@@ -296,7 +289,7 @@ INSERT INTO dbo.MFUpdateHistory
     UpdateMethod
 )
 VALUES
-(@Username, @VaultName, @UpdateMethod);
+(@Username, @VaultName, 12);
 
 SELECT @Update_ID = @@Identity;
 
@@ -307,26 +300,26 @@ SET @ProcedureStep = N'Start Logging';
 SET @LogText = N'Processing ' + @ProcedureName;
 
 EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
-    @ProcessType = @ProcessType,
-    @LogType = N'Status',
-    @LogText = @LogText,
-    @LogStatus = N'In Progress',
-    @debug = @Debug;
+                                 @ProcessType = @ProcessType,
+                                 @LogType = N'Status',
+                                 @LogText = @LogText,
+                                 @LogStatus = N'In Progress',
+                                 @debug = @Debug;
 
 EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-    @LogType = N'Debug',
-    @LogText = @ProcessType,
-    @LogStatus = N'Started',
-    @StartTime = @StartTime,
-    @MFTableName = @MFTableName,
-    @Validation_ID = @Validation_ID,
-    @ColumnName = NULL,
-    @ColumnValue = NULL,
-    @Update_ID = @Update_ID,
-    @LogProcedureName = @ProcedureName,
-    @LogProcedureStep = @ProcedureStep,
-    @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT,
-    @debug = 0;
+                                       @LogType = N'Debug',
+                                       @LogText = @ProcessType,
+                                       @LogStatus = N'Started',
+                                       @StartTime = @StartTime,
+                                       @MFTableName = @MFTableName,
+                                       @Validation_ID = @Validation_ID,
+                                       @ColumnName = NULL,
+                                       @ColumnValue = NULL,
+                                       @Update_ID = @Update_ID,
+                                       @LogProcedureName = @ProcedureName,
+                                       @LogProcedureStep = @ProcedureStep,
+                                       @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT,
+                                       @debug = 0;
 
 BEGIN TRY
     -------------------------------------------------------------
@@ -340,19 +333,19 @@ BEGIN TRY
         RAISERROR(@DefaultDebugText, 10, 1, @ProcedureName, @ProcedureStep);
     END;
 
-    DECLARE @Objid     INT,
-        @ObjectType_ID INT,
-        @ClassID       INT,
-        @output        NVARCHAR(1000),
-        @itemID        INT,
-        @Query         NVARCHAR(MAX),
-        @Params        NVARCHAR(MAX);
+    DECLARE @Objid INT,
+            @ObjectType_ID INT,
+            @ClassID INT,
+            @output NVARCHAR(1000),
+            @itemID INT,
+            @Query NVARCHAR(MAX),
+            @Params NVARCHAR(MAX);
 
     SET NOCOUNT ON;
 
     SELECT @ObjectType_ID = mot.MFID,
-        @ClassID          = mc.MFID
-    FROM dbo.MFClass                AS mc
+           @ClassID = mc.MFID
+    FROM dbo.MFClass AS mc
         INNER JOIN dbo.MFObjectType AS mot
             ON mot.ID = mc.MFObjectType_ID
     WHERE mc.TableName = @TableName;
@@ -387,10 +380,10 @@ WHERE  t.[Process_ID] = @Process_id
 ORDER BY objid ASC;';
 
     EXEC sys.sp_executesql @Stmt = @Query,
-        @Param = @Params,
-        @Process_id = @Process_id,
-        @DeleteWithDestroy = @DeleteWithDestroy,
-        @ObjectType_ID = @ObjectType_ID;
+                           @Param = @Params,
+                           @Process_id = @Process_id,
+                           @DeleteWithDestroy = @DeleteWithDestroy,
+                           @ObjectType_ID = @ObjectType_ID;
 
     -------------------------------------------------------------
     -- Count records to be deleted
@@ -399,9 +392,9 @@ ORDER BY objid ASC;';
     SET @sql = N'SELECT @Count = COUNT(*) FROM ' + QUOTENAME(@TableName) + N'Where Process_ID = @Process_ID';
 
     EXEC sys.sp_executesql @Stmt = @sql,
-        @Param = @Params,
-        @Count = @count OUTPUT,
-        @Process_id = @Process_id;
+                           @Param = @Params,
+                           @Count = @count OUTPUT,
+                           @Process_id = @Process_id;
 
     SET @ProcedureStep = N'Total objects to delete';
     SET @LogTypeDetail = N'Status';
@@ -411,18 +404,18 @@ ORDER BY objid ASC;';
     SET @LogColumnValue = N'';
 
     EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-        @LogType = @LogTypeDetail,
-        @LogText = @LogTextDetail,
-        @LogStatus = @LogStatusDetail,
-        @StartTime = @StartTime,
-        @MFTableName = @MFTableName,
-        @Validation_ID = @Validation_ID,
-        @ColumnName = @LogColumnName,
-        @ColumnValue = @LogColumnValue,
-        @Update_ID = @Update_ID,
-        @LogProcedureName = @ProcedureName,
-        @LogProcedureStep = @ProcedureStep,
-        @debug = @Debug;
+                                                              @LogType = @LogTypeDetail,
+                                                              @LogText = @LogTextDetail,
+                                                              @LogStatus = @LogStatusDetail,
+                                                              @StartTime = @StartTime,
+                                                              @MFTableName = @MFTableName,
+                                                              @Validation_ID = @Validation_ID,
+                                                              @ColumnName = @LogColumnName,
+                                                              @ColumnValue = @LogColumnValue,
+                                                              @Update_ID = @Update_ID,
+                                                              @LogProcedureName = @ProcedureName,
+                                                              @LogProcedureStep = @ProcedureStep,
+                                                              @debug = @Debug;
 
     -------------------------------------------------------------
     -- Prepare XML
@@ -430,21 +423,26 @@ ORDER BY objid ASC;';
     SET @XMLObjectVer =
     (
         SELECT @ObjectType_ID AS [ObjectType/@ObjectType_ID],
-            @ClassID          AS [Class/@Class_ID]
+               @ClassID AS [Class/@Class_ID]
         FOR XML PATH(''), ROOT('ObjectType')
     );
     SET @XML =
     (
         SELECT moch.objectType_ID AS [ObjectDeleteItem/@ObjectType_ID],
-            moch.Objid            [ObjectDeleteItem/@ObjId],
-            moch.MFVersion        [ObjectDeleteItem/@MFVersion],
-            moch.Destroy          AS [ObjectDeleteItem/@Destroy]
+               moch.Objid [ObjectDeleteItem/@ObjId],
+               moch.MFVersion [ObjectDeleteItem/@MFVersion],
+               moch.Destroy AS [ObjectDeleteItem/@Destroy]
         FROM #ObjectList AS moch
         ORDER BY moch.objectType_ID,
-            moch.Objid
+                 moch.Objid
         FOR XML PATH(''), ROOT('ObjectDeleteList')
     );
+
+    -------------------------------------------------------------
+    -- update MFupdateHistory
+    -------------------------------------------------------------
     SET @ProcedureStep = N'Update MFUpdateHistory';
+
 
     UPDATE dbo.MFUpdateHistory
     SET ObjectDetails = @XMLObjectVer,
@@ -462,16 +460,29 @@ ORDER BY objid ASC;';
     SELECT @VaultSettings = dbo.FnMFVaultSettings();
 
     IF @Debug > 0
-        SELECT @XML;
+        SELECT @XML AS '@XML';
 
-    SET @ProcedureStep = N'SPMFDeleteObject';
+    SET @ProcedureStep = N'Check connection';
     SET @return_value = NULL;
 
-    IF @count > 0
+    EXEC @return_value = dbo.spMFConnectionTest;
+
+    IF @return_value <> 1
     BEGIN
+        SET @DebugText = N'Connection failed ';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+
+        RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+    END;
+    SET @StartTime = GETUTCDATE();
+    IF @count > 0
+       AND @return_value = 1
+    BEGIN
+    SET @ProcedureStep = N'Wrapper ';
         EXEC @return_value = dbo.spMFDeleteObjectListInternal @VaultSettings = @VaultSettings,
-            @XML = @XMLInput, -- int                                                   
-            @XMLOut = @XMLOut OUTPUT;
+                                                              @XML = @XMLInput, -- int                                                   
+                                                              @XMLOut = @XMLOut OUTPUT;
+
 
         SET @DebugText = N' ReturnValue %i';
         SET @DebugText = @DefaultDebugText + @DebugText;
@@ -483,14 +494,32 @@ ORDER BY objid ASC;';
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @return_value);
         END;
 
+
+        SET @ProcedureStep = N'Wrapper turn around';
+        SET @LogTypeDetail = N'Status';
+        SET @LogStatusDetail = N' In Progress';
+        SET @LogTextDetail = N'Wrapper updated';
+        SET @LogColumnName = N'';
+        SET @LogColumnValue = N'';
+
+        EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+                                                                  @LogType = @LogTypeDetail,
+                                                                  @LogText = @LogTextDetail,
+                                                                  @LogStatus = @LogStatusDetail,
+                                                                  @StartTime = @StartTime,
+                                                                  @MFTableName = @MFTableName,
+                                                                  @Validation_ID = @Validation_ID,
+                                                                  @ColumnName = @LogColumnName,
+                                                                  @ColumnValue = @LogColumnValue,
+                                                                  @Update_ID = @Update_ID,
+                                                                  @LogProcedureName = @ProcedureName,
+                                                                  @LogProcedureStep = @ProcedureStep,
+                                                                  @debug = @Debug;
         -------------------------------------------------------------
         -- Record deletion
         -------------------------------------------------------------
         SET @ProcedureStep = N'Update MFUpdateHistory with output';
 
-        UPDATE dbo.MFUpdateHistory
-        SET DeletedObjectVer = CAST(@XMLOut AS XML)
-        WHERE Id = @Update_ID;
 
         IF @XMLOut IS NOT NULL
         BEGIN
@@ -498,53 +527,74 @@ ORDER BY objid ASC;';
 
             IF
             (
-                SELECT OBJECT_ID('tempdb..#DeleteResult')
+                SELECT OBJECT_ID('tempdb..#DeletedResult')
             ) IS NOT NULL
-                DROP TABLE #DeleteResult;
+                DROP TABLE #DeletedResult;
+
+            CREATE TABLE #DeletedResult
+            (
+                Objid INT,
+                MFVersion INT,
+                StatusCode INT,
+                Message NVARCHAR(MAX)
+            );
 
             DECLARE @Idoc INT;
 
             EXEC sys.sp_xml_preparedocument @Idoc OUTPUT, @XMLOut;
 
-            SELECT objId,
-                statusCode,
+            INSERT INTO #DeletedResult
+            (
+                Objid,
+                MFVersion,
+                StatusCode,
                 Message
-            INTO #DeletedResult
+            )
+            SELECT objId,
+            MFVersion,
+                   StatusCode,
+                   Message
             FROM
                 OPENXML(@Idoc, '/form/objVers', 1)
                 WITH
                 (
-                    objId INT,
-                    statusCode INT,
-                    Message NVARCHAR(100)
+                    objId INT './@objId',
+                    MFVersion INT './@MFVersion',
+                    StatusCode INT './@statusCode',
+                    Message NVARCHAR(MAX) './@Message'
                 );
+            SET @rowcount = @@ROWCOUNT;
 
             EXEC sys.sp_xml_removedocument @Idoc;
 
+            IF @Debug > 0
+            BEGIN
+                SELECT '#DeletedResult',
+                       *
+                FROM #DeletedResult;
+
             SET @ProcedureStep = N'Set output message ';
+
 
             SELECT @output =
             (
-                SELECT m.Message + ': ' + CAST(ISNULL(m.Delcount, 0) AS NVARCHAR(10)) + '; '
+                SELECT  'Deleted object count : ' + CAST(ISNULL(m.Delcount, 0) AS NVARCHAR(10)) + '; '
                 FROM
                 (
-                    SELECT dr.Message,
-                        COUNT(ISNULL(dr.statusCode, 0)) Delcount
-                    FROM #DeletedResult AS dr
-                    GROUP BY dr.Message
+                    SELECT 
+                           COUNT(ISNULL(dr.StatusCode, 0)) Delcount
+                    FROM #DeletedResult AS dr                  
                 ) m
             );
 
-            --    EXEC sys.sp_executesql @sql;
-            SET @DebugText = @output;
-            SET @DebugText = @DefaultDebugText + @DebugText;
-
             IF @Debug > 0
-            BEGIN
-                SELECT *
-                FROM #DeletedResult;
+                SELECT @output AS output;
 
-                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            --       EXEC sys.sp_executesql @sql;
+            SET @DebugText = N'Return count %i';
+            SET @DebugText = @DefaultDebugText + @DebugText
+
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @rowcount);
             END;
 
             SET @ProcedureStep = N'Update MFUpdateHistory result';
@@ -553,39 +603,63 @@ ORDER BY objid ASC;';
             -- Summarise errors
             -------------------------------------------------------------
             DECLARE @Success INT = 0,
-                @DelErrors   INT = 0,
-                @NotExist    INT = 0,
-                @FailErrors  INT = 0;
+                    @DelErrors INT = 0;
+
 
             SELECT @Success = COUNT(*)
             FROM #DeletedResult AS dr
-            WHERE dr.statusCode in (1,2,3);
+            WHERE dr.StatusCode IN ( 1, 2, 3 );
 
-            SELECT @NotExist = COUNT(*)
-            FROM #DeletedResult AS dr
-            WHERE dr.statusCode = 5;
 
             SELECT @DelErrors = COUNT(*)
             FROM #DeletedResult AS dr
-            WHERE dr.statusCode IN ( 4,6);
+            WHERE dr.StatusCode IN ( 4, 5, 6 );
 
             SET @DebugText
-                = N' Not Exist: ' + CAST(ISNULL(@NotExist, 0) AS VARCHAR(10)) + N' Other errors: '
+                = N' Success: ' + CAST(ISNULL(@Success, 0) AS VARCHAR(10)) + N'Errors: '
                   + CAST(ISNULL(@DelErrors, 0) AS VARCHAR(10));
             SET @DebugText = @DefaultDebugText + @DebugText;
-            SET @ProcedureStep = N'Summarise errors';
+            SET @ProcedureStep = N'Summary ';
 
             IF @Debug > 0
             BEGIN
                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
             END;
 
+            SELECT @DelErrors = CASE
+                                    WHEN @XMLOut IS NULL THEN
+                                        1
+                                    ELSE
+                                        @DelErrors
+                                END;
+
+            IF @DelErrors > 0
+            BEGIN
+                DECLARE @ErrorList NVARCHAR(MAX);
+
+                SELECT @ErrorList = 
+                (
+                    SELECT dr.Objid AS [Objver/@ObjId],
+                            dr.MFVersion AS [Objver/@MFVersion],
+                           dr.StatusCode AS [Objver/@StatusCode],
+                           dr.Message AS [Objver/@Message]
+                    FROM #DeletedResult AS dr
+                    WHERE dr.StatusCode IN ( 4, 5, 6 )
+                    FOR XML PATH(''), ROOT('form')
+                )
+                   
+                   IF @Debug > 0
+                   SELECT @Errorlist AS '@Errorlist';
+
+            END;
             UPDATE dbo.MFUpdateHistory
-            SET UpdateStatus = CASE
+            SET DeletedObjectVer = CAST(@XMLOut AS XML),
+                MFError = @ErrorList,
+                UpdateStatus = CASE
                                    WHEN @DelErrors = 0 THEN
-                                       'Completed'
+                                       'Completed'                                   
                                    ELSE
-                                       'Partial'
+                                       'Partial Failed'
                                END
             WHERE Id = @Update_ID;
 
@@ -594,113 +668,90 @@ ORDER BY objid ASC;';
             -- Update Class table
             -------------------------------------------------------------
 
-                SET @ProcedureStep = N'Reset records in class table';
-                SET @sql
-                    = N'
+            SET @ProcedureStep = N'Reset records in class table';
+            SET @sql
+                = N'
             Begin tran
             Update t
             Set process_id = 0
             FROM ' + QUOTENAME(@MFTableName)
-                      + N' t
+                  + N' t
                      inner join #DeletedResult dr
                      on dr.objid = t.objid;
             Commit tran';
 
-            EXEC(@SQL);
+            EXEC (@sql);
 
             SET @ProcedureStep = N'Update class table for deleted records';
 
-            DECLARE @Update_IDOut INT
-            DECLARE @objids NVARCHAR(MAX)
+            DECLARE @Update_IDOut INT;
+            DECLARE @objids NVARCHAR(MAX);
 
-            SELECT @objids = STUFF((SELECT ',' + CAST(dr.objid AS NVARCHAR(10)) FROM #DeletedResult AS dr
-            FOR XML PATH('')),1,1,'')
-                        
+            SELECT @objids = STUFF(
+                             (
+                                 SELECT ',' + CAST(dr.Objid AS NVARCHAR(10))
+                                 FROM #DeletedResult AS dr
+                                 FOR XML PATH('')
+                             ),
+                             1,
+                             1,
+                             ''
+                                  );
+
             EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName,
-                @UpdateMethod = 1,
-                @ObjIDs = @Objids,
-                @Update_IDOut = @Update_IDOut OUTPUT,
-                @ProcessBatch_ID = @ProcessBatch_ID,
-                @RetainDeletions = @RetainDeletions,
-                @Debug = 0
+                                     @UpdateMethod = 1,
+                                     @ObjIDs = @objids,
+                                     @Update_IDOut = @Update_IDOut OUTPUT,
+                                     @ProcessBatch_ID = @ProcessBatch_ID,
+                                     @RetainDeletions = @RetainDeletions,
+                                     @Debug = 0;
 
-       
+
             ---------------------------------------------------------------
             ---- remove records that does not exist
             ---------------------------------------------------------------
 
-                IF @Debug > 0
-                BEGIN
-                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-                END;
-            END;
-
-            -------------------------------------------------------------
-            -- Report failed errors
-            -------------------------------------------------------------
-            SET @Params = N'@FailErrors int output, @process_id int';
-      
-            SET @DebugText
-                = N' Deleted count ' + CAST(@count AS NVARCHAR(100)) + N' Failed : '
-                  + CAST(@FailErrors AS NVARCHAR(100));
-            SET @DebugText = @DefaultDebugText + @DebugText;
-
             IF @Debug > 0
             BEGIN
                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
             END;
+        END        -- end @xmlout not null
+       
 
-            SET @ProcedureStep = N'Failed processing';
+        SET @LogTextDetail
+            = N' Deleted count ' + CAST(@count AS NVARCHAR(100)) + N' Failed : ' + CAST(@DelErrors AS NVARCHAR(100));
+        SET @LogTypeDetail = N'Status';
+        SET @ProcedureStep = N'Delete Records';
+        SET @LogStatusDetail = N'Completed';
+        SET @LogColumnName = N'';
+        SET @LogColumnValue = N'';
 
-            UPDATE dbo.MFUpdateHistory
-            SET UpdateStatus = 'Completed'
-            WHERE Id = @Update_ID;
+        EXECUTE dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+                                                  @LogType = @LogTypeDetail,
+                                                  @LogText = @LogTextDetail,
+                                                  @LogStatus = @LogStatusDetail,
+                                                  @StartTime = @StartTime,
+                                                  @MFTableName = @MFTableName,
+                                                  @Validation_ID = @Validation_ID,
+                                                  @ColumnName = @LogColumnName,
+                                                  @ColumnValue = @LogColumnValue,
+                                                  @Update_ID = @Update_ID,
+                                                  @LogProcedureName = @ProcedureName,
+                                                  @LogProcedureStep = @ProcedureStep,
+                                                  @debug = @Debug;
 
-            SET @LogTextDetail = N' Deleted count ' + CAST(@count AS NVARCHAR(100)) + N' Failed : '
-                  + CAST(@FailErrors AS NVARCHAR(100));
-            SET @LogTypeDetail = N'Status';
-            SET @ProcedureStep = N'Delete Records';
-            SET @LogStatusDetail = N'Completed';
-            SET @LogColumnName = N'';
-            SET @LogColumnValue = N'';
-
-            EXECUTE dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-                @LogType = @LogTypeDetail,
-                @LogText = @LogTextDetail,
-                @LogStatus = @LogStatusDetail,
-                @StartTime = @StartTime,
-                @MFTableName = @MFTableName,
-                @Validation_ID = @Validation_ID,
-                @ColumnName = @LogColumnName,
-                @ColumnValue = @LogColumnValue,
-                @Update_ID = @Update_ID,
-                @LogProcedureName = @ProcedureName,
-                @LogProcedureStep = @ProcedureStep,
-                @debug = @Debug;
-
-            SET @ProcedureStep = N'Update Table ' + @MFTableName + N' with result';
-            SET @sql
-                = N'
-            Begin tran
-            UPDATE t 
-SET ' +     QUOTENAME(@DeletedColumn)
-                  + N' = GETDATE(), t.Process_ID = CASE WHEN dr.statusCode = 1 THEN 0
-ELSE 3 end
-FROM #DeletedResult AS dr
-INNER JOIN ' + QUOTENAME(@MFTableName) + N' AS t
-ON t.objid = dr.objid;
-commit tran';
-            SET @DebugText = @LogStatusDetail;
-            SET @DebugText = @DefaultDebugText + @DebugText;
-            SET @DebugText = N'';
-            SET @DebugText = @DefaultDebugText + @DebugText;
-            SET @ProcedureStep = N'End';
-
-            IF @Debug > 0
-            BEGIN
-                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-            END;
     END; -- if @XMLout is null
+
+     ELSE 
+        BEGIN
+        
+        SET @errorlist =  '<form>message="No objects marked for deletion"</form>'                                      
+
+          UPDATE dbo.MFUpdateHistory
+            SET MFError = @ErrorList,
+                UpdateStatus = 'Failed'                              
+            WHERE Id = @Update_ID;
+        END
 
     SET @ProcedureStep = N'Delete Records';
     SET @LogTypeDetail = N'Status';
@@ -710,18 +761,18 @@ commit tran';
     SET @LogColumnValue = N'';
 
     EXECUTE dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-        @LogType = @LogTypeDetail,
-        @LogText = @LogTextDetail,
-        @LogStatus = @LogStatusDetail,
-        @StartTime = @StartTime,
-        @MFTableName = @MFTableName,
-        @Validation_ID = @Validation_ID,
-        @ColumnName = @LogColumnName,
-        @ColumnValue = @LogColumnValue,
-        @Update_ID = @Update_ID,
-        @LogProcedureName = @ProcedureName,
-        @LogProcedureStep = @ProcedureStep,
-        @debug = @Debug;
+                                              @LogType = @LogTypeDetail,
+                                              @LogText = @LogTextDetail,
+                                              @LogStatus = @LogStatusDetail,
+                                              @StartTime = @StartTime,
+                                              @MFTableName = @MFTableName,
+                                              @Validation_ID = @Validation_ID,
+                                              @ColumnName = @LogColumnName,
+                                              @ColumnValue = @LogColumnValue,
+                                              @Update_ID = @Update_ID,
+                                              @LogProcedureName = @ProcedureName,
+                                              @LogProcedureStep = @ProcedureStep,
+                                              @debug = @Debug;
 
     -------------------------------------------------------------
     --END PROCESS
@@ -734,27 +785,27 @@ commit tran';
     -- Log End of Process
     -------------------------------------------------------------   
     EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID,
-        @ProcessType = @ProcessType,
-        @LogType = N'Message',
-        @LogText = @LogText,
-        @LogStatus = @LogStatus,
-        @debug = @Debug;
+                                     @ProcessType = @ProcessType,
+                                     @LogType = N'Message',
+                                     @LogText = @LogText,
+                                     @LogStatus = @LogStatus,
+                                     @debug = @Debug;
 
     SET @StartTime = GETUTCDATE();
 
     EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-        @LogType = N'Debug',
-        @LogText = @ProcessType,
-        @LogStatus = @LogStatus,
-        @StartTime = @StartTime,
-        @MFTableName = @MFTableName,
-        @Validation_ID = @Validation_ID,
-        @ColumnName = NULL,
-        @ColumnValue = NULL,
-        @Update_ID = @Update_ID,
-        @LogProcedureName = @ProcedureName,
-        @LogProcedureStep = @ProcedureStep,
-        @debug = 0;
+                                           @LogType = N'Debug',
+                                           @LogText = @ProcessType,
+                                           @LogStatus = @LogStatus,
+                                           @StartTime = @StartTime,
+                                           @MFTableName = @MFTableName,
+                                           @Validation_ID = @Validation_ID,
+                                           @ColumnName = NULL,
+                                           @ColumnValue = NULL,
+                                           @Update_ID = @Update_ID,
+                                           @LogProcedureName = @ProcedureName,
+                                           @LogProcedureStep = @ProcedureStep,
+                                           @debug = 0;
 
     RETURN 1;
 END TRY
@@ -779,7 +830,7 @@ BEGIN CATCH
     )
     VALUES
     (@ProcedureName, ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), ERROR_STATE(), ERROR_SEVERITY(), ERROR_LINE(),
-        @ProcedureStep);
+     @ProcedureStep);
 
     SET @ProcedureStep = N'Catch Error';
 
@@ -787,28 +838,28 @@ BEGIN CATCH
     -- Log Error
     -------------------------------------------------------------   
     EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
-        @ProcessType = @ProcessType,
-        @LogType = N'Error',
-        @LogText = @LogTextDetail,
-        @LogStatus = @LogStatus,
-        @debug = @Debug;
+                                     @ProcessType = @ProcessType,
+                                     @LogType = N'Error',
+                                     @LogText = @LogTextDetail,
+                                     @LogStatus = @LogStatus,
+                                     @debug = @Debug;
 
     SET @StartTime = GETUTCDATE();
 
     EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-        @LogType = N'Error',
-        @LogText = @LogTextDetail,
-        @LogStatus = @LogStatus,
-        @StartTime = @StartTime,
-        @MFTableName = @MFTableName,
-        @Validation_ID = @Validation_ID,
-        @ColumnName = NULL,
-        @ColumnValue = NULL,
-        @Update_ID = @Update_ID,
-        @LogProcedureName = @ProcedureName,
-        @LogProcedureStep = @ProcedureStep,
-        @debug = 0;
+                                           @LogType = N'Error',
+                                           @LogText = @LogTextDetail,
+                                           @LogStatus = @LogStatus,
+                                           @StartTime = @StartTime,
+                                           @MFTableName = @MFTableName,
+                                           @Validation_ID = @Validation_ID,
+                                           @ColumnName = NULL,
+                                           @ColumnValue = NULL,
+                                           @Update_ID = @Update_ID,
+                                           @LogProcedureName = @ProcedureName,
+                                           @LogProcedureStep = @ProcedureStep,
+                                           @debug = 0;
 
-    RETURN 0;
+    RETURN -1;
 END CATCH;
 GO

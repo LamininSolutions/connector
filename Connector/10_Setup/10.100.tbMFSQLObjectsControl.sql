@@ -10,7 +10,7 @@ GO
   MODIFICATION HISTORY
   ====================
  	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
+	2022-01-04		lc	        add columns
 ------------------------------------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------------------------
   USAGE:
@@ -67,4 +67,18 @@ ALTER TABLE setup.MFSQLObjectsControl
 ADD Module INT DEFAULT((1))
 END
 go
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS AS c WHERE c.COLUMN_NAME = 'CLRModule' AND c.TABLE_NAME = 'MFSQLObjectsControl')
+Begin
+ALTER TABLE setup.MFSQLObjectsControl
+ADD [CLRModule] NVARCHAR(100)
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS AS c WHERE c.COLUMN_NAME = 'Logging' AND c.TABLE_NAME = 'MFSQLObjectsControl')
+Begin
+ALTER TABLE setup.MFSQLObjectsControl
+ADD [Logging] BIT
+END
+GO
 

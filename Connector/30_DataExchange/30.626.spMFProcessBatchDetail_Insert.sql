@@ -7,7 +7,7 @@ go
 SET NOCOUNT ON
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
 								   , @ObjectName = N'spMFProcessBatchDetail_Insert'
-								   , @Object_Release = '4.6.15.57'
+								   , @Object_Release = '4.9.28.73'
 								   , @UpdateFlag = 2
 	  go
 
@@ -146,6 +146,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-01-04  LC         Add assembly logging for app detail logging
 2020-03-12  LC         Improve default wording of text
 2019-08-30  JC         Added documentation
 2019-01-27  LC         Exclude MFUserMessage table from any logging
@@ -185,7 +186,7 @@ Date        Author     Description
             BEGIN TRY
 
 					 
-                  IF ( @DetailLoggingIsActive = 1 ) AND (ISNULL(@MFTableName,'') <> 'MFUserMessages')
+                  IF ( @DetailLoggingIsActive > 0 ) AND (ISNULL(@MFTableName,'') <> 'MFUserMessages')
                      BEGIN
 
                            --IF @debug > 0

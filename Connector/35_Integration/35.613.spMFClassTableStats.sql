@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFClassTableStats', -- nvarchar(100)
-    @Object_Release = '4.8.27.72',        -- varchar(50)
+    @Object_Release = '4.8.28.73',        -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
 GO
@@ -46,6 +46,9 @@ ALTER PROCEDURE dbo.spMFClassTableStats
     @WithAudit INT = 0,
     @IncludeOutput INT = 0,
     @SendReport INT = 0,
+@Body NVARCHAR(MAX) = null,
+@MessageTitle NVARCHAR(258) = null,
+@Footer NVARCHAR(MAX) = null,  
     @Debug SMALLINT = 0
 )
 AS
@@ -72,14 +75,22 @@ Parameters
     - Default = 0
     - 1 = will include running spmftableaudit and updating info from MF
   @IncludeOutput int (optional)
-    set to 1 to output result to a table ##spMFClassTableStats
+    - set to 1 to output result to a table ##spMFClassTableStats
   @SendReport int (optional)
     - Default = 0
     - When set to 1, and IncludeOutput is set to 1 then a email report will be sent if when any off the error columns are not null.
+  @Body NVARCHAR(MAX) (optional) 
+    - Default to '<p>The class tables in the following report is not up to date or is showing errors.  Consult https://doc.lamininsolutions.com/procedures/spMFClassTableStats.html for corrective action. </p> <BR> '
+    - This email body will appear above the table 
+  @MessageTitle NVARCHAR(258) (optional) 
+    - Default DB_NAME() + ' : Class Table Error Report'
+    - This will be the Email subject
+  @Footer NVARCHAR(400) (optional) 
+    - Default to '<BR><p>Produced by MFSQL Connector</p>'
+    - This will appear at the bottom of the email
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
 
 Purpose
 =======
@@ -119,6 +130,13 @@ MFLastModified         Most recent that an update was made in M-Files on the rec
 SessionID              ID  of the latest spMFTableAudit procedure execution.
 =====================  =====================================================================================================
 
+Report by Email
+===============
+
+To allow for the automatic generation of the report and sending by email, set the parameter @SendReport = 1.  Use the parameters @MessageTitle, @Body and @Footer to customise these elements of the email
+
+The email will be sent to the email addresses set in the table MFsettings for as the support email recipient for all tables where a error is included.
+
 Warnings
 ========
 
@@ -127,13 +145,13 @@ The MFRecordCount results of spMFClassTableStats is only accurate based on the l
 Corrective Action
 =================
 
-If MissingTable = 1 then run spMFCreateTable or set IncludeInApp column to null
-If MFnotInSQL > 0 then rerun the update of class table
-If SQLNotInMF > 0 then run spMFClasstableStats @WithAudit = 1
-If CheckedOut > 0 then check in records and rerun the update of class table
-If RequiredWorkflowError > 0 then update objects with the required workflow, or remove required workflow from the class table definition.
-If SyncError > 0 then investigate the objects in the class table. Manually reset the process_id to 0, rerun update from M-Files or setup Sync presidence
-If Process_ID_not_0 or MFError or SQLError > 0 then investigate the objects process_id and why the updating failed.  There could be many different reasons depending on the underlying process.
+- If MissingTable = 1 then run spMFCreateTable or set IncludeInApp column to null
+- If MFnotInSQL > 0 then rerun the update of class table
+- If SQLNotInMF > 0 then run spMFClasstableStats @WithAudit = 1
+- If CheckedOut > 0 then check in records and rerun the update of class table
+- If RequiredWorkflowError > 0 then update objects with the required workflow, or remove required workflow from the class table definition.
+- If SyncError > 0 then investigate the objects in the class table. Manually reset the process_id to 0, rerun update from M-Files or setup Sync presidence
+- If Process_ID_not_0 or MFError or SQLError > 0 then investigate the objects process_id and why the updating failed.  There could be many different reasons depending on the underlying process.
 
 Use the following view to explore the MFAuditHistory
 
@@ -206,6 +224,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-01-18  LC         Increase size of email parameters to align with mailer
 2021-10-07  LC         Resolve bug of showing query
 2021-04-14  LC         Resolve issue with specifying a table name
 2021-04-08  LC         Add check that table exists
@@ -550,7 +569,7 @@ print ''' + @TableName + N' has not been created'';
  -- audit table dependent updates
  -------------------------------------------------------------
 
-        SELECT @MFCount = COUNT(*)
+        SELECT @MFCount = COUNT(mah.id)
         FROM dbo.MFAuditHistory AS mah WITH (NOLOCK)
         WHERE mah.Class = @ID;
 
@@ -559,7 +578,7 @@ print ''' + @TableName + N' has not been created'';
         SET @params = N'@NotinMF int output';
         SET @SQL
             = N'
-        Select @NotinMF = count(*) from ' + QUOTENAME(@TableName)
+        Select @NotinMF = count(t.id) from ' + QUOTENAME(@TableName)
               + N' t
 left join MFAuditHistory ah WITH (NOLOCK)
 on t.objid = ah.objid and t.' + @ClassPropertyColumn + N' = ah.class
@@ -571,14 +590,14 @@ where ah.[Objid] is null;';
         SELECT @NotInMF AS notinMF
   --      PRINT @SQL;
 
-SELECT @Collections = COUNT(*) FROM MFAuditHistory AS mah WITH (NOLOCK)
+SELECT @Collections = COUNT(mah.id) FROM MFAuditHistory AS mah WITH (NOLOCK)
         WHERE mah.Class = @ID
         AND mah.ObjectType = 9;
 
-  SELECT @NotINSQL = COUNT(*)
+  SELECT @NotINSQL = COUNT(mah.id)
         FROM dbo.MFAuditHistory AS mah WITH (NOLOCK)
         WHERE mah.Class = @ID
-              AND mah.StatusFlag IN ( 1, 5 ); -- templates and other records not in SQL
+              AND mah.StatusFlag IN ( 1,5 ); -- templates and other records not in SQL
 
         UPDATE smcts
         SET smcts.MFRecordCount = ISNULL(@MFCount,0),
@@ -633,8 +652,27 @@ END; -- END while
 
 IF @IncludeOutput = 0
 BEGIN
-    SELECT *
-    FROM ##spMFClassTableStats
+    SELECT ClassID,
+           st.TableName,
+           IncludeInApp,
+           MissingTable,
+           SQLRecordCount,
+           MFRecordCount,
+           MFNotInSQL,
+           SQLNotInMF,
+           Templates,
+           Collections,
+           Deleted,
+           CheckedOut,
+           RequiredWorkflowError,
+           SyncError,
+           Process_ID_not_0,
+           MFError,
+           SQLError,
+           LastModified,
+           MFLastModified,
+           SessionID
+    FROM ##spMFClassTableStats st  
     WHERE ISNULL(SQLRecordCount, -1) <> -1;
 
    -- DROP TABLE ##spMFClassTableStats;
@@ -646,20 +684,19 @@ BEGIN
 
 
 DECLARE @TableBody   NVARCHAR(MAX)
-DECLARE @Mailitem_ID INT, @Body NVARCHAR(MAX)
-DECLARE @ToEmail NVARCHAR(100);
-DECLARE @MessageTitle NVARCHAR(100);
-DECLARE @Footer NVARCHAR(400);
+DECLARE @Mailitem_ID INT
+DECLARE @ToEmail NVARCHAR(258);
    
 EXEC dbo.spMFConvertTableToHtml @SqlQuery = 'Select * from ##spMFClassTableStats where  IncludeInApp = 1 and (MFNotInSQL > 0 OR  SQLNotInMF <> 0 or CheckedOut <> 0 or RequiredWorkflowError <> 0 or SyncError <> 0 or Process_ID_not_0 <> 0 or MFError <> 0 or SQLError <> 0 or MissingTable > 0)',
     @TableBody = @TableBody OUTPUT,
     @Debug = 0
 
-SELECT @Footer = '<BR><p>Produced by MFSQL Connector</p>'
-SELECT @Body = '<p>The class tables in the following report is not up to date or is showing errors.  Consult https://doc.lamininsolutions.com/mfsql-connector/procedures/spMFClassTableStats.html for corrective action. </p> <BR> ' + @TableBody + @Footer
+SELECT @Footer = ISNULL(@Footer, '<BR><p>Produced by MFSQL Connector</p>')
+SELECT @Body = ISNULL(@Body,'<p>The class tables in the following report is not up to date or is showing errors.  Consult https://doc.lamininsolutions.com/procedures/spMFClassTableStats.html for corrective action. </p> <BR> ' )
+SELECT @ToEmail = CAST(Value AS NVARCHAR(258)) FROM mfsettings WHERE name = 'SupportEmailRecipient'
+SELECT @MessageTitle =  ISNULL(@MessageTitle, DB_NAME() + ' : Class Table Error Report')
 
-SELECT @ToEmail = CAST(Value AS NVARCHAR(100)) FROM mfsettings WHERE name = 'SupportEmailRecipient'
-SET @MessageTitle =   QUOTENAME(DB_NAME()) + ' : Class Table Error Report'
+SELECT @Body = @Body + @TableBody + @Footer
 
 EXEC dbo.spMFSendHTMLBodyEmail @Body = @Body,
     @MessageTitle = @MessageTitle,

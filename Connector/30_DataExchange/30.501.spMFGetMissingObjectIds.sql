@@ -5,7 +5,7 @@ go
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFGetMissingobjectIds', -- nvarchar(100)
-    @Object_Release = '4.8.22.62', -- varchar(50)
+    @Object_Release = '4.9.28.73', -- varchar(50)
     @UpdateFlag = 2 -- smallint
  
 go
@@ -18,6 +18,7 @@ go
   2017-10-01	LC		fix bug with parameter sizes
   2018-8-3		LC		Prevent endless loop
   2020-08-31    LC      prevent null warning
+  2022-02-06    LC      fix bug on missing deleted items
 */
 IF EXISTS ( SELECT  1
             FROM    INFORMATION_SCHEMA.ROUTINES
@@ -83,22 +84,29 @@ AS /****************************************************************************
         DECLARE @ParmDefinition NVARCHAR(max);
         SET @ParmDefinition = N'@retvalOUT varchar(max) OUTPUT';
 
-/*     SET @SelectQuery = '
+        DECLARE @DeletedColumn NVARCHAR(100);
+
+            SELECT @DeletedColumn = mp.ColumnName
+            FROM dbo.MFProperty AS mp
+            WHERE mp.MFID = 27;
+/*
+    SET @SelectQuery = '
 select @retvalOUT = coalesce(@retvalOUT+ '','','''') + item from (
   SELECT item FROM dbo.fnMFSplitString(''' + @objIDs
-            + ''','','') where item not in (select objid from ' + @tableName
+            + ''','','') where item not in (select objid from ' + @MFtableName
             + ' )
   ) as k;';
      
---	 PRINT @SelectQuery
-*/
+	 PRINT @SelectQuery
 
+*/
 
 SET @SelectQuery = 'select @retvalOUT = coalesce(@retvalOUT+ '','','''') + CAST(item AS varchar(10)) FROM (
   SELECT item FROM dbo.fnMFSplitString(''' + @objIDs + ''','','') WHERE item != 0
-  EXCEPT SELECT objid FROM ' + @MFtableName +') k'
+  EXCEPT SELECT objid FROM ' + @MFtableName +' ) k'
 			
---			select @SelectQuery;
+IF @debug > 0
+			select @SelectQuery;
 
         EXEC sp_executesql @SelectQuery, @ParmDefinition,
             @retvalOUT = @MissingList OUTPUT;
@@ -114,8 +122,6 @@ IF @debug > 0
 
         SET @missingIds = @MissingList + ',';
  
-
-
         SET @position = 0;
         SET @length = 0;
         SET @retSTring = '';

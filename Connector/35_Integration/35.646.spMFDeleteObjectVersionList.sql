@@ -5,7 +5,7 @@ GO
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFDeleteObjectVersionList', -- nvarchar(100)
-    @Object_Release = '4.8.24.65',         -- varchar(50)
+    @Object_Release = '4.9.27.72',         -- varchar(50)
     @UpdateFlag = 2;                       -- smallint
 GO
 
@@ -118,6 +118,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-12-20  LC         Add logging and pair connection test with Assembly
 2020-10-06  LC         Add new procedure
 ==========  =========  ========================================================
 
@@ -213,26 +214,7 @@ FROM dbo.MFVaultSettings;
 
 SELECT @VaultSettings = dbo.FnMFVaultSettings();
 
--------------------------------------------------------------
--- Check connection to vault
--------------------------------------------------------------
-DECLARE @IsUpToDate INT;
-
-SET @ProcedureStep = N'Connection test: ';
-
-DECLARE @TestResult INT;
-
-EXEC @return_value = dbo.spMFConnectionTest;
-
-IF @return_value <> 1
-BEGIN
-    SET @DebugText = N'Connection failed ';
-    SET @DebugText = @DefaultDebugText + @DebugText;
-
-    RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
-END;
-
--------------------------------------------------------------
+---------------------------------------------------------
 -- Get deleted column name
 -------------------------------------------------------------
 SELECT @DeletedColumn = ColumnName
@@ -409,7 +391,19 @@ ORDER BY objid ASC
     SET @ProcedureStep = N'SPMFDeleteObject';
     SET @return_value = NULL;
 
-    IF @count > 0
+        EXEC @return_value = dbo.spMFConnectionTest;
+
+IF @return_value <> 1
+BEGIN
+    SET @DebugText = N'Connection failed ';
+    SET @DebugText = @DefaultDebugText + @DebugText;
+
+    RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+END;
+
+        SET @StartTime = GETUTCDATE();
+    IF @count > 0 AND @return_value = 1
+
     BEGIN
         EXEC @return_value = dbo.spMFDeleteObjectListInternal @VaultSettings = @VaultSettings,
             @XML = @XMLInput, -- int                                                   
@@ -424,6 +418,29 @@ ORDER BY objid ASC
 
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @return_value);
         END;
+
+ 
+         SET @ProcedureStep = N'Wrapper turn around';
+    SET @LogTypeDetail = N'Status';
+    SET @LogStatusDetail = N' In Progress';
+    SET @LogTextDetail = N'spMFDeleteObjectListInternal';
+    SET @LogColumnName = N'';
+    SET @LogColumnValue = N'';
+
+    EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+        @LogType = @LogTypeDetail,
+        @LogText = @LogTextDetail,
+        @LogStatus = @LogStatusDetail,
+        @StartTime = @StartTime,
+        @MFTableName = @MFTableName,
+        @Validation_ID = @Validation_ID,
+        @ColumnName = @LogColumnName,
+        @ColumnValue = @LogColumnValue,
+        @Update_ID = @Update_ID,
+        @LogProcedureName = @ProcedureName,
+        @LogProcedureStep = @ProcedureStep,
+        @debug = @Debug;
+
 
         -------------------------------------------------------------
         -- Record deletion

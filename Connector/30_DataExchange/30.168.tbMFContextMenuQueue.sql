@@ -10,7 +10,7 @@ Columns
 =======
 The rows for this table is inserted from your custom contextmenu procedure
 
-example xx illustrates how the functionality is built into the custom procedure.
+Example xx illustrates how the functionality is built into the custom procedure.
 
 Additional Info
 ===============
@@ -59,6 +59,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-03-10  LC         Reset log table to align with VAF Job Task processing
 2020-04-22  LC         Add naming for primary key
 2020-03-18  LC         Add indexes
 2019-12-06  LC         Create Table
@@ -75,11 +76,17 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFContextMenuQueue', -- nvarchar(100)
-    @Object_Release = '4.4.14.55', -- varchar(50)
+    @Object_Release = '4.10.29.74', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
 
 GO
+
+--IF (OBJECT_ID('MFContextmenuQueue') IS NOT NULL AND NOT EXISTS (SELECT c.TABLE_NAME FROM INFORMATION_SCHEMA.COLUMNS AS c WHERE c.TABLE_NAME = 'MFContextmenuQueue' and column_Name = 'Job_ID'))
+--BEGIN 
+--DROP TABLE dbo.MFContextMenuQueue
+--end
+
 IF NOT EXISTS (	  SELECT	[name]
 				  FROM		[sys].[tables]
 				  WHERE		[name] = 'MFContextMenuQueue'
@@ -89,12 +96,14 @@ IF NOT EXISTS (	  SELECT	[name]
 		CREATE  TABLE dbo.MFContextMenuQueue
 (
     id INT IDENTITY,
+ --   Job_ID INT ,
     ContextMenu_ID INT NOT null,
     ObjectID INT ,
     ObjectType INT,
     ObjectVer INT,
     ClassID INT,
     Status INT,
+    Status_Decription NVARCHAR(1000),
 	ProcessBatch_ID INT,
 	UpdateID INT,
 	UpdateCycle INT,

@@ -6,7 +6,7 @@ go
 SET NOCOUNT ON; 
 EXEC Setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
     @ObjectName = N'spMFInsertClass', -- nvarchar(100)
-    @Object_Release = '4.2.7.46', -- varchar(50)
+    @Object_Release = '4.9.28.73', -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
 go
@@ -71,17 +71,6 @@ Purpose
 
 The purpose of this procedure is to insert Class details into MFClass table.
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
 
 Changelog
 =========
@@ -89,6 +78,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-01-04  LC         Add assembly logging to app detail logging
 2019-08-30  JC         Added documentation
 2018-11-10  LC         Add includedinApp update for User Messager table
 2018-03-26  DEV2       Workflow required check
@@ -383,7 +373,7 @@ Date        Author     Description
 		-------------------------------------------------------------
 		DECLARE @DetailLogging NVARCHAR(5)
 		SELECT @DetailLogging = CAST([Value] AS VARCHAR(5)) FROM mfsettings WHERE name = 'App_DetailLogging'
-		IF @DetailLogging = '1'
+		IF @DetailLogging in ('1','2')
 		BEGIN
         UPDATE MFClass SET [IncludeInApp] = 1 WHERE name = 'User Messages'
 

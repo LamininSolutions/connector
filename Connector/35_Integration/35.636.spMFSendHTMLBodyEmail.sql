@@ -5,7 +5,7 @@ SET NOCOUNT ON
 EXEC [setup].[spMFSQLObjectsControl]
 	@SchemaName = N'dbo'
   , @ObjectName = N'spMFSendHTMLBodyEmail' -- nvarchar(100)
-  , @Object_Release = '4.9.25.67'
+  , @Object_Release = '4.9.28.73'
   , @UpdateFlag = 2
 
 GO
@@ -45,9 +45,9 @@ ALTER PROCEDURE dbo.spMFSendHTMLBodyEmail
     -- Add the parameters for the function here
     @Body NVARCHAR(MAX),
     @MessageTitle NVARCHAR(258),
-    @FromEmail NVARCHAR(258),
+    @FromEmail NVARCHAR(258) = null ,
     @ToEmail NVARCHAR(258),
-    @CCEmail NVARCHAR(258),
+    @CCEmail NVARCHAR(258) = null,
     @Mailitem_ID INT OUTPUT,
     @ProcessBatch_ID INT = NULL output,
     @Debug INT = 0
@@ -69,7 +69,7 @@ Parameters
    @MessageTitle 
      Subject of email
    @FromEmail 
-     email address for sender
+     email address for sender taken from the mail profile
    @ToEmail 
      email address of recipient. Delimited with ';' if multiples
    @CCEmail 
@@ -104,6 +104,8 @@ Prerequisites
 
 msdb Database mail need to be activiated and configured.
 
+The email from is taken from the mail profile.
+
 Examples
 ========
 
@@ -127,6 +129,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-01-18  LC         Fix cc  email bug
 2021-01-29  LC         Updated to allow for setting profile in MFEmailTemplate
 2021-01-26  LC         Create procedure
 ==========  =========  ========================================================
@@ -293,10 +296,10 @@ BEGIN TRY
         --############################## Get From, ReplyTo & CC ##############################
         SET @ProcedureStep = N'Get Email Address';
 
-        DECLARE @EMAIL_FROM_ADDR VARCHAR(255),
-            @EMAIL_REPLYTO_ADDR  VARCHAR(255),
-            @EMAIL_CC_ADDR       VARCHAR(255),
-            @EMAIL_TO_ADDR       VARCHAR(255);
+        DECLARE @EMAIL_FROM_ADDR VARCHAR(258),
+            @EMAIL_REPLYTO_ADDR  VARCHAR(258),
+            @EMAIL_CC_ADDR       VARCHAR(258),
+            @EMAIL_TO_ADDR       VARCHAR(258);
 
         SELECT @EMAIL_FROM_ADDR = a.email_address
         FROM msdb.dbo.sysmail_account                  AS a
@@ -314,6 +317,7 @@ BEGIN TRY
         DECLARE @RecipientFromContextMenu NVARCHAR(258);
 
         SET @EMAIL_TO_ADDR = @ToEmail;
+        SET @EMAIL_CC_ADDR = @CCEmail;
 
         IF @Debug > 0
             SELECT @EMAIL_TO_ADDR;
@@ -342,7 +346,8 @@ BEGIN TRY
             SELECT @EMAIL_BODY;
 
         EXEC msdb.dbo.sp_send_dbmail @profile_name = @EMAIL_PROFILE,
-            @recipients = @EMAIL_TO_ADDR, --, @copy_recipients = @EMAIL_CC_ADDR
+            @recipients = @EMAIL_TO_ADDR,
+            @copy_recipients = @EMAIL_CC_ADDR,
             @subject = @EMAIL_SUBJECT,
             @body = @EMAIL_BODY,
             @body_format = 'HTML',

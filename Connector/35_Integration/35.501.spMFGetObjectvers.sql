@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFGetObjectvers', -- nvarchar(100)
-    @Object_Release = '4.8.22.62',      -- varchar(50)
+    @Object_Release = '4.9.27.72',      -- varchar(50)
     @UpdateFlag = 2;                    -- smallint
 GO
 
@@ -109,6 +109,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-12-21  LC         This procedure is no longer used by MFTableAudit
+2021-12-20  LC         Pair connection test with wrapper
 2020-08-25  LC         Add return XML for deleted records
 2019-12-12  LC         Improve text in MFProcessBatchDetail
 2019-09-04  LC         Add connection test
@@ -227,6 +229,8 @@ BEGIN
         @debug = 0;
 
     BEGIN TRY
+
+        SET @StartTime = GETUTCDATE();
         -------------------------------------------------------------
         -- BEGIN PROCESS
         -------------------------------------------------------------
@@ -256,24 +260,6 @@ BEGIN
         END;
 
         SELECT @VaultSettings = dbo.FnMFVaultSettings();
-
-        -------------------------------------------------------------
-        -- Check connection to vault
-        -------------------------------------------------------------
-        DECLARE @IsUpToDate INT;
-
-        SET @ProcedureStep = N'Connection test: ';
-
-        DECLARE @TestResult INT;
-
-        EXEC @return_value = dbo.spMFConnectionTest 
-        IF @return_value <> 1
-        BEGIN
-            SET @DebugText = N'Connection failed ';
-            SET @DebugText = @DefaultDebugText + @DebugText;
-
-            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
-        END;
 
         ---------------------------------------------------------------
         -- Checking module access for CLR procdure  spMFGetObjectType
@@ -316,12 +302,58 @@ BEGIN
 
         DECLARE @outPutDeletedXML NVARCHAR(MAX);
 
+         -------------------------------------------------------------
+        -- Check connection to vault
+        -------------------------------------------------------------
+   
+
+        SET @ProcedureStep = N'Connection test: ';
+
+
+        EXEC @return_value = dbo.spMFConnectionTest 
+        IF @return_value <> 1
+        BEGIN
+            SET @DebugText = N'Connection failed ';
+            SET @DebugText = @DefaultDebugText + @DebugText;
+
+            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+        END;
+
+       
+      SET @ProcedureStep = N'Wrapper turn around';
+      SET @StartTime = GETUTCDATE()
+
+         IF @return_value = 1
+         Begin
         EXECUTE @return_value = dbo.spMFGetObjectVersInternal @VaultSettings,
             @ClassId,
             @dtModifiedDate,
             @MFIDs,
             @outPutXML OUTPUT,
             @outPutDeletedXML OUTPUT;
+
+            END
+
+    SET @LogTypeDetail = N'Status';
+    SET @LogStatusDetail = N' Assembly';
+    SET @LogTextDetail = N'spMFGetObjectVersInternal';
+    SET @LogColumnName = N'';
+    SET @LogColumnValue = N'';
+
+    EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+        @LogType = @LogTypeDetail,
+        @LogText = @LogTextDetail,
+        @LogStatus = @LogStatusDetail,
+        @StartTime = @StartTime,
+        @MFTableName = @MFTableName,
+        @Validation_ID = @Validation_ID,
+        @ColumnName = @LogColumnName,
+        @ColumnValue = @LogColumnValue,
+        @Update_ID = @Update_ID,
+        @LogProcedureName = @ProcedureName,
+        @LogProcedureStep = @ProcedureStep,
+        @debug = @Debug;
+
 
         IF @Debug > 0
         BEGIN

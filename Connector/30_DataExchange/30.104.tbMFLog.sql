@@ -62,32 +62,16 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-11-23  LC         Remove duplicate index on ID
 2021-04-08  LC         Update documentation
 2019-09-07  JC         Added documentation
+2016-01-30  DEV        Create procedure
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
 go
 SET NOCOUNT ON; 
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-01
-	Database: 
-	Description: MFLog records every system related error with reference to the MFUpdateHistory	
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  Select * from MFLog
-  
------------------------------------------------------------------------------------------------*/
 
 
 GO
@@ -99,7 +83,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFLog', -- nvarchar(100)
-    @Object_Release = '2.1.1.12', -- varchar(50)
+    @Object_Release = '4.9.27.72', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
 
@@ -155,14 +139,14 @@ ELSE
 
 --INDEXES #############################################################################################################################
 
-IF NOT EXISTS ( SELECT  *
-                FROM    sys.indexes
-                WHERE   object_id = OBJECT_ID('MFLog')
-                        AND name = N'idx_MFLog_id' )
-    BEGIN
-        PRINT SPACE(10) + '... Index: idx_MFLog_id';
-        CREATE NONCLUSTERED INDEX idx_MFLog_id ON dbo.MFLog ([LogID]);
-    END;
+--IF NOT EXISTS ( SELECT  *
+--                FROM    sys.indexes
+--                WHERE   object_id = OBJECT_ID('MFLog')
+--                        AND name = N'idx_MFLog_id' )
+--    BEGIN
+--        PRINT SPACE(10) + '... Index: idx_MFLog_id';
+--        CREATE NONCLUSTERED INDEX idx_MFLog_id ON dbo.MFLog ([LogID]);
+--    END;
 
 --TRIGGERS #########################################################################################################################3#######
 

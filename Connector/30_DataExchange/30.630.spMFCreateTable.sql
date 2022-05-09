@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFCreateTable', -- nvarchar(100)
-    @Object_Release = '4.9.25.67',    -- varchar(2506
+    @Object_Release = '4.9.28.73',    -- varchar(2506
     @UpdateFlag = 2;
 
 IF EXISTS
@@ -198,6 +198,7 @@ Date        Author     Description
 2020-08-18  LC         replace deleted column flag with property 27 (deleted)
 2020-11-21  LC         Fix bug with unique index on objid
 2021-01-22  LC         set default schema to dbo
+2022-01-04  LC         update app detail logging to include assembly logging
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -620,7 +621,7 @@ BEGIN
                 FROM dbo.MFSettings AS ms
                 WHERE ms.Name = 'App_DetailLogging';
 
-                IF @IsDetailLogging = 1
+                IF @IsDetailLogging > 0
                     SELECT @Count = COUNT(*)
                     FROM dbo.MFProperty AS mp
                     WHERE mp.Name IN ( 'MFSQL_Message', 'MFSQL_Process_Batch' );

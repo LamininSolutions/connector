@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateHistoryShow', -- nvarchar(100)
-    @Object_Release = '4.8.22.62',          -- varchar(50)
+    @Object_Release = '4.9.27.72',          -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
 GO
@@ -45,7 +45,7 @@ ALTER PROCEDURE dbo.spMFUpdateHistoryShow
 (
     @Update_ID INT,
     @IsSummary SMALLINT = 1,
-    @UpdateColumn INT = 0,
+    @UpdateColumn INT = null,
     @Debug SMALLINT = 0
 ) AS;
 
@@ -81,18 +81,26 @@ The result is a join between the column data and the class table.  The first cou
 Additional Info
 ===============
 
+The significance of the update column depends on the update method
+  - 0 : Objects in class updated from SQL to MF
+  - 1 : Objects in class updated from MF to SQL
+  - 10: Object versions updated in audit history
+  - 11: Object Change versions update in objectChange History
+
 Update column reference
  - UpdateColumn 0 = ObjectDetails: 
-   - For UpdateMethod 1 : represent the objecttype and class, will always show 1 record
-   - For UpdateMethod 0 : represents the objects in the class to be updated, will show the number of properties to be updated
+   - UpdateMethod 1,10 : represent the objecttype and class, will always show 1 record
+   - UpdateMethod 0 : represents the objects in the class to be updated, will show the number of properties to be updated
+   - UpdateMethod 11 : class id and property id for changes
  - UpdateColumn 1 = ObjectVerDetails:
-   - For UpdateMethod 1 : represents the object ver in SQL to be compared with MF, will show the number of records to be updated
-   - For UpdateMethod 0 : not used
+   - UpdateMethod 1,11 : represents the object ver in SQL to be compared with MF, will show the number of records to be updated
+   - UpdateMethod 0,10 : not used
  - UpdateColumn 2 = NewOrUpdatedObjectVer: 
-   - For UpdateMethod 1 : Not used
-   - For UpdateMethod 0 : represents the object ver in SQL to be updated in MF, will show the number of records to be updated
+   - UpdateMethod 1 : Not used
+   - UpdateMethod 0,10 : represents the object ver in SQL to be updated in MF, will show the number of records to be updated
+   - UpdateMethod 11 :represents the objectversions returned from MF
  - UpdateColumn 3 = NewOrUpdateObjectDetails: 
-   - Represents the object ver details from MF to be updated in SQL, will show the number of properties to be updated
+   - UpdateMethod 0,1 : Represents the object ver details from MF to be updated in SQL, will show the number of properties to be updated
 
  - UpdateColumn 4 = SyncronisationErrors  (not yet implemented)
  - UpdateColumn 5 = MFError  (not yet implemented)
@@ -101,7 +109,7 @@ Update column reference
 Warning
 =======
 
-MFUpdatehistory has records for different types of operations.  This procedure is targeted and showing updates to and from M-Files using the spMFupdateTable procedure. Using it for rows in the MFupdateHistory for other types of updates will produce false results or through an  error.
+MFUpdatehistory has records for different types of operations.  This procedure is targeted and showing updates to and from M-Files using the spMFupdateTable, spMFTableAudit and spMFUpdateObjectChange procedure. 
 
 Examples
 ========
@@ -121,13 +129,16 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2016-01-10  LC         Create procedure
-2017-06-09  Arnie      produce single result sets for easier usage 
-2017-06-09  LC         Change options to print either summary or detail
-2018-08-01  LC         Fix bug with showing deletions
-2018-05-09  LC         Fix bug with column 1
-2020-08-22  LC         Update for impact of new deleted column  
+2021-12-24  LC         Sset default for updatecolumn to null
+2021-12-22  LC         Add Audit History and Object Change history show records
+2021-12-13  LC         Remove redundant temp table from printing
 2021-02-03  LC         Rewrite the procedure to streamline and fix errors
+2020-08-22  LC         Update for impact of new deleted column
+2018-05-09  LC         Fix bug with column 1
+2018-08-01  LC         Fix bug with showing deletions
+2017-06-09  LC         Change options to print either summary or detail
+2017-06-09  Arnie      produce single result sets for easier usage
+2016-01-10  LC         Create procedure
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -150,16 +161,24 @@ BEGIN -- Declarations
         @Query             NVARCHAR(MAX),
         @Param             NVARCHAR(MAX),
         @UpdateDescription VARCHAR(100);
+        DECLARE @Class_ID INT;
+        DECLARE @Class NVARCHAR(100);
+        DECLARE @ObjectType NVARCHAR(100);
+
     DECLARE @RowCount INT;
     DECLARE @TableName sysname;
     DECLARE @UpdateMethod INT;
     DECLARE @Idoc INT;
 END; -- end declarations
 
+IF (SELECT OBJECT_ID('temdb..#summary')) IS NOT NULL
+DROP TABLE #summary;
+
 BEGIN -- setup Summary
     CREATE TABLE #Summary
     (
         UpdateColumn SMALLINT,
+        UpdateType NVARCHAR(100),
         ColumnName NVARCHAR(100),
         UpdateDescription NVARCHAR(100),
         UpdateMethod SMALLINT,
@@ -171,12 +190,12 @@ BEGIN -- setup Summary
 
     INSERT INTO #Summary
     (
-        UpdateColumn,
+        UpdateColumn,       
         ColumnName,
         UpdateDescription
     )
     VALUES
-    (0, N'ObjectDetails', 'Object Details'),
+    (0, N'ObjectDetails', 'Object Type Details'),
     (1, N'ObjectVerDetails', 'Data from SQL to M-Files'),
     (2, N'NewOrUpdatedObjectVer', 'Object updated in M-Files'),
     (3, N'NewOrUpdateObjectDetails', 'Data From M-Files to SQL'),
@@ -184,7 +203,6 @@ BEGIN -- setup Summary
     (5, N'MFError ', 'MFError'),
     (6, N'DeletedObjects', 'Deleted Objects');
 
-    --(7, N'ObjectDetails', 'New Object from SQL');
     SELECT @UpdateDescription = UpdateDescription
     FROM #Summary
     WHERE UpdateColumn = @UpdateColumn;
@@ -207,46 +225,40 @@ BEGIN -- setup Summary
     FROM dbo.MFUpdateHistory AS muh
     WHERE muh.Id = @Update_ID;
 
-    --IF @UpdateMethod = 0
-    --    DELETE FROM #Summary
-    --    WHERE UpdateColumn = 7;
-    DECLARE @ClassDetails AS TABLE
-    (
-        ObjectType INT,
-        Class INT,
-        Updatemethod INT
-    );
-
-    INSERT INTO @ClassDetails
-    SELECT t.c.value('Object[1]/@id', 'int')       AS ObjectType,
-        t.c.value('Object[1]/class[1]/@id', 'int') AS Class,
-        @UpdateMethod                              AS UpdateMethod
-    FROM @XML.nodes('/form') AS t(c);
-
-    IF @Debug > 0
-        SELECT *
-        FROM @ClassDetails;
-
-    SELECT @TableName = TableName
-    FROM @ClassDetails
-        INNER JOIN dbo.MFClass
-            ON MFID = Class;
-
-    IF @Debug > 0
-        SELECT @TableName AS TableName;
+    SET @Class_ID = CASE WHEN @UpdateMethod IN (0,1) THEN 
+     (SELECT t.c.value('Object[1]/class[1]/@id', 'int') AS Class
+    FROM @XML.nodes('/form') AS t(c)) 
+    WHEN  @UpdateMethod IN (10) THEN 
+    (SELECT t.c.value('ObjectType[1]/@ClassID', 'int') AS Class
+    FROM @XML.nodes('/form') AS t(c)) 
+     WHEN  @UpdateMethod IN (11) THEN 
+    (SELECT t.c.value('Object[1]/@Class', 'int') AS Class
+    FROM @XML.nodes('/form') AS t(c)) 
+    ELSE
+    null
+    END
+    ;
+ 
+    SELECT @TableName = mc.TableName, @ObjectType = ot.Name, @class = mc.name
+    FROM dbo.MFClass mc INNER JOIN MFObjectType ot ON ot.ID = mc.MFObjectType_ID WHERE mc.mfid = @Class_ID
+    
+     IF @Debug > 0
+     select @Class_ID Classid, @ObjectType ObjectType,@TableName AS TableName;
 
     UPDATE #Summary
-    SET UpdateMethod = od.Updatemethod,
-        Class = mc.Name,
-        ObjectType = mo.Name,
-        TableName = mc.TableName
-    FROM #Summary
-        CROSS JOIN @ClassDetails od
-        INNER JOIN dbo.MFClass      mc
-            ON mc.MFID = od.Class
-        INNER JOIN dbo.MFObjectType mo
-            ON mo.MFID = od.ObjectType;
+    SET UpdateType = CASE WHEN @UpdateMethod = 0 THEN 'Objects From SQL to MF'
+    WHEN @UpdateMethod = 1 THEN 'Objects From MF to SQL'
+    WHEN @UpdateMethod = 10 THEN 'Object Versions From MF'
+    WHEN @UpdateMethod = 11 THEN 'Object Change History'
+    ELSE NULL
+    END,
+    UpdateMethod = @UpdateMethod,
+        Class = @Class ,
+        ObjectType = @ObjectType,
+        TableName = @TableName
+    WHERE 1 = 1
 END; --end setup summary
+
 
 BEGIN -- setup temp tables
     IF
@@ -286,17 +298,15 @@ END;
 -------------------------------------------------------------
 -- Object Details
 -------------------------------------------------------------
-BEGIN --Object Details
+BEGIN --Object Details column 0
     IF @Debug > 0
     BEGIN
-        SELECT @XML AS ObjectDetails;
+        SELECT @XML AS ObjectDetails, @UpdateMethod AS UpdateMethod;
     END;
 
     IF
-    (
-        SELECT s.UpdateMethod FROM #Summary AS s WHERE s.UpdateColumn = 0
-    ) = 1
-    BEGIN -- insert updatemethod 1
+    @UpdateMethod = 0
+    BEGIN 
         INSERT INTO #ObjectID_1
         (
             ObjectID,
@@ -311,14 +321,15 @@ BEGIN --Object Details
         UPDATE s
         SET s.RecCount = @RowCount,
             s.UpdateDescription = CASE
-                                      WHEN s.UpdateMethod = 1 THEN
+                                      WHEN s.UpdateMethod in (1,10,11) THEN
                                           'Object Type Details'
                                       WHEN s.UpdateMethod = 0 THEN
-                                          'Object Details'
+                                          'Objects to update'
                                   END
         FROM #Summary AS s
         WHERE s.UpdateColumn = 0;
     END;
+
 
     IF
     (
@@ -366,17 +377,15 @@ END;
 -------------------------------------------------------------
 -- ObjectVerDetails
 -------------------------------------------------------------
-BEGIN --  ObjectVerDetails
-    IF
-    (
-        SELECT s.UpdateMethod FROM #Summary AS s WHERE s.UpdateColumn = 1
-    ) = 1
-    BEGIN -- updatemethod 1
+BEGIN --  ObjectVerDetails Col 1
         IF @Debug > 0
         BEGIN
             SELECT @XML1 AS ObjectVerDetails;
         END;
 
+    IF
+    @updateMethod = 1
+    BEGIN -- updatemethod 1
         INSERT INTO #ObjectID_3
         (
             objId,
@@ -388,22 +397,38 @@ BEGIN --  ObjectVerDetails
             t.c.value('@version', 'int')             MFVersion,
             t.c.value('@objectGUID', 'nvarchar(50)') GUID,
             1
-        FROM @XML1.nodes('/form/ObjectType/objVers') AS t(c);
+        FROM @XML1.nodes('/form/objVers') AS t(c);
 
         SET @RowCount = @@RowCount;
     END; -- end updatemethod 1
 
+    IF
+    @updateMethod = 11
+    BEGIN -- updatemethod 11
+        INSERT INTO #ObjectID_3
+        (
+            objId,
+            updatecolumn
+        )
+        SELECT t.c.value('@objid', 'int')         objid,
+        1
+           
+        FROM @XML1.nodes('/form/object') AS t(c);
+
+        SET @RowCount = @@RowCount;
+    END; -- end updatemethod 11
+
     UPDATE #Summary
     SET RecCount = CASE
-                       WHEN s.UpdateMethod = 1 THEN
+                       WHEN s.UpdateMethod in (1,11) THEN
                            @RowCount
-                       WHEN s.UpdateMethod = 0 THEN
+                       WHEN s.UpdateMethod in (0,10) THEN
                            NULL
                    END,
         UpdateDescription = CASE
-                                WHEN s.UpdateMethod = 1 THEN
-                                    'Object Details'
-                                WHEN s.UpdateMethod = 0 THEN
+                                WHEN s.UpdateMethod in (1,11) THEN
+                                    'Objects to update'
+                                WHEN s.UpdateMethod in (0,10) THEN
                                     'N/A'
                             END
     FROM #Summary AS s
@@ -411,15 +436,13 @@ BEGIN --  ObjectVerDetails
 END; --end ObjectVerDetails
 
 BEGIN -- NewOrUpdateobjVer @UpdateColumn = 2
-    IF
-    (
-        SELECT s.UpdateMethod FROM #Summary AS s WHERE s.UpdateColumn = 1
-    ) = 0
-    BEGIN -- updatemethod 0 
-        IF @Debug > 0
+  IF @Debug > 0
         BEGIN
             SELECT @XML2 AS NewOrUpdatedObjectVer;
         END;
+    IF
+    @UpdateMethod = 0
+    BEGIN -- updatemethod 0 
 
         INSERT INTO #ObjectID_3
         (
@@ -437,16 +460,60 @@ BEGIN -- NewOrUpdateobjVer @UpdateColumn = 2
         SET @RowCount = @@RowCount;
     END; --end updatemethod 0
 
+     IF
+    @UpdateMethod = 10
+    BEGIN -- updatemethod 10 
+
+        INSERT INTO #ObjectID_3
+        (
+            objId,
+            MFVersion,
+            GUID,
+            UpdateColumn
+        )
+        SELECT t.c.value('@objectID', 'int')         objid,
+            t.c.value('@version', 'int')          MFVersion,
+            t.c.value('@objectGUID', 'nvarchar(50)') GUID,
+            2
+        FROM @XML2.nodes('/form/objVers') AS t(c);
+
+        SET @RowCount = @@RowCount;
+    END; --end updatemethod 10
+
+         IF
+    @UpdateMethod = 11
+    BEGIN -- updatemethod 11 
+
+        INSERT INTO #ObjectID_3
+        (
+            objId,
+           MFVersion,
+   --         GUID,
+            UpdateColumn
+        )
+        SELECT t.c.value('@ObjID', 'int')         objid,
+            t.c.value('@Version', 'int')          MFVersion,
+  --          t.c.value('@objectGUID', 'nvarchar(50)') GUID,
+            2
+        FROM @XML2.nodes('/form/Object') AS t(c);
+
+        SET @RowCount = @@RowCount;
+    END; --end updatemethod 11
+
     UPDATE #Summary
     SET RecCount = CASE
                        WHEN UpdateMethod = 1 THEN
                            NULL
-                       WHEN UpdateMethod = 0 THEN
+                       WHEN UpdateMethod in (0,10,11) THEN
                            @RowCount
                    END,
         UpdateDescription = CASE
                                 WHEN UpdateMethod = 0 THEN
-                                    'Object version Details from SQL'
+                                    'Objects from SQL'
+                                WHEN UpdateMethod = 10 THEN
+                                    'Object versions from MF'
+                                WHEN UpdateMethod = 11 THEN
+                                    'Object Change versions from MF'
                                 WHEN UpdateMethod = 1 THEN
                                     'N/A'
                             END
@@ -459,6 +526,8 @@ BEGIN -- NewOrUpdatedObjectDetails @UpdateColumn = 3
         SELECT @XML3 AS NewOrUpdatedObjectDetails;
     END;
 
+    IF @UpdateMethod IN (0,1) 
+    begin
     --  SET @ProcedureStep = 'Parse the Input XML';
     --Parse the Input XML
     EXEC sys.sp_xml_preparedocument @Idoc OUTPUT, @XML3;
@@ -505,9 +574,13 @@ BEGIN -- NewOrUpdatedObjectDetails @UpdateColumn = 3
         EXEC sys.sp_xml_removedocument @Idoc;
 
     UPDATE #Summary
-    SET RecCount = @RowCount,
-        UpdateDescription = 'Property Details from MF'
+    SET RecCount = CASE WHEN @updateMethod IN (0,1) THEN @RowCount
+    ELSE NULL END ,
+        UpdateDescription = CASE WHEN @updateMethod IN (0,1) THEN 'Property Details from MF'
+        ELSE 'N/A' END 
     WHERE UpdateColumn = 3;
+
+END -- updatdate method 0,1
 END; -- end @UpdateColumn = 3
 
 BEGIN -- SynchronizationError @UpdateColumn = 4 
@@ -590,7 +663,7 @@ BEGIN
     FROM #Summary;
 END;
 
-IF @IsSummary = 0
+IF @UpdateColumn IS NOT null
 BEGIN
     IF @Debug > 0
     begin
@@ -599,6 +672,7 @@ BEGIN
         SELECT * FROM #ObjectID_3 AS oi
         end
         ;
+/*
 
     SET @Param = N'@UpdateColumn int';
     SET @Query
@@ -618,9 +692,14 @@ BEGIN
                              ';
 
     EXEC sys.sp_executesql @Query, @Param, @UpdateColumn = @UpdateColumn;
-END;
 
---IF @UpdateColumn IN (1,3)
+
+*/
+-------------------------------------------------------------
+-- Output of detail
+-------------------------------------------------------------
+
+IF @UpdateColumn = 3 AND @updateMethod IN (0,1)
 BEGIN
    SET @Param = N'@UpdateColumn int';
     SET @Query
@@ -643,31 +722,48 @@ BEGIN
     EXEC sys.sp_executesql @Query, @Param, @UpdateColumn = @UpdateColumn;
 END;
 
---IF @IsSummary <> 1
---   AND @UpdateColumn = 3
---BEGIN
---    SELECT *
---    FROM #ObjectID_3 AS oi
---    WHERE oi.UpdateColumn = 3;
---END;
 
---IF @IsSummary = 0
---   AND @UpdateColumn = 7
---   AND
---   (
---       SELECT UpdateMethod FROM #Summary WHERE UpdateColumn = 0
---   ) = 0
---BEGIN
---    SELECT *
---    FROM #ObjectID_3
---        AS
---        oi
---    WHERE oi.UpdateColumn = 7
---    ORDER BY oi.objId,
---        oi.propertyId;
---END;
+IF  @UpdateColumn = 1
+BEGIN
+    SELECT oi.objId,
+           oi.MFVersion,
+           oi.GUID
+    FROM #ObjectID_3 AS oi
+    WHERE oi.UpdateColumn = 1
+    GROUP BY oi.objId,
+           oi.MFVersion,
+           oi.GUID;
+END;
 
-DROP TABLE #ObjectID_1;
-DROP TABLE #ObjectID_3;
-DROP TABLE #Summary;
+
+IF  @UpdateColumn = 2
+BEGIN
+    SELECT oi.objId,
+           oi.MFVersion,
+           oi.GUID           
+    FROM #ObjectID_3 AS oi
+    WHERE oi.UpdateColumn = @UpdateColumn;
+
+END;
+
+IF @UpdateColumn = 7
+   AND
+   (
+       SELECT UpdateMethod FROM #Summary WHERE UpdateColumn = 0
+   ) = 0
+BEGIN
+    SELECT *
+    FROM #ObjectID_3
+        AS
+        oi
+    WHERE oi.UpdateColumn = 7
+    ORDER BY oi.objId,
+        oi.propertyId;
+END;
+
+--DROP TABLE #ObjectID_1;
+--DROP TABLE #ObjectID_3;
+--DROP TABLE #Summary;
+
+END;
 GO

@@ -1,32 +1,34 @@
-PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFDeleteObject]';
+PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFUnDeleteObject]';
 GO
 
 SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
-                                 @ObjectName = N'spMFDeleteObject', -- nvarchar(100)
-                                 @Object_Release = '4.9.29.73',     -- varchar(50)
-                                 @UpdateFlag = 2;                   -- smallint
+                                 @ObjectName = N'spMFUnDeleteObject', -- nvarchar(100)
+                                 @Object_Release = '4.9.29.73',       -- varchar(50)
+                                 @UpdateFlag = 2;                     -- smallint
 GO
 IF EXISTS
 (
     SELECT 1
     FROM INFORMATION_SCHEMA.ROUTINES
-    WHERE ROUTINE_NAME = 'spMFDeleteObject' --name of procedure
+    WHERE ROUTINE_NAME = 'spMFUnDeleteObject' --name of procedure
           AND ROUTINE_TYPE = 'PROCEDURE' --for a function --'FUNCTION'
           AND ROUTINE_SCHEMA = 'dbo'
 )
 BEGIN
     PRINT SPACE(10) + '...Stored Procedure: update';
-
+    DROP PROC dbo.spMFUnDeleteObject;
     SET NOEXEC ON;
 END;
 ELSE
     PRINT SPACE(10) + '...Stored Procedure: create';
 GO
 
+SET NOEXEC OFF;
+GO
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE dbo.spMFDeleteObject
+CREATE PROCEDURE dbo.spMFUnDeleteObject
 AS
 SELECT 'created, but not implemented yet.'; --just anything will do
 GO
@@ -35,45 +37,36 @@ GO
 SET NOEXEC OFF;
 GO
 
-ALTER PROCEDURE dbo.spMFDeleteObject
-    @ObjectTypeId INT,
-    @objectId INT,
-    @Output NVARCHAR(max) OUTPUT,
-    @ObjectVersion INT = -1,
-    @DeleteWithDestroy BIT = 0,
+ALTER PROCEDURE dbo.spMFUnDeleteObject
+    @MFTableName AS NVARCHAR(128),
+    @ObjId int,
+    @RetainDeletions BIT = 0,
+    @Output NVARCHAR(2000) OUTPUT,
     @Update_ID INT OUTPUT,
     @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug SMALLINT = 0
 AS
 /*rST**************************************************************************
 
-================
-spMFDeleteObject
-================
+==================
+spMFUnDeleteObject
+==================
 
 Return
-  - 1 = Success object deleted
-  - 2 =	Success object version destroyed
-  - 3 =	Success object destroyed  
-  - 4 = Failed to destroy
-  - 5 =	Failed to delete
-  - 6 = Failed to remove version
-
+  - 1 = Success object undeleted
+  - 2 =	Failed to undelete, object not found
   - -1 = SQL Error
 
 Parameters
-  @ObjectTypeId int
-    OBJECT Type MFID from MFObjectType
-  @objectId int
-    Objid of record
+  @MFtableName nvarchar(128)
+    Class table name
+  @ObjID int
+    Objid to undelete
+  @RetainDeletions bit
+    Default = 0 (will not retain deletions in the class table)
+    Set to 1 if the deleted records are maintained in the class table
   @Output nvarchar(2000) (output)
     Output message
-  @objectVersion int
-    the object version to be removed. 
-    default = -1 which indicates the delete the object rather than a version
-  @DeleteWithDestroy bit (optional)
-    - Default = 0
-    - 1 = Destroy
   @Update_ID Output
     - ID of the record in the MFUpdateHistory table
   @ProcessBatch_ID Output
@@ -85,109 +78,34 @@ Parameters
 Purpose
 =======
 
-An object can be deleted from M-Files using the ClassTable by using the spMFDeleteObject procedure. Is it optional to delete or destroy the object in M-Files.
-
-The procedure can also be used to destroy a specific version of an object.  This is particularly useful when old or outdataed versions must be removed from the system.
-
-Additional Information
-======================
-
-Use this procedure to delete or destroy a single object or object version.  spMFDeleteObjectList can be used to delete a series of objects.
-
-When DeleteWithDestroy = 1 the objectversion specified in ObjectVersion will be ignored and the ObjectVersion will automatically be set to -1.  This will trigger the method to destroy the whole object.  There is no need to manually set the ObjectVersion to -1.  A status code 3 will be returned.
-When DeleteWithDestroy = 1 and the objectversion is set to 0 then the object will be destroyed.
-When DeleteWithDestroy = 1 and the object does not exist an error code of 4 will be returned 
-
-When DeleteWithDestroy = 0 and the ObjectVersion is set to 0 the whole object will be deleted. Status code 1 is returned.
-When DeleteWithDestroy = 0 and an ObjectVersion less that the latest object version is specified the ObjectVersion will be removed.  A status code 2 is returned
-
-When DeleteWithDestroy = 0 and an ObjectVersion that is equal to latest object version is specified the delete will fail with error 6 returned
-When DeletedWithDestroy = 0 and the object does not exist an error code 4 will be returned
-When DeletedWithDestroy = 0 and the object version does not exist, is not 0 and is not the latest version of the object then an error code 5 will be returned
+An object can be undeleted from M-Files using the ClassTable by using the spMFUnDeleteObject procedure. Is it optional to undelete the object in M-Files.
 
 
 Warnings
 ========
 
-To delete an object the object version must be set to 0 and DeleteWithDestroy must be set to 0.
-
-Note that when a object is deleted it will not show in M-Files but it will still show in the class table. However, in the class table the deleted column will have a date.
-
-To delete a object version, the specified version must exist.  Use spMFGetHistory to first pull all the versions of an object or objects, and then use the MFObjectChangeHistory table to determine the object versions to be removed.
-
-Deleting and object version performs a destroy of the version. There is no possibility to undelete a deleted version.
-
-The latest version of the object cannot be specified as the object version to be destroyed.  When the latest version of the object is specified the object will be deleted.
+To undelete an object the object must be deleted.
 
 Examples
 ========
 
-Deleting and object
-~~~~~~~~~~~~~~~~~~~
-
 .. code:: sql
 
-     DECLARE @Output1 NVARCHAR(2000),
-     @update_ID INT ,
-     @ProcessBatch_ID1 INT,
-     @rt INT;
+      DECLARE @Output NVARCHAR(2000),
+      @ProcessBatch_ID INT;
+      EXEC dbo.spMFUnDeleteObject @ObjectTypeId = 0,
+                            @objectId = 139
+                            @Output = @Output OUTPUT,
+                            @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
+                            @Debug = 1
 
-     EXEC @rt = dbo.spMFDeleteObject @ObjectTypeId =136,
-                          @objectId = 151,
-                          @Output = @Output1 OUTPUT,
-                          @ObjectVersion = 0,
-                          @DeleteWithDestroy = 0,
-                          @Update_ID = @Update_ID OUTPUT,
-                          @ProcessBatch_ID = @ProcessBatch_ID1 OUTPUT,
-                          @Debug = 0
-     SELECT @Output1
+                            SELECT @output
+
      SELECT @rt, @update_ID, @ProcessBatch_ID1
      SELECT * FROM dbo.MFUpdateHistory AS muh WHERE id = @update_ID
      SELECT * FROM dbo.MFProcessBatch AS mpb WHERE mpb.ProcessBatch_ID = @ProcessBatch_ID1
      SELECT * FROM dbo.MFProcessBatchDetail AS mpb WHERE mpb.ProcessBatch_ID = @ProcessBatch_ID1
 
-Delete object versions
-~~~~~~~~~~~~~~~~~~~~~~
-
-To delete an object version the objid and the version to delete is required.
-Use spMFGetHistory to get the valid versions of an object
-Then use spMFDeleteObject to destroy the specific version
-
-.. code:: sql
-
-    UPDATE Mcoa
-    SET [mcoa].[Process_ID] = 5
-    FROM [dbo].[MFCustomer] AS [mcoa]
-    WHERE [mcoa].[ObjID] = 134
-    DECLARE @Update_ID INT
-    ,@ProcessBatch_id INT;
-    EXEC [dbo].[spMFGetHistory] @MFTableName = 'MFCustomer'   
-                           ,@Process_id = 5    
-                           ,@ColumnNames = 'MF_Last_modified'  
-                           ,@IsFullHistory = 1 
-                           ,@NumberOFDays = null  
-                           ,@StartDate = null     
-                           ,@Update_ID = @Update_ID OUTPUT  
-                           ,@ProcessBatch_id = @ProcessBatch_id OUTPUT 
-                           ,@Debug = 0 
-    SELECT * FROM [dbo].[MFObjectChangeHistory] AS [moch] WHERE [moch].[ObjID] = 134
-
-Use a loop to destroy multiple versions of multiple objects
-
-.. code:: sql
-
-    DECLARE @Output NVARCHAR(2000);
-    DECLARE @processBatch_ID INT;
-    DECLARE @Return_Value int
-
-    EXEC  @Return_Value = [dbo].[spMFDeleteObject] @ObjectTypeId = 136  
-                             ,@objectId = 134 
-                             ,@Output = @Output OUTPUT                                
-                             ,@ObjectVersion = 9     -- set to specific version to destroy
-                             ,@DeleteWithDestroy = 1 -- object version history is always destroy
-							 ,@ProcessBatch_id = @processBatch_ID OUTPUT
-                             
-    SELECT @Return_Value
 
 Changelog
 =========
@@ -195,20 +113,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2022-02-11  LC         Update audit history and class table with result
-2022-02-11  LC         Align the error codes with the assemblies
-2021-12-16  LC         Reset objectversion default to -1
-2021-08-15  LC         Remove incorrect license check
-2021-05-05  LC         Align single delete object without class table with wrapper
-2020-12-08  LC         Change status messages and validate different methods
-2020-04-28  LC         Update documentation for Object Versions
-2019-08-30  JC         Added documentation
-2019-08-20  LC         Expand routine to respond to output and remove object from change history
-2019-08-13  DEV2       Added objversion to delete particular version.
-2018-08-03  LC         Suppress SQL error when no object in MF found
-2016-09-26  DEV2       Removed vault settings parameters
-2016-08-22  LC         Update settings index
-2016-08-14  LC         Add objid to output message
+2022-02-09  LC         Create new  procedure and assembly method
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -219,10 +124,10 @@ BEGIN
     -------------------------------------------------------------
     -- CONSTANTS: MFSQL Class Table Specific
     -------------------------------------------------------------
-    DECLARE @MFTableName AS NVARCHAR(128);
+    DECLARE @ObjectTypeId INT;
     DECLARE @ProcessType AS NVARCHAR(50);
 
-    SET @ProcessType = ISNULL(@ProcessType, 'Delete Object');
+    SET @ProcessType = ISNULL(@ProcessType, 'Undelete Object');
 
     -------------------------------------------------------------
     -- CONSTATNS: MFSQL Global 
@@ -254,7 +159,7 @@ BEGIN
     -------------------------------------------------------------
     -- VARIABLES: DEBUGGING
     -------------------------------------------------------------
-    DECLARE @ProcedureName AS NVARCHAR(128) = N'spMFDeleteObject';
+    DECLARE @ProcedureName AS NVARCHAR(128) = N'spMFUnDeleteObject';
     DECLARE @ProcedureStep AS NVARCHAR(128) = N'Start';
     DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s';
     DECLARE @DebugText AS NVARCHAR(256) = N'';
@@ -290,58 +195,16 @@ BEGIN
     -------------------------------------------------------------
     -- INTIALIZE PROCESS BATCH
     -------------------------------------------------------------
-
-    -------------------------------------------------------------
-    --	Create Update_id for process start 
-    -------------------------------------------------------------
-    SET @ProcedureStep = N'set Update_ID';
-    SET @StartTime = GETUTCDATE();
-
-    DECLARE @Username NVARCHAR(2000);
-    DECLARE @VaultName NVARCHAR(2000);
-
-    SELECT TOP 1
-           @Username = Username,
-           @VaultName = VaultName
-    FROM dbo.MFVaultSettings;
-
-
-    INSERT INTO dbo.MFUpdateHistory
-    (
-        Username,
-        VaultName,
-        UpdateMethod
-    )
-    VALUES
-    (@Username, @VaultName, 12);
-
-    SELECT @Update_ID = @@Identity;
-
-    SELECT @Update_IDOut = @Update_ID;
-
-
     SET @ProcedureStep = N'Start Logging';
 
     DECLARE @ObjectType NVARCHAR(100);
 
-    SELECT @ObjectType = mot.Name
+    SELECT @ObjectType = mot.Name,
+           @ObjectTypeId = mot.MFID
     FROM dbo.MFObjectType AS mot
-    WHERE mot.MFID = @ObjectTypeId;
-
-
-    IF @Debug > 0
-        SELECT @ObjectVersion defaultObjectVersion;
-
-
-    SET @LogText
-        = CASE
-              WHEN @DeleteWithDestroy = 1 THEN
-                  'Destroy objid ' + CAST(@objectId AS VARCHAR(10)) + ' for Object Type ' + @ObjectType + ' Version '
-                  + CAST(@ObjectVersion AS NVARCHAR(10))
-              ELSE
-                  'Delete objid ' + CAST(@objectId AS VARCHAR(10)) + ' for Object Type ' + @ObjectType + ' Version '
-                  + CAST(@ObjectVersion AS NVARCHAR(10))
-          END;
+        INNER JOIN dbo.MFClass mc
+            ON mc.MFObjectType_ID = mot.ID
+    WHERE mc.TableName = @MFTableName;
 
 
     EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
@@ -370,12 +233,12 @@ BEGIN
         -------------------------------------------------------------
         -- BEGIN PROCESS
         -------------------------------------------------------------
-        SET @DebugText = N'Object Type %i; Objid %i; Version %i';
+        SET @DebugText = N'Object Type %i; Objid  %i';
         SET @DebugText = @DefaultDebugText + @DebugText;
 
         IF @Debug > 0
         BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ObjectTypeId, @objectId, @ObjectVersion);
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ObjectTypeId, @Objid);
         END;
 
         -----------------------------------------------------
@@ -384,7 +247,7 @@ BEGIN
         DECLARE @VaultSettings NVARCHAR(4000);
         DECLARE @Idoc INT;
         DECLARE @StatusCode INT;
-        DECLARE @Message NVARCHAR(MAX);
+        DECLARE @Message NVARCHAR(max);
 
         -----------------------------------------------------
         -- SELECT CREDENTIAL DETAILS
@@ -394,51 +257,65 @@ BEGIN
         ------------------------------------------------------
         --Validating Module for calling CLR Procedure
         ------------------------------------------------------
-        EXEC dbo.spMFCheckLicenseStatus 'spMFDeleteObjectListInternal',
-                                        'spMFDeleteObject',
-                                        'Deleting object';
+        EXEC dbo.spMFCheckLicenseStatus 'spMFUnDeleteObject',
+                                        'spMFUnDeleteObject',
+                                        'UnDeleting object';
 
+
+        -------------------------------------------------------------
+        --	Create Update_id for process start 
+        -------------------------------------------------------------
+        SET @ProcedureStep = N'set Update_ID';
+        SET @StartTime = GETUTCDATE();
+
+        DECLARE @Username NVARCHAR(2000);
+        DECLARE @VaultName NVARCHAR(2000);
+
+        SELECT TOP 1
+               @Username = Username,
+               @VaultName = VaultName
+        FROM dbo.MFVaultSettings;
+
+        INSERT INTO dbo.MFUpdateHistory
+        (
+            Username,
+            VaultName,
+            UpdateMethod
+        )
+        VALUES
+        (@Username, @VaultName, 13);
+
+        SELECT @Update_ID = @@Identity;
+        SELECT @Update_IDOut = @Update_ID;
         -----------------------------------------------------
         -- CALLS PROCEDURE spMFDeleteObjectInternal
         -----------------------------------------------------
         -- nvarchar(2000)
         SET @ProcedureStep = N'Wrapper result';
 
-        SELECT @ObjectVersion = CASE
-                                    WHEN @DeleteWithDestroy = 1
-                                         AND @ObjectVersion <> -1 THEN
-                                        -1
-                                    ELSE
-                                        @ObjectVersion
-                                END;
+
         DECLARE @XML XML;
         DECLARE @XMLinput NVARCHAR(MAX);
         DECLARE @XMLout NVARCHAR(MAX);
 
         SET @XML =
         (
-            SELECT @ObjectTypeId AS [ObjectDeleteItem/@ObjectType_ID],
-                   @objectId [ObjectDeleteItem/@ObjId],
-                   @ObjectVersion [ObjectDeleteItem/@MFVersion],
-                   @DeleteWithDestroy AS [ObjectDeleteItem/@Destroy]
-            FOR XML PATH(''), ROOT('ObjectDeleteList')
+            SELECT @ObjectTypeId AS [ObjectUnDeleteItem/@ObjectType_ID],
+                   @ObjId [ObjectUnDeleteItem/@ObjId]
+            FOR XML PATH(''), ROOT('ObjectUnDeleteList')
         );
 
         IF @Debug > 0
-            SELECT @XML AS '@xml';
-
-
+            SELECT @XML;
 
         SET @XMLinput = CAST(@XML AS NVARCHAR(MAX));
 
-        EXEC dbo.spMFDeleteObjectListInternal @VaultSettings = @VaultSettings,
-                                              @XML = @XMLinput,
-                                              @XMLOut = @XMLout OUTPUT;
+        EXEC dbo.spMFUnDeleteObjectListInternal @VaultSettings = @VaultSettings,
+                                                @XML = @XMLinput,
+                                                @XMLOut = @XMLout OUTPUT;
 
         IF @Debug > 0
-            SELECT @XMLout AS '@xmlOUT';
-
-
+            SELECT @XMLout;
 
         --      PRINT @Output + ' ' + CAST(@objectId AS VARCHAR(100))
         EXEC sys.sp_xml_preparedocument @Idoc OUTPUT, @XMLout;
@@ -450,7 +327,6 @@ BEGIN
             WITH
             (
                 objId INT './@objId',
-                MFVersion INT './@MFObjver',
                 StatusCode INT './@statusCode',
                 Message NVARCHAR(max) './@Message'
             ) xmlfile;
@@ -467,61 +343,16 @@ BEGIN
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @StatusCode, @Message);
         END;
 
-        IF @StatusCode = 2
+        IF @StatusCode = 1
         BEGIN
-
-
-            DELETE FROM dbo.MFObjectChangeHistory
-            WHERE ObjectType_ID = @ObjectTypeId
-                  AND ObjID = @objectId
-                  AND MFVersion = @ObjectVersion;
-        END;
-
-        IF @StatusCode IN ( 3 )
-        BEGIN
-
-            DELETE FROM dbo.MFObjectChangeHistory
-            WHERE ObjectType_ID = @ObjectTypeId
-                  AND ObjID = @objectId;
-
-            DELETE FROM dbo.MFAuditHistory
-            WHERE ObjectType = @ObjectTypeId
-                  AND ObjID = @objectId;
-
-        END;
-
-        IF @StatusCode IN ( 1 )
-        BEGIN
-
-            UPDATE mah
-            SET mah.StatusFlag = 4,
-                mah.StatusName = 'Deleted'
-            FROM dbo.MFAuditHistory AS mah
-            WHERE mah.ObjectType = @ObjectTypeId
-                  AND mah.ObjID = @objectId;
-
-            SELECT @MFTableName = mc.TableName
-            FROM dbo.MFClass mc
-                INNER JOIN dbo.MFAuditHistory AS mah
-                    ON mc.MFID = mah.Class
-            WHERE mah.ObjectType = @ObjectTypeId
-                  AND mah.ObjID = @objectId
-                  AND mc.IncludeInApp IS NOT NULL;
-
-            IF @MFTableName IS NOT NULL
-            BEGIN
-                DECLARE @objids NVARCHAR(100);
-                SELECT @objids = CAST(@objectId AS NVARCHAR(10));
-                EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName,
-                                         @UpdateMethod = @UpdateMethod_1_MFilesToMFSQL,
-                                         @ObjIDs = @objids,
-                                         @RetainDeletions = 1,
-                                         @ProcessBatch_ID = @ProcessBatch_ID,
-                                         @Debug = @Debug;
-
-            END;
-
-
+            EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName,
+                                     @UpdateMethod = @UpdateMethod_1_MFilesToMFSQL,
+                                     @ObjIDs = @ObjId,
+                                     @RetainDeletions = @RetainDeletions,
+                                     @Update_IDOut = @Update_ID OUTPUT,
+                                     @ProcessBatch_ID = @ProcessBatch_ID,
+                                     @debug = @debug;
+                                     ;
         END;
 
         -------------------------------------------------------------
@@ -538,14 +369,9 @@ BEGIN
   <ObjectType ObjectTypeid="' + CAST(@ObjectTypeId AS VARCHAR(10)) + '" />
 </form>';
         SET @ObjectVersionDetails = @XMLinput;
-        SET @NewObjectVersionDetails = CASE
-                           WHEN @StatusCode IN ( 1, 2, 3 ) THEN
-                               @XMLout
-                           ELSE
-                               NULL
-                       END; 
+        SET @NewObjectVersionDetails = @XMLout;
         SET @MFError = CASE
-                           WHEN @StatusCode IN ( 4, 5, 6 ) THEN
+                           WHEN @StatusCode IN ( 2 ) THEN
                                @XMLout
                            ELSE
                                NULL
@@ -555,9 +381,9 @@ BEGIN
         UPDATE dbo.MFUpdateHistory
         SET ObjectDetails = @ObjectDetails,
             ObjectVerDetails = @ObjectVersionDetails,
-            DeletedObjectVer = @NewObjectVersionDetails,
+            NewOrUpdatedObjectVer = @NewObjectVersionDetails,
             MFError = @MFError
-        WHERE Id = @Update_ID;
+        WHERE Id = @Update_IDOut;
 
         -------------------------------------------------------------
         --END PROCESS
@@ -565,13 +391,18 @@ BEGIN
         END_RUN:
         SET @ProcedureStep = N'End';
         SET @LogStatus = CASE
-                             WHEN @StatusCode IN ( 1, 2, 3 ) THEN
+                             WHEN @StatusCode IN ( 1 ) THEN
                                  'Completed'
                              ELSE
                                  'Failed'
                          END;
 
         SET @LogText = @Message;
+
+        UPDATE dbo.MFUpdateHistory
+        SET UpdateStatus = @LogStatus
+        WHERE Id = @Update_IDOut;
+
 
         -------------------------------------------------------------
         -- Log End of Process
@@ -600,13 +431,7 @@ BEGIN
                                                @LogProcedureStep = @ProcedureStep,
                                                @debug = 0;
 
-        UPDATE dbo.MFUpdateHistory
-        SET UpdateStatus = @LogStatus
-        WHERE Id = @Update_ID;
-
-        IF @Debug > 0
-            SELECT @Output = @Message;
-
+        SELECT @Output = @Message;
         RETURN @StatusCode;
     END TRY
     BEGIN CATCH

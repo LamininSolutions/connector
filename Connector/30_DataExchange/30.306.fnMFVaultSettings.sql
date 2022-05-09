@@ -6,7 +6,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'FnMFVaultSettings', -- nvarchar(100)
-    @Object_Release = '2.1.1.0', -- varchar(50)
+    @Object_Release = '2.9.28.73', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 
 
@@ -52,6 +52,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-12-20  LC         Add guid to vault settings string
 2019-08-30  JC         Added documentation
 2016-09-14  DEV2       Initial Version - QA
 ==========  =========  ========================================================
@@ -60,16 +61,22 @@ Date        Author     Description
 
   BEGIN
       DECLARE @ResultString VARCHAR(MAX)
+      DECLARE @Guid NVARCHAR(128)
 
+
+      SELECT @Guid =CAST(value AS NVARCHAR(128)) FROM mfsettings WHERE name = 'VaultGUID'
 
 	 select @ResultString=convert(nvarchar(128),isnull(Username,'')) from MFVaultSettings 
 	 select @ResultString= @ResultString+','+convert(nvarchar(128),isnull(Password,'')) from MFVaultSettings 
 	 select @ResultString= @ResultString+','+convert(nvarchar(128),isnull(NetworkAddress,'')) from MFVaultSettings 
 	 select @ResultString= @ResultString+','+convert(nvarchar(128),isnull(VaultName,'')) from MFVaultSettings 
-	 select @ResultString= @ResultString+','+convert(nvarchar(128),isnull(MFPT.MFProtocolTypeValue,'')) from MFVaultSettings MFVS inner join MFProtocolType MFPT on MFVS.MFProtocolType_ID=MFPT.ID 
+	 select @ResultString= @ResultString+','+convert(nvarchar(128),isnull(MFPT.MFProtocolTypeValue,'')) 
+     FROM MFVaultSettings MFVS inner join MFProtocolType MFPT on MFVS.MFProtocolType_ID=MFPT.ID 
 	 select @ResultString= @ResultString+','+convert(nvarchar(128),isnull(Endpoint,'')) from MFVaultSettings 
 	 select @ResultString= @ResultString+','+convert(nvarchar(128),isnull(MFAT.AuthenticationTypeValue,'')) from MFVaultSettings MFVS inner join MFAuthenticationType MFAT on MFVS.MFAuthenticationType_ID=MFAT.ID 
 	 select @ResultString= @ResultString+','+convert(nvarchar(128),isnull(Domain,'')) from MFVaultSettings 
+
+     select @ResultString= @ResultString+','+convert(nvarchar(128),isnull(@Guid,''))  
 
       RETURN @ResultString
   END

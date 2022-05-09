@@ -59,27 +59,27 @@ Parameters
   @ProcessBatch\_ID int (optional)
     Referencing the ID of the ProcessBatch logging table
   @UserMessageEnabled int
-    fixme description
+    Set the user message enabled flag. 
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
 
 
 Purpose
 =======
 
-Additional Info
-===============
+This procedure is used to insert an entry in the MFUserMessage table for the specified processbatch
 
-Prerequisites
+Addition Info
 =============
 
-Warnings
-========
+Enabling user messages are set in the MFSettings table. spMFProcessBatch trigger will use this setting to get the value for the @userMessageEnabled parameter.
 
 Examples
 ========
+
+exec spMFInsertUserMessage @processBatch_ID = 107, @userMessageEnabled = 1
+
 
 Changelog
 =========

@@ -40,7 +40,7 @@ GO
 ALTER PROCEDURE dbo.spMFUpdateObjectChangeHistory
 (
     @MFTableName NVARCHAR(200) = NULL,
-    @WithClassTableUpdate INT = 1,
+    @WithClassTableUpdate INT = 0,
     @Objids NVARCHAR(MAX) = NULL,
     @IsFullHistory INT = 0,
     @ProcessBatch_ID INT = NULL OUTPUT,
@@ -63,7 +63,8 @@ Return
   If null then all class tables in MFObjectChangeHistoryUpdateControl table is included.
 
   @WithClassTableUpdate int
-  - Default = 1 (yes)  
+  - Default = 0 (No)
+  - The expectation is that the update history will run just after the class table was updated 
 
   @Objids nvarchar(4000)
   - comma delimited list of objids to be included 
@@ -165,6 +166,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-12-22  LC         Update logging to monitor performance
+2021-12-22  LC         Set default for withtableupdate to 0
 2021-10-18  LC         The procedure is fundamentally rewritten
 2021-04-02  LC         Add parameter for IsFullHistory
 2020-06-26  LC         added additional exception management
@@ -349,19 +352,6 @@ BEGIN
             @VaultName = VaultName
         FROM dbo.MFVaultSettings
         ORDER BY ID;
-
-        INSERT INTO dbo.MFUpdateHistory
-        (
-            Username,
-            VaultName,
-            UpdateMethod
-        )
-        VALUES
-        (@Username, @VaultName, -1);
-
-        SELECT @Update_ID = @@Identity;
-
-      
 
         --get vault settings
         SELECT @VaultSettings = dbo.FnMFVaultSettings();
@@ -702,7 +692,7 @@ where process_ID = 5;';
                     @MFLastUpdateDate = @MFLastUpdateDate OUTPUT,             -- smalldatetime
                     @UpdateTypeID = 1,                                        -- tinyint
                     @Update_IDOut = @Update_ID OUTPUT,                        -- int
-                    @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,               -- int
+                    @ProcessBatch_ID = @ProcessBatch_ID ,               -- int
                     @debug = 0;                                               -- tinyint
 
                 SET @DebugText = N'';
@@ -748,17 +738,8 @@ where process_ID = 5;';
                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep,@Prop_ID);
             END;
 
-            UPDATE dbo.MFUpdateHistory
-            SET ObjectDetails = 'From ' + CAST(@FromObjid AS NVARCHAR(100)) + ' To ' + CAST(@ToObjid AS NVARCHAR(100))
-                                + '',
-                ObjectVerDetails = CAST(@Prop_ID AS NVARCHAR(10))
-            WHERE Id = @Update_ID;
-
-
-
                 WHILE @Prop_ID IS NOT NULL
                 BEGIN
-
 
                     SELECT @propertyForUpdate = mp.ColumnName,
                         @StartDate            = lud.lastupdatedate
@@ -890,7 +871,58 @@ where process_ID = 5;';
                                 ' No Criteria'
                         END;
 
-                    IF @rowcount > 0
+    IF @rowcount > 0 -- objects to update
+    Begin
+
+       INSERT INTO dbo.MFUpdateHistory
+        (
+            Username,
+            VaultName,
+            UpdateMethod
+        )
+        VALUES
+        (@Username, @VaultName, 11);
+
+        SELECT @Update_ID = @@Identity;
+
+DECLARE @XML AS XML
+
+SET @XML = '<form>' + (SELECT listitem AS objid 
+
+FROM dbo.fnMFParseDelimitedString(@objids,',') AS fmpds
+FOR XML PATH('object')) + '</form>'
+
+IF @Debug > 0
+SELECT @xml AS ObjectVerDetails, @objids AS objids;
+
+    UPDATE dbo.MFUpdateHistory
+            SET ObjectVerDetails = @XML,
+            ObjectDetails = CAST('<form><Object Class="' + CAST(@classID  AS NVARCHAR(10)) +
+            '" PropertyID="'+CAST(@Prop_ID AS NVARCHAR(10)) + '"/></form>' AS XML)
+            WHERE Id = @Update_ID;
+
+
+        -------------------------------------------------------------
+        -- Check connection to vault
+        -------------------------------------------------------------
+   
+
+        SET @ProcedureStep = N'Connection test: ';
+
+
+        EXEC @return_value = dbo.spMFConnectionTest 
+        IF @return_value <> 1
+        BEGIN
+            SET @DebugText = N'Connection failed ';
+            SET @DebugText = @DefaultDebugText + @DebugText;
+
+            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+        END;
+
+        SET @StartTime = GETUTCDATE();
+        SET @ProcedureStep = N'wrapper';
+
+                    IF  @return_value = 1
                     BEGIN
                         EXEC @return_value = dbo.spMFGetHistoryInternal @VaultSettings = @VaultSettings,
                             @ObjectType = @ObjectType_ID,
@@ -902,12 +934,39 @@ where process_ID = 5;';
                             @StartDate = @StartDate,
                             @Result = @Result OUTPUT;
 
+            UPDATE dbo.MFUpdateHistory
+            SET NewOrUpdatedObjectVer = CAST(@Result AS XML)  , UpdateStatus = 'Completed'                        
+            WHERE Id = @Update_ID;
+
+                            
+    SET @LogTypeDetail = N'Status';
+    SET @LogStatusDetail = N' Assembly';
+    SET @LogTextDetail = N'spMFGetHistoryInternal';
+    SET @LogColumnName = N'';
+    SET @LogColumnValue = N'';
+
+    EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+        @LogType = @LogTypeDetail,
+        @LogText = @LogTextDetail,
+        @LogStatus = @LogStatusDetail,
+        @StartTime = @StartTime,
+        @MFTableName = @MFTableName,
+        @Validation_ID = @Validation_ID,
+        @ColumnName = @LogColumnName,
+        @ColumnValue = @LogColumnValue,
+        @Update_ID = @Update_ID,
+        @LogProcedureName = @ProcedureName,
+        @LogProcedureStep = @ProcedureStep,
+        @debug = @Debug;
+
+
+
                         IF @Debug > 0
                         BEGIN
                             SELECT CAST(@Result AS XML) AS ResultsAsXML;
                         END;
 
-                        IF @return_value <> 0
+                        IF @return_value <> 1
                         BEGIN
                             SET @DebugText
                                 = N': spMFGetHistory failed return value ' + CAST(@return_value AS VARCHAR(5));
@@ -916,10 +975,10 @@ where process_ID = 5;';
                             RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
                         END; --ifdebug
                       
-                        IF (@Update_ID > 0)
-                            UPDATE dbo.MFUpdateHistory
-                            SET NewOrUpdatedObjectVer = @Result
-                            WHERE Id = @Update_ID;
+                        --IF (@Update_ID > 0)
+                        --    UPDATE dbo.MFUpdateHistory
+                        --    SET NewOrUpdatedObjectVer = @Result
+                        --    WHERE Id = @Update_ID;
 
                         EXEC sys.sp_xml_preparedocument @Idoc OUTPUT, @Result;
 
@@ -1114,6 +1173,8 @@ where process_ID = 5;';
                         @LogProcedureName = @ProcedureName,
                         @LogProcedureStep = @ProcedureStep,
                         @debug = @Debug;
+          END --if connection test is valid
+          
           END; --if rowcount for objids > 0
 
 ;

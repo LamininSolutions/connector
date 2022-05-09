@@ -32,12 +32,12 @@ DECLARE @MFAuthenticationType_ID int
 DECLARE @Debug smallint = 0
 DECLARE @EndPointInt INT
 
-	 
+
 
 SET @EndPointInt = cast(@Endpoint AS int)
 --SET @MFProtocolType_ID = CAST(@MFProtocolType AS INT)
 --SET @MFAuthenticationType_ID = CAST(@MFAuthenticationType AS INT)
-Select  @MFProtocolType_ID = id from MFProtocolType mpt where mpt.ProtocolType =  @MFProtocolType
+Select  @MFProtocolType_ID = id from MFProtocolType mpt where mpt.MFProtocolTypeValue =  @MFProtocolType
 Select  @MFAuthenticationType_ID = id from MFAuthenticationType mat where mat.AuthenticationType = @mfauthenticationType
 
 

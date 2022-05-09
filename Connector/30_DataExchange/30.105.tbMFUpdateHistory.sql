@@ -1,3 +1,5 @@
+
+
 /*rST**************************************************************************
 
 ===============
@@ -75,7 +77,9 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-11-23  LC         Remove duplicate index on ID
 2019-09-07  JC         Added documentation
+2016-02-20  DEV        Create procedure
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -89,28 +93,9 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFUpdateHistory', -- nvarchar(100)
-    @Object_Release = '2.0.2.0', -- varchar(50)
+    @Object_Release = '4.9.27.72', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-02
-	Database: 
-	Description: MFUpdate history auto assigns a unique id for each update to and from M-Files	
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  Select * from MFUpdateHistory
-  
------------------------------------------------------------------------------------------------*/
-
 
 
 
@@ -149,14 +134,14 @@ ELSE
 
 --INDEXES #############################################################################################################################
 
-IF NOT EXISTS ( SELECT  *
-                FROM    sys.indexes
-                WHERE   object_id = OBJECT_ID('MFUpdateHistory')
-                        AND name = N'idx_MFUpdateHistory_id' )
-    BEGIN
-        PRINT SPACE(10) + '... Index: idx_MFUpdateHistory_id';
-        CREATE NONCLUSTERED INDEX idx_MFUpdateHistory_id ON dbo.MFUpdateHistory (Id);
-    END;
+--IF NOT EXISTS ( SELECT  *
+--                FROM    sys.indexes
+--                WHERE   object_id = OBJECT_ID('MFUpdateHistory')
+--                        AND name = N'idx_MFUpdateHistory_id' )
+--    BEGIN
+--        PRINT SPACE(10) + '... Index: idx_MFUpdateHistory_id';
+--        CREATE NONCLUSTERED INDEX idx_MFUpdateHistory_id ON dbo.MFUpdateHistory (Id);
+--    END;
 
 
 --SECURITY #########################################################################################################################3#######

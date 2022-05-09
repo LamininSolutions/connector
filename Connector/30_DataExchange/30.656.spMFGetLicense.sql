@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFGetLicense', -- nvarchar(100)
-    @Object_Release = '4.9.27.68',
+    @Object_Release = '4.10.30.74', -- Should we change it with new version 4.10.30.74?
     @UpdateFlag = 2;
 GO
 
@@ -110,6 +110,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-02-24  MA         Fix date delimiter bug to pass in fnMFTextToDate funtion 
 2021-04-08  LC         Add check to validate connection
 2021-01-06  LC         Fix bug with checking module 2 license
 2020-12-04  LC         Create procedure to aid spMFChecklicense status
@@ -147,7 +148,7 @@ BEGIN
     DECLARE @MsgSeverityInfo AS TINYINT = 10;
     DECLARE @MsgSeverityObjectDoesNotExist AS TINYINT = 11;
     DECLARE @MsgSeverityGeneralError AS TINYINT = 16;
-
+	Declare @Delimiter Char(1)=N'';
     -------------------------------------------------------------
     -- VARIABLES: DYNAMIC SQL
     -------------------------------------------------------------
@@ -169,15 +170,15 @@ BEGIN
 -------------------------------------------------------------
 -- Validate connection
 -------------------------------------------------------------
-  EXEC @return_value = dbo.spMFConnectionTest 
-  SET @DebugText = N'No Connection';
-        SET @DebugText = @DefaultDebugText + @DebugText;
-        SET @ProcedureStep = 'Validate connection:  ';
+  --EXEC @return_value = dbo.spMFConnectionTest 
+  --SET @DebugText = N'No Connection';
+  --      SET @DebugText = @DefaultDebugText + @DebugText;
+  --      SET @ProcedureStep = 'Validate connection:  ';
 
-        IF @return_value = 0
-        BEGIN
-            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
-        END;
+  --      IF @return_value = 0
+  --      BEGIN
+  --          RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+  --      END;
 
   -------------------------------------------------------------
         -- Get settings
@@ -234,12 +235,23 @@ BEGIN
                 SET @ProcedureStep = 'Validate date'
 
         --convert license expiry date to date format
-        SELECT @ExpiryDate = CASE
-                                 WHEN LEN(@LicenseExpiryTXT) > 0 THEN
-                                     dbo.fnMFTextToDate(@LicenseExpiryTXT, '/')
-                                 ELSE
-                                     NULL
-                             END;
+		-- Check if a license expiry text have some values then find the delimiter from it and use it in a function  
+		--IF LEN(@LicenseExpiryTXT) > 0
+		--Set @delimiter  = Case when @LicenseExpiryTXT like '%.%' then '.' 
+		--					   when @LicenseExpiryTXT like '%/%' then '/' 
+		--					   when @LicenseExpiryTXT like '%-%' then '-' 
+		--					   ELSE
+		--					   ' '
+		--					   END 
+
+  --      SELECT @ExpiryDate = CASE
+  --                               WHEN LEN(@LicenseExpiryTXT) > 0 THEN
+  --                                   dbo.fnMFTextToDate(@LicenseExpiryTXT, @delimiter)
+  --                               ELSE
+  --                                   NULL
+  --                           END;
+
+SELECT @ExpiryDate= DATEFROMPARTS(DATEPART(year,@LicenseExpiryTXT),DATEPART(month,@LicenseExpiryTXT),DATEPART(DAY,@LicenseExpiryTXT))
 
         SET @CurrentDate = CONVERT(DATE, DATEADD(DAY, 1, GETDATE()));
         SET @DaysToExpiry = CASE

@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFCheckAndUpdateAssemblyVersion',
     -- nvarchar(100)
-    @Object_Release = '4.9.27.70',
+    @Object_Release = '4.9.27.72',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -93,6 +93,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-12-16  LC         Fix bug to stop continious updates when no change took place
 2021-08-11  LC         Improve control when version could not be found
 2020-10-27  LC         Improve error message
 2019-08-30  JC         Added documentation
@@ -158,8 +159,11 @@ BEGIN
         FROM dbo.MFSettings
         WHERE Name = 'MFVersion';
 
+        IF @MFilesOldVersion = 'No version found' OR @MFilesVersion = 'No version found'
+        SET @IsVersionMisMatch = 1;
+
         IF @IsVersionMisMatch = 1
-           AND @MFilesVersion <> @MFilesOldVersion OR @MFilesVersion <> 'No version found'
+   --        AND @MFilesVersion <> @MFilesOldVersion 
         BEGIN
             SET @ProcedureStep = N' Update Matched version ';
 

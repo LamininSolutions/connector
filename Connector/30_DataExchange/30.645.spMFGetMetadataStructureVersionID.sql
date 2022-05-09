@@ -4,7 +4,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFGetMetadataStructureVersionID', -- nvarchar(100)
-    @Object_Release = '4.3.9.48', -- varchar(50)
+    @Object_Release = '4.9.28.73', -- varchar(50)
     @UpdateFlag = 2 -- smallint
  
 GO
@@ -12,6 +12,7 @@ GO
 /*
 2018-11-22	LC	Fix bug in showing incorrect message
 2019-05-19	LC	Add catch try block
+2022-01-03  LC  Add return of guid
 */
 IF EXISTS ( SELECT  1
             FROM   information_schema.Routines
@@ -83,13 +84,15 @@ SET @ProcedureStep = 'Validate connection'
 				DECLARE @LatestMetadataVersionID INT
 				DECLARE @LastMetadataStructureID INT
 				DECLARE @OutPUT NVARCHAR(MAX)
+                DECLARE @ValidGuid NVARCHAR(50)
 
 				Select @VaultSettings=dbo.FnMFVaultSettings()
 
 
 				EXEC spMFGetMetadataStructureVersionIDInternal
 				     @VaultSettings,
-					 @OutPUT OUTPUT
+					 @OutPUT OUTPUT,
+                     @ValidGuid = @ValidGuid output
                    
 
 				set @LatestMetadataVersionID=Cast(@OutPUT as INT)
@@ -102,6 +105,19 @@ SET @ProcedureStep = 'Validate connection'
 				 source_key='MF_Default' 
 				 and 
 				 Name='LastMetadataStructureID'
+
+                 IF @ValidGuid <> ''
+                 BEGIN
+                 
+                 Update 
+						 MFSettings 
+						Set 
+						 Value=@ValidGuid 
+						where  
+						 source_key='MF_Default' 
+						 and 
+						 Name='VaultGUID'
+ End
 
 				 IF @LatestMetadataVersionID = @LastMetadataStructureID
 				  Begin

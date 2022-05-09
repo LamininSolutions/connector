@@ -1,12 +1,12 @@
    PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
-    + '.[dbo].[spMfGetSettingsForCofigurator]';
+    + '.[dbo].[spMfGetSettingsForConfigurator]';
 go
  
 
 SET NOCOUNT ON; 
 EXEC Setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
-    @ObjectName = N'spMfGetSettingsForCofigurator', -- nvarchar(100)
-    @Object_Release = '3.1.5.41', -- varchar(50)
+    @ObjectName = N'spMfGetSettingsForConfigurator', -- nvarchar(100)
+    @Object_Release = '4.9.29.74', -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
  
@@ -14,19 +14,21 @@ go
 
 IF EXISTS ( SELECT  1
             FROM    INFORMATION_SCHEMA.ROUTINES
-            WHERE   ROUTINE_NAME = 'spMfGetSettingsForCofigurator'--name of procedure
+            WHERE   ROUTINE_NAME IN ('spMfGetSettingsForCofigurator','spMfGetSettingsForConfigurator')--name of procedure
                     AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
                     AND ROUTINE_SCHEMA = 'dbo' )
     BEGIN
-        PRINT SPACE(10) + '...Stored Procedure: update';
+        PRINT SPACE(10) + '...Stored Procedure: update';       
         SET NOEXEC ON;
     END;
+
+
 ELSE
     PRINT SPACE(10) + '...Stored Procedure: create';
 go
 	
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE [dbo].spMfGetSettingsForCofigurator
+CREATE PROCEDURE [dbo].spMfGetSettingsForConfigurator
 AS
     SELECT  'created, but not implemented yet.';
 --just anything will do
@@ -35,7 +37,7 @@ go
 -- the following section will be always executed
 SET NOEXEC OFF;
 go
-ALTER   Procedure dbo.spMfGetSettingsForCofigurator
+ALTER   Procedure dbo.spMfGetSettingsForConfigurator
 	 as
 	 Begin
 	 

@@ -7,11 +7,11 @@ GO
 SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
-    @ObjectName = N'spMFUpdateTable',
-    -- nvarchar(100)
-    @Object_Release = '4.8.27.70',
-    -- varchar(50)
-    @UpdateFlag = 2;
+                                 @ObjectName = N'spMFUpdateTable',
+                                 -- nvarchar(100)
+                                 @Object_Release = '4.9.29.74',
+                                 -- varchar(50)
+                                 @UpdateFlag = 2;
 -- smallint
 GO
 
@@ -54,9 +54,9 @@ ALTER PROCEDURE dbo.spMFUpdateTable
     @ObjIDs NVARCHAR(MAX) = NULL,
     @Update_IDOut INT = NULL OUTPUT,
     @ProcessBatch_ID INT = NULL OUTPUT,
-    @SyncErrorFlag BIT = 0,     -- note this parameter is auto set by the operation 
-    @RetainDeletions BIT = 0,  --   @UpdateMetadata BIT = 0
-    @IsDocumentCollection BIT = 0,  -- =1 will process only document collections for the class
+    @SyncErrorFlag BIT = 0,          -- note this parameter is auto set by the operation 
+    @RetainDeletions BIT = 0,        --   @UpdateMetadata BIT = 0
+    @IsDocumentCollection BIT = 0,   -- =1 will process only document collections for the class
     @Debug SMALLINT = 0
 )
 AS
@@ -232,7 +232,14 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2022-06-21  LC         Modify proc to include document collections
+2022-03-23  LC         Add protection against locking when updating class table
+2022-03-07  LC         Fix bug with not updating AuditTable
+2022-02-08  LC         Further optimize, replace UNPIVOT with new case method
+2022-02-06  LC         allow null to be passed in for properties   
+2022-01-28  lc         Remove table scan when updatemethod 0
+2022-01-26  LC         Resolve bug related to audit table deletions removal
+2021-12-20  LC         Pair connection test with Wrapper
+2021-06-21  LC         Modify proc to include document collections
 2021-04-14  LC         fix timestamp datatype bug
 2021-03-15  LC         fix changing of class in the same object type in MF
 2021-03-11  LC         update maximum valid number range to between -1,79E27 and 1,79E27
@@ -303,7 +310,7 @@ Date        Author     Description
 
 **rST*************************************************************************/
 DECLARE @Update_ID INT,
-    @return_value  INT = 1;
+        @return_value INT = 1;
 
 BEGIN TRY
     --BEGIN TRANSACTION
@@ -314,35 +321,37 @@ BEGIN TRY
     -----------------------------------------------------
     --DECLARE LOCAL VARIABLE
     -----------------------------------------------------
-    DECLARE @Id             INT,
-        @objID              INT,
-        @ObjectIdRef        INT,
-        @ObjVersion         INT,
-        @VaultSettings      NVARCHAR(4000),
-        @TableName          NVARCHAR(1000),
-        @XmlOUT             NVARCHAR(MAX),
-        @NewObjectXml       NVARCHAR(MAX),
-        @ObjIDsForUpdate    NVARCHAR(MAX),
-        @FullXml            XML,
-        @SynchErrorObj      NVARCHAR(MAX), --Declared new paramater
-        @DeletedObjects     NVARCHAR(MAX), --Declared new paramater
-        @ProcedureName      sysname        = 'spMFUpdateTable',
-        @ProcedureStep      sysname        = 'Start',
-        @ObjectId           INT,
-        @ClassId            INT,
-        @Table_ID           INT,
-        @ErrorInfo          NVARCHAR(MAX),
-        @Query              NVARCHAR(MAX),
-        @Params             NVARCHAR(MAX),
-        @SynchErrCount      INT,
-        @ErrorInfoCount     INT,
-        @MFErrorUpdateQuery NVARCHAR(1500),
-        @MFIDs              NVARCHAR(4000) = N'',
-        @ExternalID         NVARCHAR(200),
-        @Count              INT,
-        @CheckOutObjects    NVARCHAR(MAX),
-        @RemoveOtherClass   SMALLINT       = 0,
-        @TempStatusList     NVARCHAR(100);
+    DECLARE @Id INT,
+            @objID INT,
+            @ObjectIdRef INT,
+            @ObjVersion INT,
+            @VaultSettings NVARCHAR(4000),
+            @TableName NVARCHAR(1000),
+            @XmlOUT NVARCHAR(MAX),
+            @NewObjectXml NVARCHAR(MAX),
+            @ObjIDsForUpdate NVARCHAR(MAX),
+            @FullXml XML,
+            @SynchErrorObj NVARCHAR(MAX),  --Declared new paramater
+            @DeletedObjects NVARCHAR(MAX), --Declared new paramater
+            @ProcedureName sysname = 'spMFUpdateTable',
+            @ProcedureStep sysname = 'Start',
+            @ObjectId INT,
+            @ClassId INT,
+            @Table_ID INT,
+            @ErrorInfo NVARCHAR(MAX),
+            @Query NVARCHAR(MAX),
+            @Params NVARCHAR(MAX),
+            @SynchErrCount INT,
+            @ErrorInfoCount INT,
+            @MFErrorUpdateQuery NVARCHAR(1500),
+            @MFIDs NVARCHAR(4000) = N'',
+            @ExternalID NVARCHAR(200),
+            @Count INT,
+            @ObjidCount INT = 0,
+            @CheckOutObjects NVARCHAR(MAX),
+            @RemoveOtherClass SMALLINT = 0,
+            @TempStatusList NVARCHAR(100);
+
 
     -----------------------------------------------------
     --DECLARE VARIABLES FOR LOGGING
@@ -373,30 +382,11 @@ BEGIN TRY
     DECLARE @VaultName NVARCHAR(2000);
 
     SELECT TOP 1
-        @Username  = Username,
-        @VaultName = VaultName
+           @Username = Username,
+           @VaultName = VaultName
     FROM dbo.MFVaultSettings;
 
     SELECT @VaultSettings = dbo.FnMFVaultSettings();
-
-    -------------------------------------------------------------
-    -- Check connection to vault
-    -------------------------------------------------------------
-    DECLARE @IsUpToDate INT;
-
-    SET @ProcedureStep = 'Connection test: ';
-
-    DECLARE @TestResult INT;
-
-    EXEC @return_value = dbo.spMFConnectionTest;
-
-    IF @return_value <> 1
-    BEGIN
-        SET @DebugText = N'Connection failed ';
-        SET @DebugText = @DefaultDebugText + @DebugText;
-
-        RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
-    END;
 
     -------------------------------------------------------------
     -- set up temp table for status list
@@ -445,15 +435,16 @@ BEGIN TRY
     END;
 
     EXECUTE @return_value = dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
-        @ProcessType = @ProcessType,
-        @LogType = @LogType,
-        @LogText = @LogText,
-        @LogStatus = @LogStatus,
-        @debug = @Debug;
+                                                        @ProcessType = @ProcessType,
+                                                        @LogType = @LogType,
+                                                        @LogText = @LogText,
+                                                        @LogStatus = @LogStatus,
+                                                        @debug = @Debug;
 
     IF @Debug > 9
     BEGIN
-        SET @DebugText = @DefaultDebugText + N'Update_ID %i';
+        SET @DebugText = @DefaultDebugText + N' Update_ID %i';
+
 
         RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Update_ID);
     END;
@@ -462,9 +453,43 @@ BEGIN TRY
     -- Checking module access for CLR procdure  spMFCreateObjectInternal
     ------------------------------------------------------------------
     EXEC dbo.spMFCheckLicenseStatus 'spMFCreateObjectInternal',
-        @ProcedureName,
-        @ProcedureStep;
+                                    @ProcedureName,
+                                    @ProcedureStep;
 
+    -------------------------------------------------------------
+    -- Get objids
+    -------------------------------------------------------------
+    SET @ProcedureStep = 'Get objids into table ';
+    IF
+    (
+        SELECT OBJECT_ID('tempdb..#objidtable')
+    ) IS NOT NULL
+        DROP TABLE #Objidtable;
+
+    CREATE TABLE #ObjidTable
+    (
+        objid INT PRIMARY KEY,
+        Type INT
+    );
+
+    INSERT INTO #ObjidTable
+    (
+        objid,
+        Type
+    )
+    SELECT fmpds.ListItem,
+           1
+    FROM dbo.fnMFParseDelimitedString(@ObjIDs, ',') AS fmpds;
+
+    SELECT @ObjidCount = @@RowCount;
+
+    SET @DebugText = N'';
+    SET @DebugText = @DefaultDebugText + @DebugText;
+
+    IF @Debug > 0
+    BEGIN
+        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ObjectId, @ClassId, @ObjidCount);
+    END;
     -----------------------------------------------------
     --Determine if any filter have been applied
     --if no filters applied then full refresh, else apply filters
@@ -474,7 +499,7 @@ BEGIN TRY
     SELECT @IsFullUpdate = CASE
                                WHEN @UserId IS NULL
                                     AND @MFModifiedDate IS NULL
-                                    AND @ObjIDs IS NULL THEN
+                                    AND @ObjidCount = 0 THEN
                                    1
                                ELSE
                                    0
@@ -503,7 +528,7 @@ BEGIN TRY
         RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
     END;
 
-    IF @Debug > 9
+    IF @Debug > 0
     BEGIN
         SET @DebugText = @DefaultDebugText + N'Table: %s ';
 
@@ -516,15 +541,20 @@ BEGIN TRY
     SET @ProcedureStep = 'Get Object Type and Class ';
 
     SELECT @ObjectIdRef = MFObjectType_ID,
-        @ClassId        = MFID
+           @ClassId = MFID
     FROM dbo.MFClass
     WHERE TableName = @MFTableName; --SUBSTRING(@TableName, 3, LEN(@TableName))
 
-    SELECT @ObjectId = CASE WHEN @IsDocumentCollection = 1 THEN 9 ELSE MFID end
+    SELECT @ObjectId = CASE
+                           WHEN @IsDocumentCollection = 1 THEN
+                               9
+                           ELSE
+                               MFID
+                       END
     FROM dbo.MFObjectType
     WHERE ID = @ObjectIdRef;
 
-    IF @Debug > 9
+    IF @Debug > 0
     BEGIN
         SET @DebugText = @DefaultDebugText + N' ObjectType: %i';
 
@@ -538,7 +568,7 @@ BEGIN TRY
     FROM dbo.MFClass
     WHERE TableName = @MFTableName; --SUBSTRING(@TableName, 3, LEN(@TableName))
 
-    IF @Debug > 9
+    IF @Debug > 0
     BEGIN
         SET @DebugText = @DefaultDebugText + N' Class: %i';
 
@@ -553,18 +583,18 @@ BEGIN TRY
     SET @LogColumnValue = CAST(@UpdateMethod AS VARCHAR(10));
 
     EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-        @LogType = @LogTypeDetail,
-        @LogText = @LogTextDetail,
-        @LogStatus = @LogStatusDetail,
-        @StartTime = @StartTime,
-        @MFTableName = @MFTableName,
-        @Validation_ID = @Validation_ID,
-        @ColumnName = @LogColumnName,
-        @ColumnValue = @LogColumnValue,
-        @Update_ID = @Update_ID,
-        @LogProcedureName = @ProcedureName,
-        @LogProcedureStep = @ProcedureStep,
-        @debug = @Debug;
+                                                              @LogType = @LogTypeDetail,
+                                                              @LogText = @LogTextDetail,
+                                                              @LogStatus = @LogStatusDetail,
+                                                              @StartTime = @StartTime,
+                                                              @MFTableName = @MFTableName,
+                                                              @Validation_ID = @Validation_ID,
+                                                              @ColumnName = @LogColumnName,
+                                                              @ColumnValue = @LogColumnValue,
+                                                              @Update_ID = @Update_ID,
+                                                              @LogProcedureName = @ProcedureName,
+                                                              @LogProcedureStep = @ProcedureStep,
+                                                              @debug = @Debug;
 
     -----------------------------------------------------
     --SELECT THE ROW DETAILS DEPENDS ON UPDATE METHOD INPUT
@@ -578,28 +608,15 @@ BEGIN TRY
     WHERE mp.MFID = 27;
 
     -------------------------------------------------------------
-    --Delete records if @Retained records set to 0
-    -------------------------------------------------------------
-    --IF @UpdateMethod = 1
-    --   AND ISNULL(@RetainDeletions,0) = 0
-    --BEGIN
-    --    SET @Query = N'Delete from ' + QUOTENAME(@MFTableName) + N' Where '+QUOTENAME(@DeletedColumn)+' is not null';
-
-    --    EXEC (@Query);
-    --END;
-
-    -- end if delete records;
-
-    -------------------------------------------------------------
     -- PROCESS UPDATEMETHOD = 0
     -------------------------------------------------------------
     SET @ProcedureStep = 'process updatemethod 0';
 
     IF @UpdateMethod = 0 --- processing of process_ID = 1
     BEGIN
-        DECLARE @SelectQuery NVARCHAR(MAX),    --query snippet to count records
-            @vquery          AS NVARCHAR(MAX), --query snippet for filter
-            @ParmDefinition  NVARCHAR(500);
+        DECLARE @SelectQuery NVARCHAR(MAX), --query snippet to count records
+                @vquery AS NVARCHAR(MAX),   --query snippet for filter
+                @ParmDefinition NVARCHAR(500);
 
         -------------------------------------------------------------
         -- Get localisation names for standard properties
@@ -621,6 +638,12 @@ BEGIN TRY
         WHERE mp.MFID = 100;
 
         -------------------------------------------------------------
+        -- Validate if Objids is set to 1 for updatemethod 0
+        -------------------------------------------------------------
+        --SELECT ot.objid,
+        --       ot.Type FROM #ObjidTable AS ot
+
+        -------------------------------------------------------------
         -- PROCESS FULL UPDATE FOR UPDATE METHOD 0
         -------------------------------------------------------------		
 
@@ -636,13 +659,24 @@ BEGIN TRY
         -------------------------------------------------------------
         -- Get column for name or title and set to 'Auto' if left blank
         -------------------------------------------------------------
-        SET @Query = N'UPDATE ' + @MFTableName + N'
+       BEGIN TRAN
+       
+       SET @Query = N'
+       SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+       ;with cte as
+       (
+       Select objid from ' + @MFTableName + N' WHERE ' + @Columnname + N' IS NULL AND process_id = 1
+       )
+       UPDATE t
 					SET ' + @Columnname + N' = ''Auto''
-					WHERE ' + @Columnname + N' IS NULL AND process_id = 1';
+                    from ' + @MFTableName + N' t
+                    inner join cte
+                    on t.objid = cte.objid
+					;'
 
         --		PRINT @SQL
         EXEC (@Query);
-
+        Commit
         -------------------------------------------------------------
         -- create filter query for update method 0
         -------------------------------------------------------------       
@@ -675,14 +709,16 @@ BEGIN TRY
 
             IF (@ObjIDs IS NOT NULL)
             BEGIN
-                SET @vquery
-                    = @vquery + N' AND ObjID in (SELECT * FROM dbo.fnMFSplitString(''' + @ObjIDs + N','','',''))';
-
-                IF @Debug > 9
-                BEGIN
-                    SELECT @ObjIDs;
-                END;
+                SET @vquery = @vquery + N' AND ObjID in (SELECT t.objid FROM #ObjidTable t ) ';
             END;
+            IF @Debug > 100
+            BEGIN
+                SELECT 'objids',
+                       ot.objid,
+                       ot.Type
+                FROM #ObjidTable AS ot;
+            END;
+
 
             IF @Debug > 100
                 SELECT @vquery;
@@ -690,7 +726,7 @@ BEGIN TRY
 
         SET @SelectQuery = @SelectQuery + @vquery;
 
-        IF @Debug > 9
+        IF @Debug > 0
         BEGIN
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
 
@@ -702,8 +738,8 @@ BEGIN TRY
         -- create filter select snippet
         -------------------------------------------------------------
         EXEC sys.sp_executesql @SelectQuery,
-            @ParmDefinition,
-            @retvalOUT = @Count OUTPUT;
+                               @ParmDefinition,
+                               @retvalOUT = @Count OUTPUT;
 
         -------------------------------------------------------------
         -- Set class ID if not included
@@ -717,8 +753,8 @@ BEGIN TRY
               + N' IS NULL or ' + @ClassPropName + N'= -1) AND t.' + QUOTENAME(@DeletedColumn) + N'is null';
 
         EXEC sys.sp_executesql @stmt = @Query,
-            @Param = @Params,
-            @Classid = @ClassId;
+                               @Param = @Params,
+                               @Classid = @ClassId;
 
         -------------------------------------------------------------
         -- is class change application
@@ -733,8 +769,8 @@ GROUP BY ' + QUOTENAME(@ClassPropName) + N'
 SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
 
         EXEC sys.sp_executesql @Query,
-            N'@RemoveOtherClass smallint output',
-            @RemoveOtherClass OUTPUT;
+                               N'@RemoveOtherClass smallint output',
+                               @RemoveOtherClass OUTPUT;
 
         SET @DebugText = N' %i';
         SET @DebugText = @DefaultDebugText + @DebugText;
@@ -767,18 +803,18 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
         SET @LogColumnValue = CAST(ISNULL(@Count, 0) AS NVARCHAR(256));
 
         EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-            @LogType = @LogTypeDetail,
-            @LogText = @LogTextDetail,
-            @LogStatus = @LogStatusDetail,
-            @StartTime = @StartTime,
-            @MFTableName = @MFTableName,
-            @Validation_ID = @Validation_ID,
-            @ColumnName = @LogColumnName,
-            @ColumnValue = @LogColumnValue,
-            @Update_ID = @Update_ID,
-            @LogProcedureName = @ProcedureName,
-            @LogProcedureStep = @ProcedureStep,
-            @debug = @Debug;
+                                                                  @LogType = @LogTypeDetail,
+                                                                  @LogText = @LogTextDetail,
+                                                                  @LogStatus = @LogStatusDetail,
+                                                                  @StartTime = @StartTime,
+                                                                  @MFTableName = @MFTableName,
+                                                                  @Validation_ID = @Validation_ID,
+                                                                  @ColumnName = @LogColumnName,
+                                                                  @ColumnValue = @LogColumnValue,
+                                                                  @Update_ID = @Update_ID,
+                                                                  @LogProcedureName = @ProcedureName,
+                                                                  @LogProcedureStep = @ProcedureStep,
+                                                                  @debug = @Debug;
 
         --------------------------------------------------------------------------------------------
         --If Any record Updated/Insert in SQL and @UpdateMethod = 0(0=Update from SQL to MF only)
@@ -786,8 +822,8 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
         IF (@Count > 0 AND @UpdateMethod = 0)
         BEGIN
             DECLARE @vsql AS NVARCHAR(MAX),
-                @XMLFile  XML,
-                @XML      NVARCHAR(MAX);
+                    @XMLFile XML,
+                    @XML NVARCHAR(MAX);
 
             SET @FullXml = NULL;
             --	-------------------------------------------------------------
@@ -837,11 +873,11 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
             ON #ColumnValuePair (ColumnName);
 
             DECLARE @colsUnpivot AS NVARCHAR(MAX),
-                @colsPivot       AS NVARCHAR(MAX),
-                @DeleteQuery     AS NVARCHAR(MAX),
-                @rownr           INT,
-                @Datatypes       NVARCHAR(100),
-                @TypeGroup       NVARCHAR(100);
+                    @colsPivot AS NVARCHAR(MAX),
+                    @DeleteQuery AS NVARCHAR(MAX),
+                    @rownr INT,
+                    @Datatypes NVARCHAR(100),
+                    @TypeGroup NVARCHAR(100);
 
             -------------------------------------------------------------
             -- prepare column value pair query based on data types
@@ -849,6 +885,7 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
             SET @Query = N'';
             SET @ProcedureStep = 'Datatype table';
 
+            /*
             DECLARE @DatatypeTable AS TABLE
             (
                 id INT IDENTITY,
@@ -983,39 +1020,241 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
             END;
 
             --SET @DeleteQuery
-            --    = N'Union All Select ID, Objid, MFversion, ExternalID, ''Deleted'' as ColumnName, cast(isnull(Deleted,0) as nvarchar(4000))  as Value from '
+            --    = N'Union All Select ID, Objid, MFversion, ExternalID, '+@DeletedColumn+' as ColumnName, cast(isnull('+@DeletedColumn+','''') as nvarchar(4000))  as Value from '
             --      + QUOTENAME(@MFTableName) + N' t where ' + @vquery + N' ';
 
             --SELECT @DeleteQuery AS deletequery
             --   SELECT @Query = SUBSTRING(@Query, 11, 8000) + @DeleteQuery;
             SELECT @Query = SUBSTRING(@Query, 11, 8000);
 
-            --             IF @Debug > 100
-            --                 PRINT @Query;
+                         IF @Debug > 100
+                             PRINT @Query;
 
             -------------------------------------------------------------
             -- insert into column value pair
             -------------------------------------------------------------
             SELECT @ProcedureStep = 'Insert into column value pair';
 
-            SELECT @Query
-                = N'INSERT INTO  #ColumnValuePair
+--            SELECT @Query
+--                = N'INSERT INTO  #ColumnValuePair
 
-SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from 
-(' +            @Query + N') list';
+--SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from 
+--(' +            @Query + N') list';
+
+--            IF @Debug > 100
+--            BEGIN
+--                SELECT @Query AS 'ColumnValue pair query';
+--            END;
+
+--            EXEC (@Query);
+*/
+
+
+            --DECLARE @DeleteQuery NVARCHAR(MAX)
+            --DECLARE @DeletedColumn datetime = null
+            --DECLARE @MFTableName NVARCHAR(100) = 'MFCustomer'
+            --DECLARE @vquery NVARCHAR(MAX)= ' process_ID = 0 '
+            --DECLARE @DataTypes NVARCHAR(100) 
+            DECLARE @CaseQuery NVARCHAR(MAX);
+            --DECLARE @SelectQuery NVARCHAR(MAX)
+            DECLARE @SQL NVARCHAR(MAX);
+
+            --IF (SELECT (OBJECT_ID('tempdb..#ColumnValuePair'))) IS NOT null
+            --             DROP TABLE #ColumnValuePair;
+
+            --         CREATE TABLE #ColumnValuePair
+            --         (
+            --             Id INT,
+            --             objID INT,
+            --             ObjVersion INT,
+            --             ExternalID NVARCHAR(100),
+            --             ColumnName NVARCHAR(200),
+            --             ColumnValue NVARCHAR(4000),
+            --             Required INT,
+            --             MFID INT,
+            --             DataType INT
+            --         );
+
+            DECLARE @DatatypeTable AS TABLE
+            (
+                id INT IDENTITY,
+                Datatypes NVARCHAR(20),
+                Type_Ids NVARCHAR(100),
+                TypeGroup NVARCHAR(100),
+                DataConversion NVARCHAR(100)
+            );
+
+            INSERT INTO @DatatypeTable
+            (
+                Datatypes,
+                Type_Ids,
+                TypeGroup,
+                DataConversion
+            )
+            VALUES
+            (N'Float', N'3', 'Real', 'CAST(CAST(colvalue AS Decimal(32,4)) AS VARCHAR(4000))'),
+            ('Integer', '2', 'Int', 'CAST(colvalue AS VARCHAR(4000))'),
+            ('Integer', '9', 'Int', 'CAST(colvalue AS VARCHAR(4000))'),
+            ('Integer', '10', 'Int', 'CAST(colvalue AS VARCHAR(4000))'),
+            ('Text', '1', 'String', 'CAST(colvalue AS VARCHAR(4000))'),
+            ('MultiText', '13', 'String', 'CAST(colvalue AS VARCHAR(max))'),
+            ('MultiLookup', '10', 'String', 'CAST(colvalue AS VARCHAR(4000))'),
+            ('Time', '6', 'time', 'CAST(cast(colvalue as time(0)) AS VARCHAR(4000))'),
+            ('DateTime', '7', 'Datetime',
+             'convert(nvarchar(4000),FORMAT(convert(datetime,Colvalue,102), ''yyyy-MM-dd HH:mm:ss.fff'' ))'),
+            ('Date', '5', 'Date', 'CAST(colvalue AS VARCHAR(4000))'),
+            ('Bit', '8', 'Int', 'CAST(colvalue AS VARCHAR(4000))');
+
+            SET @ProcedureStep = 'Prepare column list';
+
+            IF
+            (
+                SELECT OBJECT_ID('tempdb..#ColumnList')
+            ) IS NOT NULL
+                DROP TABLE #ColumnList;
+
+            CREATE TABLE #ColumnList
+            (
+                MFID INT,
+                Column_Name NVARCHAR(100),
+                SQLDataType NVARCHAR(100),
+                MFDataType_ID INT,
+                Required BIT
+            );
+
+            INSERT INTO #ColumnList
+            (
+                MFID,
+                Column_Name,
+                SQLDataType,
+                MFDataType_ID,
+                Required
+            )
+            SELECT mfms.Property_MFID,
+                   QUOTENAME(C.name),
+                   mdt.SQLDataType,
+                   --        mdt.ID,
+                   mdt.MFTypeID,
+                   CASE
+                       WHEN C.is_nullable = 1 THEN
+                           0
+                       ELSE
+                           1
+                   END AS Required
+            FROM sys.columns AS C
+                INNER JOIN dbo.MFvwMetadataStructure AS mfms
+                    ON mfms.ColumnName = C.name
+                INNER JOIN dbo.MFDataType AS mdt
+                    ON mfms.MFTypeID = mdt.MFTypeID
+            WHERE C.object_id = OBJECT_ID(@MFTableName)
+                  AND ISNULL(mfms.Property_MFID, -1) NOT IN ( -1 )
+            GROUP BY mfms.Property_MFID,
+                     C.name,
+                     mdt.SQLDataType,
+                     mdt.MFTypeID,
+                     C.is_nullable;
+
+            SET @ProcedureStep = 'Prepare queries';
+
+            IF @Debug > 100
+                SELECT '#columnlist',
+                       *
+                FROM #ColumnList AS cl;
+
+            SELECT @CaseQuery
+                =
+            (
+                SELECT ' when ''' + cl.Column_Name + ''' then '
+                       + REPLACE(dt.DataConversion, 'Colvalue', cl.Column_Name) + ' '
+                FROM #ColumnList AS cl
+                    INNER JOIN @DatatypeTable AS dt
+                        ON dt.Type_Ids = cl.MFDataType_ID
+                FOR XML PATH('')
+            );
+
+            IF @Debug > 100
+                SELECT @CaseQuery '@CaseQuery';
+
+
+
+            SELECT @SelectQuery
+                = N'id,Objid,ExternalID,MFVersion,'
+                  + STUFF(
+                    (
+                        SELECT ',' + cl.Column_Name FROM #ColumnList AS cl FOR XML PATH('')
+                    ),
+                    1,
+                    1,
+                    ''
+                         );
+
+            IF @Debug > 100
+                SELECT @SelectQuery '@SelectQuery';
+
+
+            SET @ProcedureStep = 'insert into #ColumnValuePair';
+
+            SET @SQL
+                = N'
+insert into #ColumnValuePair
+ 
+select a.id, a.objid, a.MFVersion, a.externalID,  b.column_name as ColumnName
+, column_value = 
+    case b.column_name
+    ' +     @CaseQuery + N'    
+    end
+    ,b.Required,b.MFID,b.MFDataType_ID
+from (
+  select ' + @SelectQuery + N'
+  from ' +  @MFTableName + N' where ' + @vquery
+                  + N'
+  ) a
+cross join (
+    SELECT  MFID,
+    Column_Name,
+    SQLDataType,
+    MFDataType_ID,
+    Required
+    From #ColumnList
+  ) b (MFID,Column_Name,SQLDataType,MFDataType_ID,Required);';
 
             IF @Debug > 100
             BEGIN
-                SELECT @Query AS 'ColumnValue pair query';
+                SELECT @SQL AS 'ColumnValue pair query';
             END;
 
-            EXEC (@Query);
+
+            EXEC sys.sp_executesql @SQL;
+
+
+            UPDATE #ColumnValuePair
+            SET MFID = mp.MFID,
+                DataType = mp.MFDataType_ID
+            FROM #ColumnValuePair AS cvp
+                INNER JOIN dbo.MFProperty mp
+                    ON cvp.ColumnName = mp.ColumnName;
+
+
+            IF @Debug > 0
+                SELECT 'Required_is_null', cvp.Id,
+                                          cvp.objID,
+                                          cvp.ObjVersion,
+                                          cvp.ExternalID,
+                                          cvp.ColumnName,
+                                          cvp.ColumnValue,
+                                          cvp.Required,
+                                          cvp.MFID,
+                                          cvp.DataType
+                FROM #ColumnValuePair AS cvp
+                WHERE cvp.Required = 1
+                      AND cvp.ColumnValue IS NULL;
 
             -------------------------------------------------------------
             -- Validate class and property requirements
             -------------------------------------------------------------
             SET @ProcedureStep = 'Validate class and property requirements';
-
+            /*
+            DECLARE @IsUpToDate int
             IF @IsUpToDate = 0
             BEGIN
                 EXEC dbo.spMFSynchronizeSpecificMetadata @Metadata = 'Property';
@@ -1067,7 +1306,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
                     mp.MFDataType_ID,
                     mp.MFID;
             END;
-
+*/
             -------------------------------------------------------------
             -- check for required data missing
             -------------------------------------------------------------
@@ -1077,7 +1316,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
             (
                 SELECT COUNT(ISNULL(cvp.Id, 0))
                 FROM #ColumnValuePair AS cvp
-                WHERE cvp.ColumnValue = 'ZZZ'
+                WHERE cvp.ColumnValue IS NULL
                       AND cvp.Required = 1
             ) > 0
             BEGIN
@@ -1087,13 +1326,13 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
                                          (
                                              SELECT ',' + cvp.ColumnName
                                              FROM #ColumnValuePair AS cvp
-                                             WHERE cvp.ColumnValue = 'ZZZ'
+                                             WHERE cvp.ColumnValue = NULL
                                                    AND cvp.Required = 1
                                              FOR XML PATH('')
                                          ),
-                                                  1,
-                                                  1,
-                                                  ''
+                                         1,
+                                         1,
+                                         ''
                                               );
 
                 SET @DebugText = N' in columns: ' + @missingColumns;
@@ -1106,65 +1345,79 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
             -------------------------------------------------------------
             -- update column value pair properties
             -------------------------------------------------------------
-            UPDATE CVP
-            SET CVP.Required = CASE
-                                   WHEN c2.is_nullable = 1 THEN
-                                       0
-                                   ELSE
-                                       1
-                               END,
-                CVP.ColumnValue = CASE
-                                      WHEN ISNULL(CVP.ColumnValue, '-1') = '-1'
-                                           AND c2.is_nullable = 0 THEN
-                                          'ZZZ'
-                                      ELSE
-                                          CVP.ColumnValue
-                                  END
+            --UPDATE CVP
+            --SET CVP.Required = CASE
+            --                       WHEN c2.is_nullable = 1 THEN
+            --                           0
+            --                       ELSE
+            --                           1
+            --                   END,
+            --    CVP.ColumnValue = CASE
+            --                          WHEN ISNULL(CVP.ColumnValue, '-1') = '-1'
+            --                               AND c2.is_nullable = 0 THEN
+            --                              'ZZZ'
+            --                          ELSE
+            --                              CVP.ColumnValue
+            --                      END
             --SELECT p.name, p.mfid,cp.required
-            FROM #ColumnValuePair      CVP
-                INNER JOIN sys.columns AS c2
-                    ON CVP.ColumnName = c2.name
-            WHERE c2.object_id = OBJECT_ID(@MFTableName);
+            --FROM #ColumnValuePair      CVP
+            --    INNER JOIN sys.columns AS c2
+            --        ON CVP.ColumnName = c2.name
+            --WHERE c2.object_id = OBJECT_ID(@MFTableName);
 
-            UPDATE cvp
-            SET cvp.MFID = mp.MFID,
-                cvp.DataType = mdt.MFTypeID,
-                cvp.ColumnValue =
-                --CASE
-                --                      WHEN mp.MFID = 27
-                --                           AND cvp.ColumnValue = '0' THEN
-                --                          'ZZZ'
-                --                      ELSE
-                cvp.ColumnValue
-            --                                     END
-            FROM #ColumnValuePair         AS cvp
-                INNER JOIN dbo.MFProperty AS mp
-                    ON cvp.ColumnName = mp.ColumnName
-                INNER JOIN dbo.MFDataType AS mdt
-                    ON mp.MFDataType_ID = mdt.ID;
+      
+            --     INNER JOIN dbo.MFProperty AS mp
+            --        ON cvp.ColumnName = mp.ColumnName
+            --    INNER JOIN dbo.MFDataType AS mdt
+            --        ON mp.MFDataType_ID = mdt.ID;
 
             -------------------------------------------------------------
             -- update MFlastUpdate datetime; MFLastModified MFSQL user
             -------------------------------------------------------------
             UPDATE cvp
-            SET cvp.ColumnValue = CAST(GETDATE() AS NVARCHAR(4000))
+            SET cvp.ColumnValue = CASE
+                                      WHEN cvp.MFID = 20 --created
+                                           AND cvp.ColumnValue IS NULL THEN
+                                          CONVERT(
+                                                     NVARCHAR(4000),
+                                                     FORMAT(
+                                                               CONVERT(DATETIME, GETDATE(), 102),
+                                                               'yyyy-MM-dd HH:mm:ss.fff'
+                                                           )
+                                                 )
+                                      ELSE
+                                          cvp.ColumnValue
+                                  END
+            FROM #ColumnValuePair AS cvp;
+
+            UPDATE cvp
+            SET cvp.ColumnValue = CONVERT(
+                                             NVARCHAR(4000),
+                                             FORMAT(CONVERT(DATETIME, GETDATE(), 102), 'yyyy-MM-dd HH:mm:ss.fff')
+                                         )
             FROM #ColumnValuePair AS cvp
             WHERE cvp.MFID = 21;
 
             DECLARE @lastModifiedUser_ID INT;
 
             SELECT @lastModifiedUser_ID = mla.MFID
-            FROM dbo.MFVaultSettings          AS mvs
+            FROM dbo.MFVaultSettings AS mvs
                 INNER JOIN dbo.MFLoginAccount AS mla
                     ON mvs.Username = mla.UserName;
 
             UPDATE cvp
-            SET cvp.ColumnValue = CAST(@lastModifiedUser_ID AS NVARCHAR(4000))
+            SET cvp.ColumnValue = CAST(@lastModifiedUser_ID AS NVARCHAR(4000))          
             FROM #ColumnValuePair AS cvp
-            WHERE cvp.MFID = 23;
+            WHERE cvp.MFID = 23; -- last modified
+
+           UPDATE cvp
+            SET cvp.ColumnValue = CASE WHEN ColumnValue IS NULL THEN CAST(@lastModifiedUser_ID AS NVARCHAR(4000))         ELSE ColumnValue end 
+            FROM #ColumnValuePair AS cvp
+            WHERE cvp.MFID = 25; -- created by
 
             IF @Debug > 100
-                SELECT *
+                SELECT 'columnvaluepair',
+                       *
                 FROM #ColumnValuePair AS cvp;
 
             -------------------------------------------------------------
@@ -1189,18 +1442,18 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
             END;
 
             EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-                @LogType = @LogTypeDetail,
-                @LogText = @LogTextDetail,
-                @LogStatus = @LogStatusDetail,
-                @StartTime = @StartTime,
-                @MFTableName = @MFTableName,
-                @Validation_ID = @Validation_ID,
-                @ColumnName = @LogColumnName,
-                @ColumnValue = @LogColumnValue,
-                @Update_ID = @Update_ID,
-                @LogProcedureName = @ProcedureName,
-                @LogProcedureStep = @ProcedureStep,
-                @debug = @Debug;
+                                                                      @LogType = @LogTypeDetail,
+                                                                      @LogText = @LogTextDetail,
+                                                                      @LogStatus = @LogStatusDetail,
+                                                                      @StartTime = @StartTime,
+                                                                      @MFTableName = @MFTableName,
+                                                                      @Validation_ID = @Validation_ID,
+                                                                      @ColumnName = @LogColumnName,
+                                                                      @ColumnValue = @LogColumnValue,
+                                                                      @Update_ID = @Update_ID,
+                                                                      @LogProcedureName = @ProcedureName,
+                                                                      @LogProcedureStep = @ProcedureStep,
+                                                                      @debug = @Debug;
 
             SET @DebugText = N'';
             SET @DebugText = @DefaultDebugText + @DebugText;
@@ -1216,49 +1469,49 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
             -----------------------------------------------------
             SET @XMLFile =
             (
-                SELECT @ObjectId   AS [Object/@id],
-                    cvp.Id         AS [Object/@sqlID],
-                    cvp.objID      AS [Object/@objID],
-                    cvp.ObjVersion AS [Object/@objVesrion],
-                    cvp.ExternalID AS [Object/@DisplayID], --Added For Task #988
-                                                           --     ( SELECT
-                                                           --       @ClassId AS 'class/@id' ,
-                    (
-                        SELECT
-                            (
-                                SELECT TOP 1
-                                    tmp1.ColumnValue
-                                FROM #ColumnValuePair AS tmp1
-                                WHERE tmp1.MFID = 100
-                            ) AS [class/@id],
-                            (
-                                SELECT tmp.MFID  AS [property/@id],
-                                    tmp.DataType AS [property/@dataType],
-                                    CASE
-                                        WHEN tmp.ColumnValue = 'ZZZ' THEN
-                                            NULL
-                                        ELSE
+                SELECT @ObjectId AS [Object/@id],
+                       cvp.Id AS [Object/@sqlID],
+                       cvp.objID AS [Object/@objID],
+                       cvp.ObjVersion AS [Object/@objVesrion],
+                       cvp.ExternalID AS [Object/@DisplayID], --Added For Task #988
+                                                              --     ( SELECT
+                                                              --       @ClassId AS 'class/@id' ,
+                       (
+                           SELECT
+                               (
+                                   SELECT TOP 1
+                                          tmp1.ColumnValue
+                                   FROM #ColumnValuePair AS tmp1
+                                   WHERE tmp1.MFID = 100
+                               ) AS [class/@id],
+                               (
+                                   SELECT tmp.MFID AS [property/@id],
+                                          tmp.DataType AS [property/@dataType],
+                                          CASE
+                                              WHEN tmp.ColumnValue IS NULL THEN
+                                                  NULL
+                                              ELSE
+                                                  tmp.ColumnValue
+                                          END AS 'property' ----Added case statement for checking Required property
+                                   FROM #ColumnValuePair AS tmp
+                                   WHERE tmp.MFID <> 100
+                                         --                    AND tmp.ColumnValue IS NOT NULL
+                                         AND tmp.Id = cvp.Id
+                                   GROUP BY tmp.Id,
+                                            tmp.MFID,
+                                            tmp.DataType,
                                             tmp.ColumnValue
-                                    END          AS 'property' ----Added case statement for checking Required property
-                                FROM #ColumnValuePair AS tmp
-                                WHERE tmp.MFID <> 100
-                                      AND tmp.ColumnValue IS NOT NULL
-                                      AND tmp.Id = cvp.Id
-                                GROUP BY tmp.Id,
-                                    tmp.MFID,
-                                    tmp.DataType,
-                                    tmp.ColumnValue
-                                ORDER BY tmp.Id
-                                --- excluding duplicate class and [tmp].[ColumnValue] is not null added for task 1103
-                                FOR XML PATH(''), TYPE
-                            ) AS class
-                        FOR XML PATH(''), TYPE
-                    )              AS Object
+                                   ORDER BY tmp.Id
+                                   --- excluding duplicate class and [tmp].[ColumnValue] is not null added for task 1103
+                                   FOR XML PATH(''), TYPE
+                               ) AS class
+                           FOR XML PATH(''), TYPE
+                       ) AS Object
                 FROM #ColumnValuePair AS cvp
                 GROUP BY cvp.Id,
-                    cvp.objID,
-                    cvp.ObjVersion,
-                    cvp.ExternalID
+                         cvp.objID,
+                         cvp.ObjVersion,
+                         cvp.ExternalID
                 ORDER BY cvp.Id
                 FOR XML PATH(''), ROOT('form')
             );
@@ -1290,8 +1543,8 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
 					SELECT @Count = COUNT(ISNULL(id,0)) FROM ' + @MFTableName + N' WHERE process_ID = 1';
 
             EXEC sys.sp_executesql @stmt = @Query,
-                @param = @ParmDefinition,
-                @Count = @Count OUTPUT;
+                                   @param = @ParmDefinition,
+                                   @Count = @Count OUTPUT;
 
             SET @LogTypeDetail = N'Debug';
             SET @LogTextDetail = N'XML Records for Updated method 0 ';
@@ -1301,18 +1554,18 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
             SET @LogColumnValue = CAST(ISNULL(@Count, 0) AS VARCHAR(5));
 
             EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-                @LogType = @LogTypeDetail,
-                @LogText = @LogTextDetail,
-                @LogStatus = @LogStatusDetail,
-                @StartTime = @StartTime,
-                @MFTableName = @MFTableName,
-                @Validation_ID = @Validation_ID,
-                @ColumnName = @LogColumnName,
-                @ColumnValue = @LogColumnValue,
-                @Update_ID = @Update_ID,
-                @LogProcedureName = @ProcedureName,
-                @LogProcedureStep = @ProcedureStep,
-                @debug = @Debug;
+                                                                      @LogType = @LogTypeDetail,
+                                                                      @LogText = @LogTextDetail,
+                                                                      @LogStatus = @LogStatusDetail,
+                                                                      @StartTime = @StartTime,
+                                                                      @MFTableName = @MFTableName,
+                                                                      @Validation_ID = @Validation_ID,
+                                                                      @ColumnName = @LogColumnName,
+                                                                      @ColumnValue = @LogColumnValue,
+                                                                      @Update_ID = @Update_ID,
+                                                                      @LogProcedureName = @ProcedureName,
+                                                                      @LogProcedureStep = @ProcedureStep,
+                                                                      @debug = @Debug;
 
             IF EXISTS (SELECT (OBJECT_ID('tempdb..#ColumnValuePair')))
                 DROP TABLE #ColumnValuePair;
@@ -1331,13 +1584,13 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
         SET @FullXml =
         (
             SELECT @ObjectId AS [Object/@id],
-                @Id          AS [Object/@sqlID],
-                @objID       AS [Object/@objID],
-                @ObjVersion  AS [Object/@objVesrion],
-                @ExternalID  AS [Object/@DisplayID], --Added for Task #988
-                (
-                    SELECT @ClassId AS [class/@id] FOR XML PATH(''), TYPE
-                )            AS Object
+                   @Id AS [Object/@sqlID],
+                   @objID AS [Object/@objID],
+                   @ObjVersion AS [Object/@objVesrion],
+                   @ExternalID AS [Object/@DisplayID], --Added for Task #988
+                   (
+                       SELECT @ClassId AS [class/@id] FOR XML PATH(''), TYPE
+                   ) AS Object
             FOR XML PATH(''), ROOT('form')
         );
         SET @FullXml =
@@ -1358,9 +1611,9 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
     BEGIN
         SET @ProcedureStep = 'Xml for Process_ID = 0 ';
 
-        DECLARE @ObjVerXML      XML,
-            @ObjVerXMLForUpdate XML,
-            @CreateXmlQuery     NVARCHAR(MAX);
+        DECLARE @ObjVerXML XML,
+                @ObjVerXMLForUpdate XML,
+                @CreateXmlQuery NVARCHAR(MAX);
 
         IF @Debug > 9
             RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
@@ -1401,8 +1654,8 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
 								)';
 
             EXEC sys.sp_executesql @CreateXmlQuery,
-                N'@ObjVerXML XML OUTPUT',
-                @ObjVerXML OUTPUT;
+                                   N'@ObjVerXML XML OUTPUT',
+                                   @ObjVerXML OUTPUT;
 
             DECLARE @ObjVerXmlString NVARCHAR(MAX);
 
@@ -1427,6 +1680,20 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
             BEGIN
                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
             END;
+
+            -------------------------------------------------------------
+            -- reset process_ID for objects in objids
+            -------------------------------------------------------------
+-- add isolation level to manage locks
+            EXECUTE (N'
+            begin tran
+            SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+            UPDATE t SET process_ID = 0 FROM ' + @MFTableName + ' t 
+            INNER JOIN #ObjidTable AS ot
+            ON t.objid = ot.objid
+            WHERE process_ID <> 0 and t.objid = ot.objid;
+            Commit
+            ');
 
             -------------------------------------------------------------
             -- Sync error flag snippet
@@ -1464,8 +1731,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
 
             IF (@ObjIDs IS NOT NULL)
             BEGIN
-                SET @CreateXmlQuery
-                    = @CreateXmlQuery + N'AND ObjID in (SELECT * FROM dbo.fnMFSplitString(''' + @ObjIDs + N''','',''))';
+                SET @CreateXmlQuery = @CreateXmlQuery + N'AND ObjID in (SELECT t.objid FROM #ObjidTable t )';
             END;
 
             --end filters 
@@ -1479,7 +1745,9 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
 
             SET @Params = N'@ObjVerXMLForUpdate XML OUTPUT';
 
-            EXEC sys.sp_executesql @CreateXmlQuery, @Params, @ObjVerXMLForUpdate OUTPUT;
+            EXEC sys.sp_executesql @CreateXmlQuery,
+                                   @Params,
+                                   @ObjVerXMLForUpdate OUTPUT;
 
             IF @Debug > 9
             BEGIN
@@ -1491,14 +1759,14 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
             -------------------------------------------------------------
             SET @ProcedureStep = 'Identify Object IDs ';
 
-            IF ISNULL(@ObjIDs, '') != ''
+            IF @ObjidCount > 0
             BEGIN
-                SET @DebugText = N'Objids %s';
+                SET @DebugText = N'Objids %i';
                 SET @DebugText = @DefaultDebugText + @DebugText;
 
                 IF @Debug > 0
                 BEGIN
-                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ObjIDs);
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ObjidCount);
                 END;
 
                 DECLARE @missingXML NVARCHAR(MAX); ---Bug 1098  VARCHAR(8000) to  VARCHAR(max) 
@@ -1507,8 +1775,8 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
                 IF ISNULL(@SyncErrorFlag, 0) = 0 -- exclude routine when sync flag = 1 is processed
                 BEGIN
                     EXEC dbo.spMFGetMissingobjectIds @ObjIDs,
-                        @MFTableName,
-                        @missing = @objects OUTPUT;
+                                                     @MFTableName,
+                                                     @missing = @missingXML OUTPUT;
 
                     SET @ProcedureStep = 'Missing objects IDs ';
                     SET @DebugText = N' sync flag 0: objids  %s ';
@@ -1517,25 +1785,23 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
                     --						RAISERROR('I am 0',10,1)
                     IF @Debug > 0
                     BEGIN
-                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @objects);
+                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @missingXML);
                     END;
                 END;
                 ELSE
                 BEGIN
                     IF ISNULL(@SyncErrorFlag, 0) = 1
                     BEGIN
-                        SET @objects = @ObjIDs;
+                        SET @missingXML = @ObjIDs;
                         SET @DebugText = N' SyncFlag 1: Missing objects %s ';
                         SET @DebugText = @DefaultDebugText + @DebugText;
 
                         IF @Debug > 0
                         BEGIN
-                            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @objects);
+                            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @missingXML);
                         END;
                     END;
                 END;
-
-                SET @missingXML = @objects;
 
                 IF @Debug > 9
                     SELECT @missingXML AS [@missingXML];
@@ -1596,18 +1862,18 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
             SET @LogColumnName = N'ObjectVerDetails';
 
             EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-                @LogType = @LogTypeDetail,
-                @LogText = @LogTextDetail,
-                @LogStatus = @LogStatusDetail,
-                @StartTime = @StartTime,
-                @MFTableName = @MFTableName,
-                @Validation_ID = @Validation_ID,
-                @ColumnName = @LogColumnName,
-                @ColumnValue = @LogColumnValue,
-                @Update_ID = @Update_ID,
-                @LogProcedureName = @ProcedureName,
-                @LogProcedureStep = @ProcedureStep,
-                @debug = @Debug;
+                                                                      @LogType = @LogTypeDetail,
+                                                                      @LogText = @LogTextDetail,
+                                                                      @LogStatus = @LogStatusDetail,
+                                                                      @StartTime = @StartTime,
+                                                                      @MFTableName = @MFTableName,
+                                                                      @Validation_ID = @Validation_ID,
+                                                                      @ColumnName = @LogColumnName,
+                                                                      @ColumnValue = @LogColumnValue,
+                                                                      @Update_ID = @Update_ID,
+                                                                      @LogProcedureName = @ProcedureName,
+                                                                      @LogProcedureStep = @ProcedureStep,
+                                                                      @debug = @Debug;
 
             SET @ProcedureStep = 'Set input XML parameters';
             SET @ObjVerXmlString = CAST(@ObjVerXMLForUpdate AS NVARCHAR(MAX));
@@ -1617,15 +1883,15 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
 
     SET @ProcedureStep = 'Get property MFIDs';
 
-    IF @Debug > 9
+    IF @Debug > 0
     BEGIN
         RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
 
         IF @Debug > 10
-            SELECT @XML          AS XML,
-                @ObjVerXmlString AS ObjVerXmlString,
-                @ObjIDsForUpdate AS [@ObjIDsForUpdate],
-                @UpdateMethod    AS UpdateMethod;
+            SELECT @XML AS XML,
+                   @ObjVerXmlString AS ObjVerXmlString,
+                   @ObjIDsForUpdate AS [@ObjIDsForUpdate],
+                   @UpdateMethod AS UpdateMethod;
     END;
 
     -------------------------------------------------------------
@@ -1635,15 +1901,15 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
                     (
                         SELECT ',' + CAST(ISNULL(MFP.MFID, '') AS NVARCHAR(10))
                         FROM INFORMATION_SCHEMA.COLUMNS AS CLM
-                            LEFT JOIN dbo.MFProperty    AS MFP
+                            LEFT JOIN dbo.MFProperty AS MFP
                                 ON MFP.ColumnName = CLM.COLUMN_NAME
                         WHERE CLM.TABLE_NAME = @MFTableName
                         GROUP BY MFP.MFID
                         FOR XML PATH('')
                     ),
-                             1,
-                             1,
-                             ''
+                    1,
+                    1,
+                    ''
                          );
 
     IF @Debug > 10
@@ -1677,23 +1943,42 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
     --          ,CAST(@ObjIDsForUpdate AS NVARCHAR(MAX));
     --END;
 
+    -------------------------------------------------------------
+    -- Check connection to vault
+    -------------------------------------------------------------
+
+    SET @ProcedureStep = 'Connection test: ';
+
+    DECLARE @TestResult INT;
+
+    EXEC @return_value = dbo.spMFConnectionTest;
+
+    IF @return_value <> 1
+    BEGIN
+        SET @DebugText = N'Connection failed ';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+
+        RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+    END;
+
     ------------------------Added for checking required property null-------------------------------	
     SET @ProcedureStep = 'wrapper';
     SET @ProcedureName = 'spMFCreateObjectInternal';
 
-    EXEC dbo.spMFCreateObjectInternal @VaultSettings = @VaultSettings, -- nvarchar(4000)
-        @XmlFile = @XML,                                               -- nvarchar(max)
-        @objVerXmlIn = @ObjVerXmlString,                               -- nvarchar(max)
-        @MFIDs = @MFIDs,                                               -- nvarchar(2000)
-        @UpdateMethod = @UpdateMethod,                                 -- int
-        @dtModifieDateTime = @MFModifiedDate,                          -- datetime
-        @sLsOfID = @ObjIDsForUpdate,                                   -- nvarchar(max)
-        @CheckOutObjects = @CheckOutObjects OUTPUT,
-        @ObjVerXmlOut = @XmlOUT OUTPUT,                                -- nvarchar(max)
-        @NewObjectXml = @NewObjectXml OUTPUT,                          -- nvarchar(max)
-        @SynchErrorObjects = @SynchErrorObj OUTPUT,                    -- nvarchar(max)
-        @DeletedObjVerXML = @DeletedObjects OUTPUT,                    -- nvarchar(max)
-        @ErrorXML = @ErrorInfo OUTPUT;                                 -- nvarchar(max)
+
+    EXEC dbo.spMFCreateObjectInternal @VaultSettings = @VaultSettings,            -- nvarchar(4000)
+                                      @XmlFile = @XML,                            -- nvarchar(max)
+                                      @objVerXmlIn = @ObjVerXmlString,            -- nvarchar(max)
+                                      @MFIDs = @MFIDs,                            -- nvarchar(2000)
+                                      @UpdateMethod = @UpdateMethod,              -- int
+                                      @dtModifieDateTime = @MFModifiedDate,       -- datetime
+                                      @sLsOfID = @ObjIDsForUpdate,                -- nvarchar(max)
+                                      @CheckOutObjects = @CheckOutObjects OUTPUT,
+                                      @ObjVerXmlOut = @XmlOUT OUTPUT,             -- nvarchar(max)
+                                      @NewObjectXml = @NewObjectXml OUTPUT,       -- nvarchar(max)
+                                      @SynchErrorObjects = @SynchErrorObj OUTPUT, -- nvarchar(max)
+                                      @DeletedObjVerXML = @DeletedObjects OUTPUT, -- nvarchar(max)
+                                      @ErrorXML = @ErrorInfo OUTPUT;              -- nvarchar(max)
 
     SET @ProcedureName = 'spMFUpdateTable';
 
@@ -1704,6 +1989,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
 
     IF @Debug > 10
     BEGIN
+        SELECT CAST(@ErrorInfo AS XML) AS Errorinfo;
         RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
     END;
 
@@ -1715,18 +2001,18 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
     SET @LogColumnName = N'';
 
     EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-        @LogType = @LogTypeDetail,
-        @LogText = @LogTextDetail,
-        @LogStatus = @LogStatusDetail,
-        @StartTime = @StartTime,
-        @MFTableName = @MFTableName,
-        @Validation_ID = @Validation_ID,
-        @ColumnName = @LogColumnName,
-        @ColumnValue = @LogColumnValue,
-        @Update_ID = @Update_ID,
-        @LogProcedureName = @ProcedureName,
-        @LogProcedureStep = @ProcedureStep,
-        @debug = @Debug;
+                                                              @LogType = @LogTypeDetail,
+                                                              @LogText = @LogTextDetail,
+                                                              @LogStatus = @LogStatusDetail,
+                                                              @StartTime = @StartTime,
+                                                              @MFTableName = @MFTableName,
+                                                              @Validation_ID = @Validation_ID,
+                                                              @ColumnName = @LogColumnName,
+                                                              @ColumnValue = @LogColumnValue,
+                                                              @Update_ID = @Update_ID,
+                                                              @LogProcedureName = @ProcedureName,
+                                                              @LogProcedureStep = @ProcedureStep,
+                                                              @debug = @Debug;
 
     DECLARE @idoc3 INT;
     DECLARE @DeletedXML XML;
@@ -1770,27 +2056,28 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
     (
         ObjectID INT PRIMARY KEY,
         Status NVARCHAR(25),
+        auditStatus int,
         ClassID INT
     );
 
     CREATE NONCLUSTERED INDEX IDX_StatusList_Status ON ' + @TempStatusList + ' (Status)');
 
-    IF ISNULL(@NewObjectXml, '') <> ''
-       OR ISNULL(@DeletedObjects, '') <> ''
-    BEGIN
+    --IF ISNULL(@NewObjectXml, '') <> ''
+    --   OR ISNULL(@DeletedObjects, '') <> ''
+    --BEGIN
 
         -------------------------------------------------------------
         -- get status of updated records
         -------------------------------------------------------------
-      IF @NewObjectXml IS NOT NULL
-      BEGIN
-      
-      EXEC sys.sp_xml_preparedocument @idoc3 OUTPUT, @NewObjectXml;
+        IF ISNULL(@NewObjectXml,'') <> ''
+        BEGIN
 
-        SET @ProcedureStep = ' Status of returned objects ';
-        SET @Query
-            = N'INSERT INTO ' + @TempStatusList
-              + N'
+            EXEC sys.sp_xml_preparedocument @idoc3 OUTPUT, @NewObjectXml;
+
+            SET @ProcedureStep = ' Status of returned objects ';
+            SET @Query
+                = N'INSERT INTO ' + @TempStatusList
+                  + N'
         (
             ObjectID,
             Status,
@@ -1812,27 +2099,27 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
         WHERE t.ClassID = 100
               AND t.DataType IS NULL;';
 
-        EXEC sys.sp_executesql @Query, N'@Idoc3 int', @idoc3;
+            EXEC sys.sp_executesql @Query, N'@Idoc3 int', @idoc3;
 
-        SET @Count = @@RowCount;
-        SET @DebugText = N' %i ';
-        SET @DebugText = @DefaultDebugText + @DebugText;
+            SET @Count = @@RowCount;
+            SET @DebugText = N' %i ';
+            SET @DebugText = @DefaultDebugText + @DebugText;
 
-        IF @Debug > 0
-        BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
-        END;
+            IF @Debug > 0
+            BEGIN
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
+            END;
 
-        IF @idoc3 IS NOT NULL
-            EXEC sys.sp_xml_removedocument @idoc3;
+            IF @idoc3 IS NOT NULL
+                EXEC sys.sp_xml_removedocument @idoc3;
 
-            END -- if @newobjectXML is not null
+        END; -- if @newobjectXML is not null
 
         SET @DebugText = N'';
         SET @DebugText = @DefaultDebugText + @DebugText;
         SET @ProcedureStep = 'Process Deletes phase 2';
 
-        IF @DeletedObjects IS NOT NULL
+        IF ISNULL(@DeletedObjects,'') <> '' 
         BEGIN
             EXEC sys.sp_xml_preparedocument @idoc3 OUTPUT, @DeletedObjects;
 
@@ -1873,7 +2160,7 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
         END;
 
         -- @deletedobjects is not null
- 
+
         SET @ProcedureStep = ' checked out objects ';
         SET @Query
             = N'UPDATE t 
@@ -1926,17 +2213,36 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
+        -------------------------------------------------------------
+        -- Add audit table statusflag to tempstatus list
+        -------------------------------------------------------------
+        SET @Query
+            = N' UPDATE sl
+        SET AuditStatus = ah.StatusFlag
+        FROM ' + @TempStatusList
+              + N' AS sl
+              inner JOIN MFAuditHistory ah
+              ON sl.ObjectID = ah.objid AND ah.objecttype = @objectID';
+
+        EXEC sys.sp_executesql @Query, N'@objectID int', @ObjectId;
+
+
         IF @Debug > 0
-        Begin
-            EXEC (N'SELECT * FROM ' + @TempStatusList + '');         
-        END
+        BEGIN
+            EXEC (N'SELECT * FROM ' + @TempStatusList + '');
+        END;
 
         -------------------------------------------------------------
         -- get objects that has changed class without being deleted
         -------------------------------------------------------------
-        SET @Params = N'@RemoveOtherClass int output, @ClassID int'
-         SET @vquery = N'SELECT @RemoveOtherClass = @RemoveOtherClass + count(*) FROM ' + @TempStatusList + ' where classID <> @ClassID '
-            EXEC sp_executeSQL @vquery, @params, @RemoveOtherClass OUTPUT, @classID;
+        SET @Params = N'@RemoveOtherClass int output, @ClassID int';
+        SET @vquery
+            = N'SELECT @RemoveOtherClass = @RemoveOtherClass + count(*) FROM ' + @TempStatusList
+              + N' where classID <> @ClassID ';
+        EXEC sys.sp_executesql @vquery,
+                               @Params,
+                               @RemoveOtherClass OUTPUT,
+                               @ClassId;
 
         -------------------------------------------------------------
         -- insert object with class changed into status list
@@ -1948,52 +2254,67 @@ SELECT ID,ObjID,MFVersion,ExternalID,ColumnName,ColValue,NULL,null,null from
             -- get records with other class in class_id and set to deleted
             SET @Count = 0;
 
-IF @debug > 0
-SELECT @RemoveOtherClass AS count_of_OtherClassObjects;
+            IF @Debug > 0
+                SELECT @RemoveOtherClass AS count_of_OtherClassObjects;
 
             DECLARE @RemoveClassObjids NVARCHAR(MAX);
 
             --get objids of rows that changed class
+            SET @Query = NULL;
             SET @Query
-                = N' SELECT @RemoveClassObjids = STUFF(
-                             (
-                                 SELECT DISTINCT
-                                     '','' + CAST(sl.ObjectID AS NVARCHAR(10))
-                                 FROM ' + @TempStatusList
+                = N' SELECT distinct sl.objectid,4
+           FROM ' + @TempStatusList
                   + N' AS sl
+                  left join #objidTable t
+                  on t.objid = sl.objectid
                    WHERE sl.ClassID <> @ClassId
-                                 FOR XML PATH('''')
-                             ),
-                                      1,
-                                      1,
-                                      ''''
-                                  )
-            FROM ' + @TempStatusList + N' AS sl2           
-            ORDER BY sl2.ObjectID;';
+                   and t.objid is null;                  
+  
+  '         ;
 
             IF @Debug > 0
                 SELECT @Query;
 
-            EXEC sys.sp_executesql @Query,
-                N'@RemoveClassObjids nvarchar(max) output,@ClassID int',
-                @RemoveClassObjids OUTPUT,
-                @ClassId;
+            IF @Query IS NOT NULL
+                INSERT INTO #ObjidTable
+                (
+                    objid,
+                    Type
+                )
+                EXEC sys.sp_executesql @Query, N'@ClassID int', @ClassId;
+
+            SET @Query = NULL;
+
+            SET @Query
+                = N' Update t
+ set type  = 4
+ From ' +   @TempStatusList
+                  + N' AS sl
+                  inner join #objidTable t
+                  on t.objid = sl.objectid
+                   WHERE sl.ClassID <> @ClassId;                                    
+                   ';
+            IF @Query IS NOT NULL
+                EXEC sys.sp_executesql @Query, N'@ClassID int', @ClassId;
 
             IF @Debug > 0
-                SELECT @RemoveClassObjids AS Objids_For_Class_Removal,
-                    @ClassId              AS Current_classid;
+                SELECT '@RemoveClassObjids',
+                       *
+                FROM #ObjidTable AS ot
+                WHERE ot.Type = 4;
+
+            SET @Query = NULL;
 
             SET @Query
                 = N' Delete FROM ' + QUOTENAME(@MFTableName)
                   + N'
-        WHERE objid in (Select listitem from fnMFParseDelimitedString(@RemoveClassObjids,'','')) ;';
+        WHERE objid in (Select t.objid from #objidTable t where type = 4) ;';
 
             IF @Debug > 0
                 SELECT @Query;
 
-            EXEC sys.sp_executesql @Query,
-                N'@RemoveClassObjids nvarchar(max)',
-                @RemoveClassObjids;
+            IF @Query IS NOT NULL
+                EXEC sys.sp_executesql @Query;
 
             SET @Count = @@RowCount;
             SET @DebugText = N' Delete rows with other classes %i';
@@ -2011,383 +2332,550 @@ SELECT @RemoveOtherClass AS count_of_OtherClassObjects;
 
             DECLARE @OtherMFTableName NVARCHAR(100);
 
-            IF EXISTS(SELECT t.TABLE_NAME FROM INFORMATION_SCHEMA.TABLES AS t WHERE t.TABLE_NAME = @OtherMFTableName)
-            Begin
+            IF EXISTS
+            (
+                SELECT t.TABLE_NAME
+                FROM INFORMATION_SCHEMA.TABLES AS t
+                WHERE t.TABLE_NAME = @OtherMFTableName
+            )
+            BEGIN
 
-            SET @Query
-                = N' SELECT TOP 1
+                SET @Query
+                    = N' SELECT TOP 1
                 @OtherMFTableName = mc.TableName
             FROM ' + @TempStatusList
-                  + N'  AS sl
+                      + N'  AS sl
                 INNER JOIN dbo.MFClass AS mc
                     ON sl.ClassID = mc.MFID
             WHERE sl.ClassID <> @ClassId';
 
-            EXEC sys.sp_executesql @Query,
-                N'@OtherMFTableName nvarchar(100) output, @classID int',
-                @OtherMFTableName OUTPUT,
-                @ClassId;
+                EXEC sys.sp_executesql @Query,
+                                       N'@OtherMFTableName nvarchar(100) output, @classID int',
+                                       @OtherMFTableName OUTPUT,
+                                       @ClassId;
 
-            IF @OtherMFTableName IS NOT NULL
-            BEGIN
-                EXEC dbo.spMFUpdateTable @MFTableName = @OtherMFTableName,
-                    @UpdateMethod = 1,
-                    @ObjIDs = @RemoveClassObjids,
-                    @Update_IDOut = @Update_IDOut OUTPUT,
-                    @ProcessBatch_ID = @ProcessBatch_ID OUTPUT;
+                IF @OtherMFTableName IS NOT NULL
+                BEGIN
+                    -------------------------------------------------------------
+                    -- reset audit table with class change
+                    -------------------------------------------------------------
 
-                SET @Query
-                    = N' SElect @Count = COUNT(*) FROM ' + QUOTENAME(@OtherMFTableName)
-                      + N'
+                    SET @Query = NULL;
+                    SET @Query
+                        = N' Update ah
+           set Class = sl.ClassID, StatusFlag = 1, StatusName = ''MFnotinSQL''
+           FROM ' + @TempStatusList
+                          + N' AS sl
+                  inner join MFauditHistory ah
+                  on ah.objid = sl.objectid
+                   WHERE sl.ClassID <> @ClassId 
+                   and ah.class = @ClassId;   ';
+
+                    IF @Query IS NOT NULL
+                        EXEC sys.sp_executesql @Query, N'@ClassID int', @ClassId;
+
+                    -------------------------------------------------------------
+                    -- remove items from other class
+                    -------------------------------------------------------------
+
+                    SELECT @RemoveClassObjids = STUFF(
+                                                (
+                                                    SELECT ',' + CAST(ot.objid AS VARCHAR(10))
+                                                    FROM #ObjidTable AS ot
+                                                    WHERE ot.Type = 4
+                                                    FOR XML PATH('')
+                                                ),
+                                                1,
+                                                1,
+                                                ''
+                                                     );
+
+                    SET @ProcedureStep = 'Remove from class';
+
+                    SET @DebugText = N' %s @RemoveClassObjids %s';
+                    SET @DebugText = @DefaultDebugText + @DebugText;
+
+                    IF @Debug > 0
+                    BEGIN
+                        RAISERROR(
+                                     @DebugText,
+                                     10,
+                                     1,
+                                     @ProcedureName,
+                                     @ProcedureStep,
+                                     @OtherMFTableName,
+                                     @RemoveClassObjids
+                                 );
+                    END;
+
+                    BEGIN
+                        EXEC dbo.spMFUpdateTable @MFTableName = @OtherMFTableName,
+                                                 @UpdateMethod = 1,
+                                                 @ObjIDs = @RemoveClassObjids,
+                                                 @Update_IDOut = @Update_IDOut OUTPUT,
+                                                 @ProcessBatch_ID = @ProcessBatch_ID,
+                                                 @Debug = @Debug;
+
+                        SET @Query
+                            = N' SElect @Count = COUNT(*) FROM ' + QUOTENAME(@OtherMFTableName)
+                              + N'
                          WHERE update_ID = @Update_IDOut;';
 
-                EXEC sys.sp_executesql @Query,
-                    N'@count int output, @Update_IDOut int',
-                    @Count OUTPUT,
-                    @Update_IDOut;
+                        EXEC sys.sp_executesql @Query,
+                                               N'@count int output, @Update_IDOut int',
+                                               @Count OUTPUT,
+                                               @Update_IDOut;
 
-END --delete from other table
-                SET @DebugText = N' Delete rows with other classes %i';
-                SET @DebugText = @DefaultDebugText + @DebugText;
+                    END; --delete from other table
+                    SET @DebugText = N' Delete rows with different class %i';
+                    SET @DebugText = @DefaultDebugText + @DebugText;
 
-                IF @Debug > 0
-                BEGIN
-                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
-                END;
+                    IF @Debug > 0
+                    BEGIN
+                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
+                    END;
 
-                
-            END; --update table for other class
-        END;
-    END;
 
-    -- end processing deletes
-    -------------------------------------------------------------
-    -- Remove records returned from M-Files that is not part of the class
-    -------------------------------------------------------------
-    SET @ProcedureStep = 'Remove redundant records';
-    SET @Query
-        = N'SELECT @Count = COUNT(ISNULL(sl.ObjectID, 0))
+                END; --update table for other class
+            END; -- if other table exist
+        END; -- if other class > 0
+
+        -- end processing deletes
+        -------------------------------------------------------------
+        -- Remove records returned from M-Files that is not part of the class
+        -------------------------------------------------------------
+        SET @ProcedureStep = 'Remove redundant records';
+        SET @Query
+            = N'SELECT @Count = COUNT(ISNULL(sl.ObjectID, 0))
     FROM ' + @TempStatusList
-          + N' AS sl
+              + N' AS sl
     WHERE sl.Status = ''NotInClass''
     GROUP BY sl.ObjectID,
         sl.Status;';
 
-    EXEC sys.sp_executesql @Query, N'@count int output', @Count OUTPUT;
+        EXEC sys.sp_executesql @Query, N'@count int output', @Count OUTPUT;
 
-    SET @DebugText = N' Deleted items ' + CAST(ISNULL(@Count, 0) AS NVARCHAR(100));
-    SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @DebugText = N' Deleted items ' + CAST(ISNULL(@Count, 0) AS NVARCHAR(100));
+        SET @DebugText = @DefaultDebugText + @DebugText;
 
-    IF @Debug > 0
-    BEGIN
-        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-    END;
+        IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        END;
 
-    SET @ProcedureStep = 'Add logging';
-    SET @ProcedureStep = 'Deleted records';
-    SET @LogTypeDetail = N'Debug';
-    SET @LogTextDetail = N'Deletions';
-    SET @LogStatusDetail = N'InProgress';
-    SET @Validation_ID = NULL;
-    SET @LogColumnName = N'Deletions';
-    SET @LogColumnValue = ISNULL(CAST(@Count AS VARCHAR(10)), 0);
+        SET @ProcedureStep = 'Add logging';
+        SET @ProcedureStep = 'Deleted records';
+        SET @LogTypeDetail = N'Debug';
+        SET @LogTextDetail = N'Deletions';
+        SET @LogStatusDetail = N'InProgress';
+        SET @Validation_ID = NULL;
+        SET @LogColumnName = N'Deletions';
+        SET @LogColumnValue = ISNULL(CAST(@Count AS VARCHAR(10)), 0);
 
-    EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-        @LogType = @LogTypeDetail,
-        @LogText = @LogTextDetail,
-        @LogStatus = @LogStatusDetail,
-        @StartTime = @StartTime,
-        @MFTableName = @MFTableName,
-        @Validation_ID = @Validation_ID,
-        @ColumnName = @LogColumnName,
-        @ColumnValue = @LogColumnValue,
-        @Update_ID = @Update_ID,
-        @LogProcedureName = @ProcedureName,
-        @LogProcedureStep = @ProcedureStep,
-        @debug = @Debug;
+        EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+                                                                  @LogType = @LogTypeDetail,
+                                                                  @LogText = @LogTextDetail,
+                                                                  @LogStatus = @LogStatusDetail,
+                                                                  @StartTime = @StartTime,
+                                                                  @MFTableName = @MFTableName,
+                                                                  @Validation_ID = @Validation_ID,
+                                                                  @ColumnName = @LogColumnName,
+                                                                  @ColumnValue = @LogColumnValue,
+                                                                  @Update_ID = @Update_ID,
+                                                                  @LogProcedureName = @ProcedureName,
+                                                                  @LogProcedureStep = @ProcedureStep,
+                                                                  @debug = @Debug;
 
-    -------------------------------------------------------------
-    -- Update SQL
-    -------------------------------------------------------------
-    SET @ProcedureStep = 'Update History';
-    SET @StartTime = GETUTCDATE();
+        -------------------------------------------------------------
+        -- Update SQL
+        -------------------------------------------------------------
+        SET @ProcedureStep = 'Update History';
+        SET @StartTime = GETUTCDATE();
 
-    IF (@Update_ID > 0)
-        UPDATE dbo.MFUpdateHistory
-        SET NewOrUpdatedObjectVer = @XmlOUT,
-            NewOrUpdatedObjectDetails = @NewObjectXml,
-            SynchronizationError = @SynchErrorObj,
-            DeletedObjectVer = @DeletedXML,
-            MFError = @ErrorInfo
-        WHERE Id = @Update_ID;
+        IF (@Update_ID > 0)
+            UPDATE dbo.MFUpdateHistory
+            SET NewOrUpdatedObjectVer = @XmlOUT,
+                NewOrUpdatedObjectDetails = @NewObjectXml,
+                SynchronizationError = @SynchErrorObj,
+                DeletedObjectVer = @DeletedXML,
+                MFError = @ErrorInfo
+            WHERE Id = @Update_ID;
 
-    --New/ update Details count & log
-    DECLARE @NewOrUpdatedObjectDetails_Count INT,
-        @NewOrUpdateObjectXml                XML;
+        --New/ update Details count & log
+        DECLARE @NewOrUpdatedObjectDetails_Count INT,
+                @NewOrUpdateObjectXml XML;
 
-    SET @ProcedureStep = 'Prepare XML for update into SQL';
-    SET @NewOrUpdateObjectXml = CAST(@NewObjectXml AS XML);
+        SET @ProcedureStep = 'Prepare XML for update into SQL';
+        SET @NewOrUpdateObjectXml = CAST(@NewObjectXml AS XML);
 
-    SELECT @NewOrUpdatedObjectDetails_Count = COUNT(o.objectid)
-    FROM
-    (
-        SELECT t1.c1.value('(@objectId)[1]', 'INT') AS objectid
-        FROM @NewOrUpdateObjectXml.nodes('/form/Object') AS t1(c1)
-    ) AS o;
+        SELECT @NewOrUpdatedObjectDetails_Count = COUNT(o.objectid)
+        FROM
+        (
+            SELECT t1.c1.value('(@objectId)[1]', 'INT') AS objectid
+            FROM @NewOrUpdateObjectXml.nodes('/form/Object') AS t1(c1)
+        ) AS o;
 
-    SET @LogTypeDetail = N'Debug';
-    SET @LogTextDetail = N'XML NewOrUpdatedObjectDetails returned';
-    SET @LogStatusDetail = N'Output';
-    SET @Validation_ID = NULL;
-    SET @LogColumnValue = CAST(@NewOrUpdatedObjectDetails_Count AS VARCHAR(10));
-    SET @LogColumnName = N'NewOrUpdatedObjectDetails';
+        SET @LogTypeDetail = N'Debug';
+        SET @LogTextDetail = N'XML NewOrUpdatedObjectDetails returned';
+        SET @LogStatusDetail = N'Output';
+        SET @Validation_ID = NULL;
+        SET @LogColumnValue = CAST(@NewOrUpdatedObjectDetails_Count AS VARCHAR(10));
+        SET @LogColumnName = N'NewOrUpdatedObjectDetails';
 
-    EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-        @LogType = @LogTypeDetail,
-        @LogText = @LogTextDetail,
-        @LogStatus = @LogStatusDetail,
-        @StartTime = @StartTime,
-        @MFTableName = @MFTableName,
-        @Validation_ID = @Validation_ID,
-        @ColumnName = @LogColumnName,
-        @ColumnValue = @LogColumnValue,
-        @Update_ID = @Update_ID,
-        @LogProcedureName = @ProcedureName,
-        @LogProcedureStep = @ProcedureStep,
-        @debug = @Debug;
+        EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+                                                                  @LogType = @LogTypeDetail,
+                                                                  @LogText = @LogTextDetail,
+                                                                  @LogStatus = @LogStatusDetail,
+                                                                  @StartTime = @StartTime,
+                                                                  @MFTableName = @MFTableName,
+                                                                  @Validation_ID = @Validation_ID,
+                                                                  @ColumnName = @LogColumnName,
+                                                                  @ColumnValue = @LogColumnValue,
+                                                                  @Update_ID = @Update_ID,
+                                                                  @LogProcedureName = @ProcedureName,
+                                                                  @LogProcedureStep = @ProcedureStep,
+                                                                  @debug = @Debug;
 
-    --new/update version count and log
-    DECLARE @NewOrUpdatedObjectVer_Count INT,
-        @NewOrUpdateObjectVerXml         XML;
+        --new/update version count and log
+        DECLARE @NewOrUpdatedObjectVer_Count INT,
+                @NewOrUpdateObjectVerXml XML;
 
-    SET @NewOrUpdateObjectVerXml = CAST(@XmlOUT AS XML);
+        SET @NewOrUpdateObjectVerXml = CAST(@XmlOUT AS XML);
 
-    SELECT @NewOrUpdatedObjectVer_Count = COUNT(o.objectid)
-    FROM
-    (
-        SELECT t1.c1.value('(@objectId)[1]', 'INT') AS objectid
-        FROM @NewOrUpdateObjectVerXml.nodes('/form/Object') AS t1(c1)
-    ) AS o;
+        SELECT @NewOrUpdatedObjectVer_Count = COUNT(o.objectid)
+        FROM
+        (
+            SELECT t1.c1.value('(@objectId)[1]', 'INT') AS objectid
+            FROM @NewOrUpdateObjectVerXml.nodes('/form/Object') AS t1(c1)
+        ) AS o;
 
-    SET @LogTypeDetail = N'Debug';
-    SET @LogTextDetail = N'ObjVer returned';
-    SET @LogStatusDetail = N'Output';
-    SET @Validation_ID = NULL;
-    SET @LogColumnValue = CAST(@NewOrUpdatedObjectVer_Count AS VARCHAR(10));
-    SET @LogColumnName = N'NewOrUpdatedObjectVer';
+        SET @LogTypeDetail = N'Debug';
+        SET @LogTextDetail = N'ObjVer returned';
+        SET @LogStatusDetail = N'Output';
+        SET @Validation_ID = NULL;
+        SET @LogColumnValue = CAST(@NewOrUpdatedObjectVer_Count AS VARCHAR(10));
+        SET @LogColumnName = N'NewOrUpdatedObjectVer';
 
-    EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-        @LogType = @LogTypeDetail,
-        @LogText = @LogTextDetail,
-        @LogStatus = @LogStatusDetail,
-        @StartTime = @StartTime,
-        @MFTableName = @MFTableName,
-        @Validation_ID = @Validation_ID,
-        @ColumnName = @LogColumnName,
-        @ColumnValue = @LogColumnValue,
-        @Update_ID = @Update_ID,
-        @LogProcedureName = @ProcedureName,
-        @LogProcedureStep = @ProcedureStep,
-        @debug = @Debug;
+        EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+                                                                  @LogType = @LogTypeDetail,
+                                                                  @LogText = @LogTextDetail,
+                                                                  @LogStatus = @LogStatusDetail,
+                                                                  @StartTime = @StartTime,
+                                                                  @MFTableName = @MFTableName,
+                                                                  @Validation_ID = @Validation_ID,
+                                                                  @ColumnName = @LogColumnName,
+                                                                  @ColumnValue = @LogColumnValue,
+                                                                  @Update_ID = @Update_ID,
+                                                                  @LogProcedureName = @ProcedureName,
+                                                                  @LogProcedureStep = @ProcedureStep,
+                                                                  @debug = @Debug;
 
-    SET @ProcedureName = 'SpmfUpdateTable';
-    SET @ProcedureStep = 'Updating MFTable with ObjID and MFVersion';
-    SET @StartTime = GETUTCDATE();
+        SET @ProcedureName = 'SpmfUpdateTable';
+        SET @ProcedureStep = 'Updating MFTable with ObjID and MFVersion';
+        SET @StartTime = GETUTCDATE();
 
-    CREATE TABLE #ObjVer
-    (
-        ID INT,
-        ObjID INT,
-        MFVersion INT,
-        GUID NVARCHAR(100),
-        FileCount INT ---- Added for task 106
-    );
+        CREATE TABLE #ObjVer
+        (
+            ID INT,
+            ObjID INT,
+            MFVersion INT,
+            GUID NVARCHAR(100),
+            FileCount INT ---- Added for task 106
+        );
 
-    DECLARE @NewObjVerDetails_Count INT;
+        DECLARE @NewObjVerDetails_Count INT;
 
-    INSERT INTO #ObjVer
-    (
-        MFVersion,
-        ObjID,
-        ID,
-        GUID,
-        FileCount
-    )
-    SELECT t.c.value('(@objVersion)[1]', 'INT')        AS MFVersion,
-        t.c.value('(@objectId)[1]', 'INT')             AS ObjID,
-        t.c.value('(@ID)[1]', 'INT')                   AS ID,
-        t.c.value('(@objectGUID)[1]', 'NVARCHAR(100)') AS GUID,
-        t.c.value('(@FileCount)[1]', 'INT')            AS FileCount -- Added for task 106
-    FROM @NewOrUpdateObjectVerXml.nodes('/form/Object') AS t(c);
+        INSERT INTO #ObjVer
+        (
+            MFVersion,
+            ObjID,
+            ID,
+            GUID,
+            FileCount
+        )
+        SELECT t.c.value('(@objVersion)[1]', 'INT') AS MFVersion,
+               t.c.value('(@objectId)[1]', 'INT') AS ObjID,
+               t.c.value('(@ID)[1]', 'INT') AS ID,
+               t.c.value('(@objectGUID)[1]', 'NVARCHAR(100)') AS GUID,
+               t.c.value('(@FileCount)[1]', 'INT') AS FileCount -- Added for task 106
+        FROM @NewOrUpdateObjectVerXml.nodes('/form/Object') AS t(c);
 
-    SET @Count = @@RowCount;
+        SET @Count = @@RowCount;
 
-    IF @Debug > 9
-    BEGIN
-        RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
+        IF @Debug > 9
+        BEGIN
+            RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
 
-        IF @Debug > 100
-            SELECT '#objver',
-                *
-            FROM #ObjVer;
-    END;
+            IF @Debug > 100
+                SELECT '#objver',
+                       *
+                FROM #ObjVer;
+        END;
 
-    DECLARE @UpdateQuery NVARCHAR(MAX);
+        DECLARE @UpdateQuery NVARCHAR(MAX);
 
-    SET @UpdateQuery
-        = N'	UPDATE [' + @MFTableName + N']
+        SET @UpdateQuery
+            = N'	UPDATE [' + @MFTableName + N']
 					SET [' + @MFTableName + N'].ObjID = #ObjVer.ObjID
-					,[' + @MFTableName + N'].MFVersion = #ObjVer.MFVersion
-					,[' + @MFTableName + N'].GUID = #ObjVer.GUID
-					,[' + @MFTableName
-          + N'].FileCount = #ObjVer.FileCount  
+					,['    + @MFTableName + N'].MFVersion = #ObjVer.MFVersion
+					,['    + @MFTableName + N'].GUID = #ObjVer.GUID
+					,['    + @MFTableName
+              + N'].FileCount = #ObjVer.FileCount  
 					,Process_ID = 0
 					,LastModified = GETDATE()
 					FROM #ObjVer
 					WHERE [' + @MFTableName + N'].ID = #ObjVer.ID';
 
-    EXEC (@UpdateQuery);
+        EXEC (@UpdateQuery);
 
-    SET @ProcedureStep = 'Update Records in ' + @MFTableName + '';
-    SET @LogTextDetail = @ProcedureStep;
-    SET @LogStatusDetail = N'Output';
-    SET @Validation_ID = NULL;
-    SET @LogColumnName = N'NewObjVerDetails';
-    SET @LogColumnValue = CAST(ISNULL(@NewObjVerDetails_Count, 0) AS VARCHAR(10));
-
-    EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-        @LogType = @LogTypeDetail,
-        @LogText = @LogTextDetail,
-        @LogStatus = @LogStatusDetail,
-        @StartTime = @StartTime,
-        @MFTableName = @MFTableName,
-        @Validation_ID = @Validation_ID,
-        @ColumnName = @LogColumnName,
-        @ColumnValue = @LogColumnValue,
-        @Update_ID = @Update_ID,
-        @LogProcedureName = @ProcedureName,
-        @LogProcedureStep = @ProcedureStep,
-        @debug = @Debug;
-
-    DROP TABLE #ObjVer;
-
-    ----------------------------------------------------------------------------------------------------------
-    --Update Process_ID to 2 when synch error occcurs--
-    ----------------------------------------------------------------------------------------------------------
-    SET @ProcedureStep = 'when synch error occurs';
-    SET @StartTime = GETUTCDATE();
-
-    ----------------------------------------------------------------------------------------------------------
-    --Create an internal representation of the XML document. 
-    ---------------------------------------------------------------------------------------------------------                
-    CREATE TABLE #SynchErrObjVer
-    (
-        ID INT,
-        ObjID INT,
-        MFVersion INT
-    );
-
-    -----------------------------------------------------
-    ----Inserting the Xml details into temp Table
-    -----------------------------------------------------
-    DECLARE @SynchErrorXML XML;
-
-    SET @SynchErrorXML = CAST(@SynchErrorObj AS XML);
-
-    INSERT INTO #SynchErrObjVer
-    (
-        MFVersion,
-        ObjID,
-        ID
-    )
-    SELECT t.c.value('(@objVersion)[1]', 'INT') AS MFVersion,
-        t.c.value('(@objectId)[1]', 'INT')      AS ObjID,
-        t.c.value('(@ID)[1]', 'INT')            AS ID
-    FROM @SynchErrorXML.nodes('/form/Object') AS t(c);
-
-    SELECT @SynchErrCount = COUNT(ISNULL(ID, 0))
-    FROM #SynchErrObjVer;
-
-    IF @SynchErrCount > 0
-    BEGIN
-        IF @Debug > 9
-        BEGIN
-            RAISERROR('Proc: %s Step: %s Count %i ', 10, 1, @ProcedureName, @ProcedureStep, @SynchErrCount);
-
-            IF @Debug > 10
-                SELECT *
-                FROM #SynchErrObjVer;
-        END;
-
-        SET @LogTypeDetail = N'User';
+        SET @ProcedureStep = 'Update Records in ' + @MFTableName + '';
         SET @LogTextDetail = @ProcedureStep;
-        SET @LogStatusDetail = N'Error';
-        SET @Validation_ID = 2;
-        SET @LogColumnName = N'Synch Errors';
-        SET @LogColumnValue = ISNULL(CAST(@SynchErrCount AS VARCHAR(10)), 0);
+        SET @LogStatusDetail = N'Output';
+        SET @Validation_ID = NULL;
+        SET @LogColumnName = N'NewObjVerDetails';
+        SET @LogColumnValue = CAST(ISNULL(@NewObjVerDetails_Count, 0) AS VARCHAR(10));
 
         EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-            @LogType = @LogTypeDetail,
-            @LogText = @LogTextDetail,
-            @LogStatus = @LogStatusDetail,
-            @StartTime = @StartTime,
-            @MFTableName = @MFTableName,
-            @Validation_ID = @Validation_ID,
-            @ColumnName = @LogColumnName,
-            @ColumnValue = @LogColumnValue,
-            @Update_ID = @Update_ID,
-            @LogProcedureName = @ProcedureName,
-            @LogProcedureStep = @ProcedureStep,
-            @debug = @Debug;
+                                                                  @LogType = @LogTypeDetail,
+                                                                  @LogText = @LogTextDetail,
+                                                                  @LogStatus = @LogStatusDetail,
+                                                                  @StartTime = @StartTime,
+                                                                  @MFTableName = @MFTableName,
+                                                                  @Validation_ID = @Validation_ID,
+                                                                  @ColumnName = @LogColumnName,
+                                                                  @ColumnValue = @LogColumnValue,
+                                                                  @Update_ID = @Update_ID,
+                                                                  @LogProcedureName = @ProcedureName,
+                                                                  @LogProcedureStep = @ProcedureStep,
+                                                                  @debug = @Debug;
 
-        -------------------------------------------------------------------------------------
-        -- UPDATE THE SYNCHRONIZE ERROR
-        -------------------------------------------------------------------------------------
-        DECLARE @SynchErrUpdateQuery NVARCHAR(MAX);
+        DROP TABLE #ObjVer;
 
-        SET @DebugText = N' Update sync errors';
-        SET @DebugText = @DefaultDebugText + @DebugText;
+        ----------------------------------------------------------------------------------------------------------
+        --Update Process_ID to 2 when synch error occcurs--
+        ----------------------------------------------------------------------------------------------------------
+        SET @ProcedureStep = 'when synch error occurs';
+        SET @StartTime = GETUTCDATE();
 
-        IF @Debug > 0
+        ----------------------------------------------------------------------------------------------------------
+        --Create an internal representation of the XML document. 
+        ---------------------------------------------------------------------------------------------------------                
+        CREATE TABLE #SynchErrObjVer
+        (
+            ID INT,
+            ObjID INT,
+            MFVersion INT
+        );
+
+        -----------------------------------------------------
+        ----Inserting the Xml details into temp Table
+        -----------------------------------------------------
+        DECLARE @SynchErrorXML XML;
+
+        SET @SynchErrorXML = CAST(@SynchErrorObj AS XML);
+
+        INSERT INTO #SynchErrObjVer
+        (
+            MFVersion,
+            ObjID,
+            ID
+        )
+        SELECT t.c.value('(@objVersion)[1]', 'INT') AS MFVersion,
+               t.c.value('(@objectId)[1]', 'INT') AS ObjID,
+               t.c.value('(@ID)[1]', 'INT') AS ID
+        FROM @SynchErrorXML.nodes('/form/Object') AS t(c);
+
+        SELECT @SynchErrCount = COUNT(ISNULL(ID, 0))
+        FROM #SynchErrObjVer;
+
+        IF @SynchErrCount > 0
         BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-        END;
+            IF @Debug > 9
+            BEGIN
+                RAISERROR('Proc: %s Step: %s Count %i ', 10, 1, @ProcedureName, @ProcedureStep, @SynchErrCount);
 
-        SET @SynchErrUpdateQuery
-            = N'	UPDATE [' + @MFTableName + N']
-					SET ['         + @MFTableName + N'].ObjID = #SynchErrObjVer.ObjID	,[' + @MFTableName
-              + N'].MFVersion = #SynchErrObjVer.MFVersion
+                IF @Debug > 10
+                    SELECT *
+                    FROM #SynchErrObjVer;
+            END;
+
+            SET @LogTypeDetail = N'User';
+            SET @LogTextDetail = @ProcedureStep;
+            SET @LogStatusDetail = N'Error';
+            SET @Validation_ID = 2;
+            SET @LogColumnName = N'Synch Errors';
+            SET @LogColumnValue = ISNULL(CAST(@SynchErrCount AS VARCHAR(10)), 0);
+
+            EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+                                                                      @LogType = @LogTypeDetail,
+                                                                      @LogText = @LogTextDetail,
+                                                                      @LogStatus = @LogStatusDetail,
+                                                                      @StartTime = @StartTime,
+                                                                      @MFTableName = @MFTableName,
+                                                                      @Validation_ID = @Validation_ID,
+                                                                      @ColumnName = @LogColumnName,
+                                                                      @ColumnValue = @LogColumnValue,
+                                                                      @Update_ID = @Update_ID,
+                                                                      @LogProcedureName = @ProcedureName,
+                                                                      @LogProcedureStep = @ProcedureStep,
+                                                                      @debug = @Debug;
+
+            -------------------------------------------------------------------------------------
+            -- UPDATE THE SYNCHRONIZE ERROR
+            -------------------------------------------------------------------------------------
+            DECLARE @SynchErrUpdateQuery NVARCHAR(MAX);
+
+            SET @DebugText = N' Update sync errors';
+            SET @DebugText = @DefaultDebugText + @DebugText;
+
+            IF @Debug > 0
+            BEGIN
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            END;
+
+            SET @SynchErrUpdateQuery
+                = N'	UPDATE [' + @MFTableName + N']
+					SET ['             + @MFTableName + N'].ObjID = #SynchErrObjVer.ObjID	,[' + @MFTableName
+                  + N'].MFVersion = #SynchErrObjVer.MFVersion
 					,Process_ID = 2
 					,LastModified = GETDATE()
-					,Update_ID = ' + CAST(@Update_ID AS VARCHAR(15)) + N'
+					,Update_ID = '     + CAST(@Update_ID AS VARCHAR(15)) + N'
 					FROM #SynchErrObjVer
-					WHERE ['       + @MFTableName + N'].ID = #SynchErrObjVer.ID';
+					WHERE ['           + @MFTableName + N'].ID = #SynchErrObjVer.ID';
 
-        EXEC (@SynchErrUpdateQuery);
+            EXEC (@SynchErrUpdateQuery);
 
-        ------------------------------------------------------
-        -- LOGGING THE ERROR
-        ------------------------------------------------------
-        SET @DebugText = N'log errors';
-        SET @DebugText = @DefaultDebugText + @DebugText;
+            ------------------------------------------------------
+            -- LOGGING THE ERROR
+            ------------------------------------------------------
+            SET @DebugText = N'log errors';
+            SET @DebugText = @DefaultDebugText + @DebugText;
 
-        IF @Debug > 0
-        BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            IF @Debug > 0
+            BEGIN
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            END;
+
+            ------------------------------------------------------
+            --Getting @SyncPrecedence from MFClasss table for @TableName
+            --IF NULL THEN insert error in error log 
+            ------------------------------------------------------
+            DECLARE @SyncPrecedence INT;
+
+            SELECT @SyncPrecedence = SynchPrecedence
+            FROM dbo.MFClass
+            WHERE TableName = @TableName;
+
+            IF @SyncPrecedence IS NULL
+            BEGIN
+                INSERT INTO dbo.MFLog
+                (
+                    ErrorMessage,
+                    Update_ID,
+                    ErrorProcedure,
+                    ExternalID,
+                    ProcedureStep,
+                    SPName
+                )
+                SELECT *
+                FROM
+                (
+                    SELECT 'Synchronization error occured while updating ObjID : ' + CAST(ObjID AS NVARCHAR(10))
+                           + ' Version : ' + CAST(MFVersion AS NVARCHAR(10)) + '' AS ErrorMessage,
+                           @Update_ID AS Update_ID,
+                           @TableName AS ErrorProcedure,
+                           '' AS ExternalID,
+                           'Synchronization Error' AS ProcedureStep,
+                           'spMFUpdateTable' AS SPName
+                    FROM #SynchErrObjVer
+                ) AS vl;
+            END;
         END;
+        --end of if syncerror count
+        DROP TABLE #SynchErrObjVer;
 
-        ------------------------------------------------------
-        --Getting @SyncPrecedence from MFClasss table for @TableName
-        --IF NULL THEN insert error in error log 
-        ------------------------------------------------------
-        DECLARE @SyncPrecedence INT;
+        -------------------------------------------------------------
+        --Logging error details
+        -------------------------------------------------------------
+        SET @DebugText = N'';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = 'Perform checking for SQL Errors ';
 
-        SELECT @SyncPrecedence = SynchPrecedence
-        FROM dbo.MFClass
-        WHERE TableName = @TableName;
+        CREATE TABLE #ErrorInfo
+        (
+            ObjID INT,
+            SqlID INT,
+            ExternalID NVARCHAR(100),
+            ErrorMessage NVARCHAR(MAX)
+        );
 
-        IF @SyncPrecedence IS NULL
+        DECLARE @ErrorInfoXML XML;
+
+        SELECT @ErrorInfoXML = CAST(@ErrorInfo AS XML);
+
+        INSERT INTO #ErrorInfo
+        (
+            ObjID,
+            SqlID,
+            ExternalID,
+            ErrorMessage
+        )
+        SELECT t.c.value('(@objID)[1]', 'INT') AS objID,
+               t.c.value('(@sqlID)[1]', 'INT') AS SqlID,
+               t.c.value('(@externalID)[1]', 'NVARCHAR(100)') AS ExternalID,
+               t.c.value('(@ErrorMessage)[1]', 'NVARCHAR(MAX)') AS ErrorMessage
+        FROM @ErrorInfoXML.nodes('/form/errorInfo') AS t(c);
+
+        SELECT @ErrorInfoCount = COUNT(ISNULL(SqlID, 0))
+        FROM #ErrorInfo;
+
+        IF @ErrorInfoCount > 0
         BEGIN
+            IF @Debug > 10
+            BEGIN
+                SELECT *
+                FROM #ErrorInfo;
+            END;
+
+            SET @DebugText = N'SQL Error logging errors found ';
+            SET @DebugText = @DefaultDebugText + @DebugText;
+
+            IF @Debug > 0
+            BEGIN
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            END;
+
+            SELECT @MFErrorUpdateQuery
+                = N'UPDATE [' + @MFTableName
+                  + N']
+									   SET Process_ID = 3
+									   FROM #ErrorInfo err
+									   WHERE err.SqlID = [' + @MFTableName + N'].ID';
+
+            EXEC (@MFErrorUpdateQuery);
+
+            SET @ProcedureStep = 'M-Files Errors ';
+            SET @LogTypeDetail = N'User';
+            SET @LogTextDetail = @ProcedureStep;
+            SET @LogStatusDetail = N'Error';
+            SET @Validation_ID = 3;
+            SET @LogColumnName = N'M-Files errors';
+            SET @LogColumnValue = ISNULL(CAST(@ErrorInfoCount AS VARCHAR(10)), 0);
+
+            EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+                                                                      @LogType = @LogTypeDetail,
+                                                                      @LogText = @LogTextDetail,
+                                                                      @LogStatus = @LogStatusDetail,
+                                                                      @StartTime = @StartTime,
+                                                                      @MFTableName = @MFTableName,
+                                                                      @Validation_ID = @Validation_ID,
+                                                                      @ColumnName = @LogColumnName,
+                                                                      @ColumnValue = @LogColumnValue,
+                                                                      @Update_ID = @Update_ID,
+                                                                      @LogProcedureName = @ProcedureName,
+                                                                      @LogProcedureStep = @ProcedureStep,
+                                                                      @debug = @Debug;
+
             INSERT INTO dbo.MFLog
             (
                 ErrorMessage,
@@ -2397,181 +2885,79 @@ END --delete from other table
                 ProcedureStep,
                 SPName
             )
-            SELECT *
-            FROM
-            (
-                SELECT 'Synchronization error occured while updating ObjID : ' + CAST(ObjID AS NVARCHAR(10))
-                       + ' Version : ' + CAST(MFVersion AS NVARCHAR(10)) + '' AS ErrorMessage,
-                    @Update_ID                                                AS Update_ID,
-                    @TableName                                                AS ErrorProcedure,
-                    ''                                                        AS ExternalID,
-                    'Synchronization Error'                                   AS ProcedureStep,
-                    'spMFUpdateTable'                                         AS SPName
-                FROM #SynchErrObjVer
-            ) AS vl;
-        END;
-    END;
-
-    --end of if syncerror count
-    DROP TABLE #SynchErrObjVer;
-
-    -------------------------------------------------------------
-    --Logging error details
-    -------------------------------------------------------------
-    SET @DebugText = N'';
-    SET @DebugText = @DefaultDebugText + @DebugText;
-    SET @ProcedureStep = 'Perform checking for SQL Errors ';
-
-    CREATE TABLE #ErrorInfo
-    (
-        ObjID INT,
-        SqlID INT,
-        ExternalID NVARCHAR(100),
-        ErrorMessage NVARCHAR(MAX)
-    );
-
-    DECLARE @ErrorInfoXML XML;
-
-    SELECT @ErrorInfoXML = CAST(@ErrorInfo AS XML);
-
-    INSERT INTO #ErrorInfo
-    (
-        ObjID,
-        SqlID,
-        ExternalID,
-        ErrorMessage
-    )
-    SELECT t.c.value('(@objID)[1]', 'INT')               AS objID,
-        t.c.value('(@sqlID)[1]', 'INT')                  AS SqlID,
-        t.c.value('(@externalID)[1]', 'NVARCHAR(100)')   AS ExternalID,
-        t.c.value('(@ErrorMessage)[1]', 'NVARCHAR(MAX)') AS ErrorMessage
-    FROM @ErrorInfoXML.nodes('/form/errorInfo') AS t(c);
-
-    SELECT @ErrorInfoCount = COUNT(ISNULL(SqlID, 0))
-    FROM #ErrorInfo;
-
-    IF @ErrorInfoCount > 0
-    BEGIN
-        IF @Debug > 10
-        BEGIN
-            SELECT *
+            SELECT 'ObjID : ' + CAST(ISNULL(ObjID, '') AS NVARCHAR(100)) + ',' + 'SQL ID : '
+                   + CAST(ISNULL(SqlID, '') AS NVARCHAR(100)) + ',' + ErrorMessage AS ErrorMessage,
+                   @Update_ID,
+                   @TableName AS ErrorProcedure,
+                   ExternalID,
+                   'Error While inserting/Updating in M-Files' AS ProcedureStep,
+                   'spMFUpdateTable' AS spname
             FROM #ErrorInfo;
         END;
+        --end of error count
+        DROP TABLE #ErrorInfo;
 
-        SET @DebugText = N'SQL Error logging errors found ';
+        ------------------------------------------------------------------
+        --        SET @NewObjectXml = CAST(@NewObjectXml AS NVARCHAR(MAX));
+        -------------------------------------------------------------------------------------
+        -- CALL SPMFUpadteTableInternal TO INSERT PROPERTY DETAILS INTO TABLE
+        -------------------------------------------------------------------------------------
+        SET @DebugText = N'';
         SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureName = 'spMFUpdateTableInternal';
+        SET @ProcedureStep = 'Update property details from M-Files ';
 
         IF @Debug > 0
         BEGIN
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
-        SELECT @MFErrorUpdateQuery
-            = N'UPDATE [' + @MFTableName
-              + N']
-									   SET Process_ID = 3
-									   FROM #ErrorInfo err
-									   WHERE err.SqlID = [' + @MFTableName + N'].ID';
+        SET @StartTime = GETUTCDATE();
 
-        EXEC (@MFErrorUpdateQuery);
+        IF (
+               @NewObjectXml != '<form />'
+               OR @NewObjectXml <> ''
+               OR @NewObjectXml <> NULL
+           )
+        BEGIN
+            IF @Debug > 10
+                SELECT @NewObjectXml AS [@NewObjectXml before updateobjectinternal];
 
-        SET @ProcedureStep = 'M-Files Errors ';
-        SET @LogTypeDetail = N'User';
-        SET @LogTextDetail = @ProcedureStep;
-        SET @LogStatusDetail = N'Error';
-        SET @Validation_ID = 3;
-        SET @LogColumnName = N'M-Files errors';
-        SET @LogColumnValue = ISNULL(CAST(@ErrorInfoCount AS VARCHAR(10)), 0);
+            EXEC @return_value = dbo.spMFUpdateTableInternal @MFTableName,
+                                                             @NewObjectXml,
+                                                             @Update_ID,
+                                                             @Debug = @Debug,
+                                                             @SyncErrorFlag = @SyncErrorFlag;
 
-        EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-            @LogType = @LogTypeDetail,
-            @LogText = @LogTextDetail,
-            @LogStatus = @LogStatusDetail,
-            @StartTime = @StartTime,
-            @MFTableName = @MFTableName,
-            @Validation_ID = @Validation_ID,
-            @ColumnName = @LogColumnName,
-            @ColumnValue = @LogColumnValue,
-            @Update_ID = @Update_ID,
-            @LogProcedureName = @ProcedureName,
-            @LogProcedureStep = @ProcedureStep,
-            @debug = @Debug;
+            IF @return_value <> 1
+                RAISERROR('Proc: %s Step: %s FAILED ', 16, 1, @ProcedureName, @ProcedureStep);
+        END; -- end update table internal
 
-        INSERT INTO dbo.MFLog
-        (
-            ErrorMessage,
-            Update_ID,
-            ErrorProcedure,
-            ExternalID,
-            ProcedureStep,
-            SPName
-        )
-        SELECT 'ObjID : ' + CAST(ISNULL(ObjID, '') AS NVARCHAR(100)) + ',' + 'SQL ID : '
-               + CAST(ISNULL(SqlID, '') AS NVARCHAR(100)) + ',' + ErrorMessage AS ErrorMessage,
-            @Update_ID,
-            @TableName                                                         AS ErrorProcedure,
-            ExternalID,
-            'Error While inserting/Updating in M-Files'                        AS ProcedureStep,
-            'spMFUpdateTable'                                                  AS spname
-        FROM #ErrorInfo;
-    END;
+        --IF @debug > 0
+        --SELECT 'pre-update audit table', * FROM dbo.MFvwAuditSummary AS mfas;
+        -------------------------------------------------------------
+        -- Update MFaudithistory for all updated records
+        -------------------------------------------------------------
+        SET @ProcedureStep = 'Update MFaudithistory ';
 
-    --end of error count
-    DROP TABLE #ErrorInfo;
+  
+  BEGIN TRANSACTION;
 
-    ------------------------------------------------------------------
-    --        SET @NewObjectXml = CAST(@NewObjectXml AS NVARCHAR(MAX));
-    -------------------------------------------------------------------------------------
-    -- CALL SPMFUpadteTableInternal TO INSERT PROPERTY DETAILS INTO TABLE
-    -------------------------------------------------------------------------------------
-    SET @DebugText = N'';
-    SET @DebugText = @DefaultDebugText + @DebugText;
-    SET @ProcedureName = 'spMFUpdateTableInternal';
-    SET @ProcedureStep = 'Update property details from M-Files ';
-
-    IF @Debug > 0
-    BEGIN
-        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-    END;
-
-    SET @StartTime = GETUTCDATE();
-
-    IF (
-           @NewObjectXml != '<form />'
-           OR @NewObjectXml <> ''
-           OR @NewObjectXml <> NULL
-       )
-    BEGIN
-        IF @Debug > 10
-            SELECT @NewObjectXml AS [@NewObjectXml before updateobjectinternal];
-
-        EXEC @return_value = dbo.spMFUpdateTableInternal @MFTableName,
-            @NewObjectXml,
-            @Update_ID,
-            @Debug = @Debug,
-            @SyncErrorFlag = @SyncErrorFlag;
-
-        IF @return_value <> 1
-            RAISERROR('Proc: %s Step: %s FAILED ', 16, 1, @ProcedureName, @ProcedureStep);
-    END;
-
-    -------------------------------------------------------------
-    -- Update MFaudithistory for all updated records
-    -------------------------------------------------------------
-    BEGIN TRANSACTION;
-
-    SET @ProcedureStep = 'Update MFaudit History';
-    SET @Params = N'@Update_ID int, @ClassID int,@ObjectType int';
-    SET @Query
-        = N'
+        SET @ProcedureStep = 'Update MFaudit History ';
+        SET @Params = N'@Update_ID int, @ClassID int,@ObjectType int';
+        SET @Query
+            = N'
         UPDATE mah WITH (UPDLOCK, SERIALIZABLE)
         SET mah.StatusFlag = CASE 
-         WHEN sl.status = ''1'' and mah.statusFlag <> 4 THEN 0
+        when sl.status = ''1'' and isnull(sl.AuditStatus,0) = 0 then 0
+         WHEN sl.status = ''1'' and isnull(sl.AuditStatus,0) > 0 THEN 0
         WHEN sl.status = ''2'' THEN 3
-        WHEN sl.status in (''3'',''NotInClass'') THEN 4
+        WHEN sl.status in (''3'',''Deleted'') THEN 4
+         WHEN sl.Status = ''NotInClass'' THEN 5
         end,
             mah.StatusName = CASE 
-            WHEN sl.status = ''1'' and mah.statusFlag <> 4 THEN ''Identical''
+            when sl.status = ''1'' AND isnull(sl.AuditStatus,0) = 0 then ''Identical''
+           WHEN sl.status = ''1'' and sl.AuditStatus > 0 THEN ''Identical''
              WHEN sl.Status = ''2'' THEN ''Checked out''
             WHEN sl.Status = ''3'' then ''Deleted''
             WHEN sl.Status = ''NotInClass'' THEN ''Not in Class'' 
@@ -2585,36 +2971,36 @@ END --delete from other table
          inner join ' + @TempStatusList + N' sl
          ON sl.objectID = mah.objid 
          INNER JOIN ' + QUOTENAME(@MFTableName)
-          + N'  t
+              + N'  t
          ON t.objid = mah.objid AND
          mah.class = @classid AND mah.objectType = @ObjectType;';
 
-    EXEC sys.sp_executesql @Stmt = @Query,
-        @Params = @Params,
-        @ClassID = @ClassId,
-        @Update_ID = @Update_ID,
-        @ObjectType = @ObjectId;
+        EXEC sys.sp_executesql @Stmt = @Query,
+                               @Params = @Params,
+                               @ClassID = @ClassId,
+                               @Update_ID = @Update_ID,
+                               @ObjectType = @ObjectId;
 
-    SET @rownr = @@RowCount;
+        SET @rownr = @@RowCount;
 
-    COMMIT TRANSACTION;
+        COMMIT TRANSACTION;
 
-    SET @DebugText = N' Count ' + CAST(ISNULL(@rownr, 0) AS NVARCHAR(10));
-    SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @DebugText = N' Count ' + CAST(ISNULL(@rownr, 0) AS NVARCHAR(10));
+        SET @DebugText = @DefaultDebugText + @DebugText;
 
-    IF @Debug > 0
-    BEGIN
-        SELECT @Query AS AuditUpdateQuery;
+        IF @Debug > 0
+        BEGIN
+            SELECT @Query AS AuditUpdateQuery;
 
-        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-    END;
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        END;
 
-    BEGIN TRANSACTION;
+        BEGIN TRANSACTION;
 
-    SET @ProcedureStep = 'insert new into Audit history';
-    SET @Params = N'@Update_ID int, @ClassID int,@ObjectType int';
-    SET @Query
-        = N'INSERT INTO dbo.MFAuditHistory
+        SET @ProcedureStep = 'insert new into Audit history';
+        SET @Params = N'@Update_ID int, @ClassID int,@ObjectType int';
+        SET @Query
+            = N'INSERT INTO dbo.MFAuditHistory
   (
       RecID,
       SessionID,
@@ -2634,105 +3020,39 @@ END --delete from other table
  @ClassID,
   sl.ObjectID,
   t.MFVersion,
-  CASE WHEN sl.status = ''1'' THEN 0
+  CASE 
+        WHEN isnull(sl.status,''1'') = ''1'' THEN 0
         WHEN sl.status = ''2'' THEN 3
-        WHEN sl.status in (''3'',''NotInClass'') THEN 4
+        WHEN sl.status = ''3'' THEN 4
+        WHEN sl.status  = ''NotInClass'' THEN 5
         end,
-  CASE WHEN sl.status = ''1'' THEN ''Identical''
+  CASE WHEN isnull(sl.status,''1'') = ''1'' THEN ''Identical''
              WHEN sl.Status = ''2'' THEN ''Checked out''
             WHEN sl.Status = ''3'' then ''Deleted''
             WHEN sl.Status = ''NotInClass'' THEN ''Not in Class'' 
             END, 0
   FROM ' + @TempStatusList + N' AS sl
   INNER JOIN ' + QUOTENAME(@MFTableName)
-          + N't
+              + N' as t
   ON sl.ObjectID = t.objid
-  LEFT JOIN dbo.MFAuditHistory AS mah
+  left JOIN dbo.MFAuditHistory AS mah
   ON sl.ObjectID = mah.objid AND mah.class = @ClassId AND mah.ObjectType = @ObjectType
   WHERE mah.ObjID IS NULL;';
 
-    IF @Debug > 0
-        SELECT @Query AS AuditInsertQuery;
+        IF @Debug > 0
+            SELECT @Query AS AuditInsertQuery;
 
-    EXEC sys.sp_executesql @Stmt = @Query,
-        @Params = @Params,
-        @ClassID = @ClassId,
-        @Update_ID = @Update_ID,
-        @ObjectType = @ObjectId;
+        EXEC sys.sp_executesql @Stmt = @Query,
+                               @Params = @Params,
+                               @ClassID = @ClassId,
+                               @Update_ID = @Update_ID,
+                               @ObjectType = @ObjectId;
 
-    SET @rownr = @@RowCount;
+        SET @rownr = @@RowCount;
 
-    COMMIT TRANSACTION;
+        COMMIT TRANSACTION;
 
-    SET @DebugText = N' Count ' + CAST(ISNULL(@rownr, 0) AS NVARCHAR(10));
-    SET @DebugText = @DefaultDebugText + @DebugText;
-
-    IF @Debug > 0
-    BEGIN
-        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-    END;
-
-    IF @ObjIDs IS NOT NULL
-    BEGIN
-        ;
-        WITH CTE
-        AS (SELECT mah.ID,
-                mah.ObjID
-            FROM dbo.MFAuditHistory                                   AS mah
-                INNER JOIN dbo.fnMFParseDelimitedString(@ObjIDs, ',') AS fmpds
-                    ON fmpds.ListItem = mah.ObjID
-            WHERE mah.Class = @ClassId
-                  AND mah.StatusFlag = 5)
-        DELETE FROM dbo.MFAuditHistory
-        WHERE ID IN
-              (
-                  SELECT CTE.ID FROM CTE
-              );
-    END;
-
-    --end of obids is not null
-    -------------------------------------------------------------------------------------
-    --Checked whether all data is updated. #1360
-    ------------------------------------------------------------------------------------ 
-    --EXEC ('update '+ @MFTableName +' set Process_ID=1 where id =2')
-    IF @UpdateMethod = 0
-    BEGIN
-        DECLARE @Sql NVARCHAR(1000) = N'SELECT @C = COUNT(ISNULL(id,0)) FROM ' + @MFTableName + N' WHERE Process_ID=1';
-        DECLARE @CountUpdated AS INT = 0;
-
-        EXEC sys.sp_executesql @Sql, N'@C INT OUTPUT', @C = @CountUpdated OUTPUT;
-
-        IF (@CountUpdated > 0)
-            SELECT @return_value = 3;
-
-        IF (@CountUpdated > 0)
-           AND @Debug > 0
-        BEGIN
-            RAISERROR('Error: All data is not updated', 10, 1, @ProcedureName, @ProcedureStep);
-        END;
-    END;
-
-    --end of update method 0
-    --END of task #1360
-    SET @ProcedureStep = 'Remove redundant items';
-
-    -------------------------------------------------------------
-    -- Remove redundant items from MFAuditHistory
-    -------------------------------------------------------------
-    DELETE FROM dbo.MFAuditHistory
-    WHERE StatusFlag = 5
-          AND Class = @ClassId;
-
-    --        REMOVE deleted records
-    SET @ProcedureStep = 'Delete class objects';
-
-    IF @RetainDeletions = 0
-    BEGIN
-        SET @ProcedureStep = 'RetainDeletions = 0 ';
-        SET @Query
-            = N'DELETE FROM ' + QUOTENAME(@MFTableName) + N' WHERE ' + QUOTENAME(@DeletedColumn) + N' is not null';
-        SET @Count = @@RowCount;
-        SET @DebugText = N' Removed ' + CAST(ISNULL(@Count, 0) AS VARCHAR(10));
+        SET @DebugText = N' Count ' + CAST(ISNULL(@rownr, 0) AS NVARCHAR(10));
         SET @DebugText = @DefaultDebugText + @DebugText;
 
         IF @Debug > 0
@@ -2740,118 +3060,201 @@ END --delete from other table
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
-        EXEC (@Query);
-    END;
+        --IF @debug > 0
+        --SELECT 'post-update audit table', * FROM dbo.MFvwAuditSummary AS mfas;
 
-    --end of retain deletions
-    --          SET NOCOUNT OFF;
-    --COMMIT TRANSACTION
-    SET @ProcedureName = 'spMFUpdateTable';
-    SET @ProcedureStep = 'Set update Status';
-    SET @Count = NULL;
-    SET @Query = N'SELECT @rowcount = COUNT(isnull(id,0)) FROM ' + QUOTENAME(@TableName) + N' WHERE process_id = 4';
 
-    EXEC sys.sp_executesql @Query, N'@rowcount int output', @Count OUTPUT;
+        SET @ProcedureStep = 'Delete redundant from audit history ';
 
-    IF (@Count <> 0)
-    BEGIN
-        SET @return_value = 4;
-    END;
+        IF @ObjIDs IS NOT NULL
+        BEGIN
+            ;
+            WITH CTE
+            AS (SELECT mah.ID,
+                       mah.ObjID
+                FROM dbo.MFAuditHistory AS mah
+                    INNER JOIN #ObjidTable AS fmpds
+                        ON fmpds.objid = mah.ObjID
+                WHERE mah.Class = @ClassId
+                      AND mah.StatusFlag = 5)
+            DELETE FROM dbo.MFAuditHistory
+            WHERE ID IN
+                  (
+                      SELECT CTE.ID FROM CTE
+                  );
+        END;
 
-    IF @Debug > 9
-        RAISERROR('Proc: %s Step: %s ReturnValue %i Completed ', 10, 1, @ProcedureName, @ProcedureStep, @return_value);
+        SET @rownr = @@ROWCOUNT;
 
-    -------------------------------------------------------------
-    -- Check if precedence is set and update records with synchronise errors
-    -------------------------------------------------------------
-    IF @SyncPrecedence IS NOT NULL
-    BEGIN
-        EXEC dbo.spMFUpdateSynchronizeError @TableName = @MFTableName, -- varchar(100)
-            @Update_ID = @Update_IDOut,                                -- int
-            @ProcessBatch_ID = @ProcessBatch_ID,                       -- int
-            @Debug = 0;                                                -- int
-    END;
 
-    -- end of sync precedence
-    -------------------------------------------------------------
-    -- Finalise logging
-    -------------------------------------------------------------
-    DECLARE @MessageSwitch SMALLINT;
+        SET @DebugText = N' Count ' + CAST(ISNULL(@rownr, 0) AS NVARCHAR(10));
+        SET @DebugText = @DefaultDebugText + @DebugText;
 
-    SET @MessageSwitch = CASE
-                             WHEN @return_value = 1
-                                  AND @SynchErrCount = 0
-                                  AND @ErrorInfoCount = 0 THEN
-                                 1
-                             WHEN @return_value = 1
-                                  AND
-                                  (
-                                      @SynchErrCount = 1
-                                      OR @ErrorInfoCount = 1
-                                  ) THEN
-                                 2
-                             WHEN @return_value <> 1
-                                  AND @SynchErrCount = 1
-                                  AND @ErrorInfoCount = 3 THEN
-                                 3
-                             WHEN @return_value <> 1
-                                  AND @ErrorInfoCount > 0 THEN
-                                 4
-                             ELSE
-                                 -1
+        IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        END;
+
+        --end of obids is not null
+        -------------------------------------------------------------------------------------
+        --Checked whether all data is updated. #1360
+        ------------------------------------------------------------------------------------ 
+        --EXEC ('update '+ @MFTableName +' set Process_ID=1 where id =2')
+        SET @ProcedureStep = 'Check updated data ';
+
+        --   IF @UpdateMethod = 0 AND @Debug > 0
+        --    BEGIN
+
+        --    DECLARE @Sql NVARCHAR(1000) = N'
+        --    IF EXISTS(
+        --SELECT  1 FROM ' + @MFTableName + N' WHERE Process_ID=1)'
+
+
+        --     RAISERROR(''Error: All data is not updated'', 10, 1, @ProcedureName, @ProcedureStep);
+        --     END               
+        --EXEC(@sql)
+        --   END;    --end of update method 0
+
+        SET @ProcedureStep = 'Remove redundant items';
+
+        -------------------------------------------------------------
+        -- Remove redundant items from MFAuditHistory
+        -------------------------------------------------------------
+
+        SET @ProcedureStep = 'Delete class objects';
+
+        IF @RetainDeletions = 0
+        BEGIN
+            SET @ProcedureStep = 'RetainDeletions = 0 ';
+            SET @Query
+                = N'DELETE FROM ' + QUOTENAME(@MFTableName) + N' WHERE ' + QUOTENAME(@DeletedColumn) + N' is not null';
+            SET @Count = @@RowCount;
+            SET @DebugText = N' Removed ' + CAST(ISNULL(@Count, 0) AS VARCHAR(10));
+            SET @DebugText = @DefaultDebugText + @DebugText;
+
+            IF @Debug > 0
+            BEGIN
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            END;
+
+            EXEC (@Query);
+        END;
+        --end of retain deletions
+        SET @ProcedureName = 'spMFUpdateTable';
+        SET @ProcedureStep = 'Set update Status';
+        SET @Count = NULL;
+        SET @Query
+            = N'SELECT @rowcount = COUNT(isnull(id,0)) FROM ' + QUOTENAME(@TableName) + N' WHERE process_id = 4';
+
+        EXEC sys.sp_executesql @Query, N'@rowcount int output', @Count OUTPUT;
+
+        IF (@Count <> 0)
+        BEGIN
+            SET @return_value = 4;
+        END;
+
+        IF @Debug > 9
+            RAISERROR(
+                         'Proc: %s Step: %s ReturnValue %i Completed ',
+                         10,
+                         1,
+                         @ProcedureName,
+                         @ProcedureStep,
+                         @return_value
+                     );
+
+        -------------------------------------------------------------
+        -- Check if precedence is set and update records with synchronise errors
+        -------------------------------------------------------------
+        IF @SyncPrecedence IS NOT NULL
+        BEGIN
+            EXEC dbo.spMFUpdateSynchronizeError @TableName = @MFTableName,           -- varchar(100)
+                                                @Update_ID = @Update_IDOut,          -- int
+                                                @ProcessBatch_ID = @ProcessBatch_ID, -- int
+                                                @Debug = 0;                          -- int
+        END;
+
+        -- end of sync precedence
+        -------------------------------------------------------------
+        -- Finalise logging
+        -------------------------------------------------------------
+        DECLARE @MessageSwitch SMALLINT;
+
+        SET @MessageSwitch = CASE
+                                 WHEN @return_value = 1
+                                      AND @SynchErrCount = 0
+                                      AND @ErrorInfoCount = 0 THEN
+                                     1
+                                 WHEN @return_value = 1
+                                      AND
+                                      (
+                                          @SynchErrCount = 1
+                                          OR @ErrorInfoCount = 1
+                                      ) THEN
+                                     2
+                                 WHEN @return_value <> 1
+                                      AND @SynchErrCount = 1
+                                      AND @ErrorInfoCount = 3 THEN
+                                     3
+                                 WHEN @return_value <> 1
+                                      AND @ErrorInfoCount > 0 THEN
+                                     4
+                                 ELSE
+                                     -1
+                             END;
+        SET @ProcedureStep = 'Updating Table - Finalise ';
+        SET @LogType = N'Message';
+        SET @LogText
+            = CASE
+                  WHEN @MessageSwitch = 1 THEN
+                      N'Update ' + @MFTableName + N':Update Method ' + CAST(@UpdateMethod AS VARCHAR(10))
+                  WHEN @MessageSwitch = 2 THEN
+                      N'Update ' + @MFTableName + N':Update Method ' + CAST(@UpdateMethod AS VARCHAR(10))
+                      + N' Partial Completed '
+                  WHEN @MessageSwitch = 3 THEN
+                      N'Update ' + @MFTableName + N'with sycnronisation errors: process_id = 2 '
+                  WHEN @MessageSwitch = 4 THEN
+                      N'Update ' + @MFTableName + N'with MFiles errors: process_id = 3 '
+              END;
+        SET @LogStatus = CASE
+                             WHEN @MessageSwitch = 1 THEN
+                                 N'Completed'
+                             WHEN @MessageSwitch = 2 THEN
+                                 N'Partial'
+                             WHEN @MessageSwitch IN ( 3, 4 ) THEN
+                                 N'Errors'
                          END;
-    SET @ProcedureStep = 'Updating Table - Finalise ';
-    SET @LogType = N'Message';
-    SET @LogText
-        = CASE
-              WHEN @MessageSwitch = 1 THEN
-                  N'Update ' + @MFTableName + N':Update Method ' + CAST(@UpdateMethod AS VARCHAR(10))
-              WHEN @MessageSwitch = 2 THEN
-                  N'Update ' + @MFTableName + N':Update Method ' + CAST(@UpdateMethod AS VARCHAR(10))
-                  + N' Partial Completed '
-              WHEN @MessageSwitch = 3 THEN
-                  N'Update ' + @MFTableName + N'with sycnronisation errors: process_id = 2 '
-              WHEN @MessageSwitch = 4 THEN
-                  N'Update ' + @MFTableName + N'with MFiles errors: process_id = 3 '
-          END;
-    SET @LogStatus = CASE
-                         WHEN @MessageSwitch = 1 THEN
-                             N'Completed'
-                         WHEN @MessageSwitch = 2 THEN
-                             N'Partial'
-                         WHEN @MessageSwitch IN ( 3, 4 ) THEN
-                             N'Errors'
-                     END;
 
-    UPDATE dbo.MFUpdateHistory
-    SET UpdateStatus = @LogStatus
-    WHERE Id = @Update_ID;
+        UPDATE dbo.MFUpdateHistory
+        SET UpdateStatus = @LogStatus
+        WHERE Id = @Update_ID;
 
-    -------------------------------------------------------------
-    -- output completion message
-    -------------------------------------------------------------
-    EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID,
-                         -- int
-        @ProcessType = @ProcessType,
-        @LogText = @LogText,
-                         -- nvarchar(4000)
-        @LogStatus = @LogStatus,
-                         -- nvarchar(50)
-        @debug = @Debug; -- tinyint
+        -------------------------------------------------------------
+        -- output completion message
+        -------------------------------------------------------------
+        EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID,
+                                                          -- int
+                                         @ProcessType = @ProcessType,
+                                         @LogText = @LogText,
+                                                          -- nvarchar(4000)
+                                         @LogStatus = @LogStatus,
+                                                          -- nvarchar(50)
+                                         @debug = @Debug; -- tinyint
 
-    EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-        @Update_ID = @Update_ID,
-        @LogText = @LogText,
-        @LogType = @LogType,
-        @LogStatus = @LogStatus,
-        @StartTime = @StartTime,
-        @MFTableName = @MFTableName,
-        @ColumnName = @LogColumnName,
-        @ColumnValue = @LogColumnValue,
-        @LogProcedureName = @ProcedureName,
-        @LogProcedureStep = @ProcedureStep,
-        @debug = @Debug;
+        EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+                                               @Update_ID = @Update_ID,
+                                               @LogText = @LogText,
+                                               @LogType = @LogType,
+                                               @LogStatus = @LogStatus,
+                                               @StartTime = @StartTime,
+                                               @MFTableName = @MFTableName,
+                                               @ColumnName = @LogColumnName,
+                                               @ColumnValue = @LogColumnValue,
+                                               @LogProcedureName = @ProcedureName,
+                                               @LogProcedureStep = @ProcedureStep,
+                                               @debug = @Debug;
 
+    
     RETURN @return_value; --For More information refer Process Table      
 END TRY
 BEGIN CATCH
@@ -2883,17 +3286,17 @@ BEGIN CATCH
     )
     VALUES
     ('spMFUpdateTable', ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), @ProcedureStep, ERROR_STATE(),
-        ERROR_SEVERITY(), @Update_ID, ERROR_LINE());
+     ERROR_SEVERITY(), @Update_ID, ERROR_LINE());
 
     IF @Debug > 9
     BEGIN
         SELECT ERROR_NUMBER() AS ErrorNumber,
-            ERROR_MESSAGE()   AS ErrorMessage,
-            ERROR_PROCEDURE() AS ErrorProcedure,
-            @ProcedureStep    AS ProcedureStep,
-            ERROR_STATE()     AS ErrorState,
-            ERROR_SEVERITY()  AS ErrorSeverity,
-            ERROR_LINE()      AS ErrorLine;
+               ERROR_MESSAGE() AS ErrorMessage,
+               ERROR_PROCEDURE() AS ErrorProcedure,
+               @ProcedureStep AS ProcedureStep,
+               ERROR_STATE() AS ErrorState,
+               ERROR_SEVERITY() AS ErrorSeverity,
+               ERROR_LINE() AS ErrorLine;
     END;
 
     SET NOCOUNT OFF;

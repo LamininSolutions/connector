@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFVaultConnectionTest' -- nvarchar(100)
-                                    ,@Object_Release = '4.5.14.56'             -- varchar(50)
+                                    ,@Object_Release = '4.9.28.73'             -- varchar(50)
                                     ,@UpdateFlag = 2;                         -- smallint
 GO
 
@@ -102,6 +102,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-12-20  LC         Add guid to result set
 2020-03-29  LC         Add documentation 
 2020-02-08  LC         Fix bug for check license validation
 2016-08-15  DEV1       Create procedure
@@ -113,10 +114,13 @@ BEGIN
     SET NOCOUNT ON;
 
     DECLARE @Return_Value INT;
+    DECLARE @Guid NVARCHAR(128);
     DECLARE @vaultsettings NVARCHAR(4000)
            ,@ReturnVal     NVARCHAR(MAX);
 
     SELECT @vaultsettings = [dbo].[FnMFVaultSettings]();
+    SELECT @Guid =CAST(value AS NVARCHAR(128)) FROM mfsettings WHERE name = 'VaultGUID'
+
 
     BEGIN TRY
         DECLARE @IsUpToDate BIT
@@ -156,6 +160,7 @@ BEGIN
                   ,[mat].[AuthenticationType]
                   ,[mpt].[ProtocolType]
                   ,[mvs].[Endpoint]
+                  ,@Guid AS VaultGUID
             FROM [dbo].[MFVaultSettings]                AS [mvs]
                 INNER JOIN [dbo].[MFAuthenticationType] AS [mat]
                     ON [mat].[ID] = [mvs].[MFAuthenticationType_ID]
