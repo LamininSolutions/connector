@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTableInternal', -- nvarchar(100)
-    @Object_Release = '4.9.29.74',            -- varchar(250)
+    @Object_Release = '4.10.30.74',            -- varchar(250)
     @UpdateFlag = 2;
 -- smallint
 GO
@@ -91,6 +91,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-06-16  LC         Fix conflict of name value in Pivot of Tempobjectlist
 2022-03-24  LC         Add isolation levels and no lock to avoid locking
 2021-04-14  LC         Fix timestamp datatype bug
 2021-03-02  LC         Remove check for required workflows, check is included in spMFClassTableStats
@@ -452,11 +453,11 @@ BEGIN
 									,ExternalID
 									,FileCount --Added for task 106
 									,propertyName new_col
-									,value
+									,Propvalue
 								FROM #Properties
-								UNPIVOT(value FOR col IN (propertyValue)) un
+								UNPIVOT(Propvalue FOR col IN (propertyValue)) un
 								) src
-							PIVOT(MAX(value) FOR new_col IN (' + @Columns + N')) p
+							PIVOT(MAX(Propvalue) FOR new_col IN (' + @Columns + N')) p
 							) PVT';
 
             EXECUTE sys.sp_executesql @Query;

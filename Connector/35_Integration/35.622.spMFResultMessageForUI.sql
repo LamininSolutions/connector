@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFResultMessageForUI' -- nvarchar(100)
-                                    ,@Object_Release = '4.9.27.71'            -- varchar(50)
+                                    ,@Object_Release = '4.10.30.74'            -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
 GO
@@ -188,6 +188,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-05-31  LC         Fix bug with duration being null
 2021-08-25  LC         Resolve bug with null count
 2021-02-26  LC         Fix issue with duration
 2019-08-30  JC         Added documentation
@@ -223,6 +224,12 @@ BEGIN
     SELECT @SumDuration = SUM([mpbd].[DurationSeconds])
     FROM [dbo].[MFProcessBatchDetail] AS [mpbd]
     WHERE [mpbd].[ProcessBatch_ID] = @Processbatch_ID;
+      
+   SELECT @SumDuration = CASE WHEN @SumDuration IS NULL THEN 
+   (SELECT TOP 1 mpb.DurationSeconds FROM dbo.MFProcessBatch AS mpb WHERE [ProcessBatch_ID] = @Processbatch_ID )
+   ELSE @SumDuration
+   END
+   
 
         BEGIN -- default message
 
@@ -252,15 +259,12 @@ BEGIN
                     + 'Duration Seconds: ' + CONVERT(VARCHAR(25), @SumDuration)             
                       + CAST(RIGHT('0' + CAST(FLOOR((COALESCE([mpb].[DurationSeconds], 0) / 60) / 60) AS VARCHAR(8)), 2) + ':'
                + RIGHT('0' + CAST(FLOOR(COALESCE([mpb].[DurationSeconds], 0) / 60) AS VARCHAR(8)), 2) + ':' AS varchar(258))
-               --       ,
-               --[mpb].[ProcessType],
-               --[mpbd].*
         FROM [dbo].[MFProcessBatch] AS [mpb]
             INNER JOIN [dbo].[MFProcessBatchDetail] AS [mpbd]
                 ON [mpbd].[ProcessBatch_ID] = [mpb].[ProcessBatch_ID]
         WHERE [mpb].[ProcessBatch_ID] = @Processbatch_ID
               AND [mpbd].[LogType] = 'Message'
-              AND [mpbd].[MFTableName] <> 'MFUserMessages'
+             AND ([mpbd].[MFTableName] <> 'MFUserMessages' OR [mpbd].[MFTableName] IS NULL)
     )
           END --end case
      END; -- end default message

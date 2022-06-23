@@ -36,6 +36,6 @@ AS
 SELECT CAST(mvli.MFid AS INT) AS UserGroupID, mvli.Name FROM dbo.MFValueListItems AS MVLI
 INNER JOIN dbo.MFValueList AS MVL
 ON mvli.MFValueListID = mvl.ID
-WHERE mvl.name = 'User Group'
+WHERE mvl.MFID = 16
 
 GO 

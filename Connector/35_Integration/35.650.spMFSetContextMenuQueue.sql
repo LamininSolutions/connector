@@ -44,7 +44,8 @@ SET NOEXEC OFF;
 GO
 
 ALTER PROC dbo.spMFSetContextMenuQueue
-(@UpdateStatus NVARCHAR(128) ,
+(@updateType INT,
+@UpdateStatus NVARCHAR(128) ,
 @Job_ID INT,
 @ContextMenu_Id INT,
  @ClassID INT = null,
@@ -112,6 +113,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-04-28  LC         This procedure is being revised in the light of the new
+                       task system in the VAF
 2020-01-07  LC         Add routine to clean up the queue
 2019-12-06  LC         Create procedure
 ==========  =========  ========================================================
@@ -141,7 +144,7 @@ BEGIN TRY
 
 SELECT * FROM dbo.MFContextMenuQueue AS mcmq
 
-    IF @UpdateStatus = 1
+    IF @UpdateType = 1
     BEGIN 
 
      INSERT INTO dbo.MFContextMenuQueue
@@ -158,12 +161,12 @@ SELECT * FROM dbo.MFContextMenuQueue AS mcmq
         CreatedOn
     )
     VALUES
-    (@ID, @ObjectID, @ObjectType, @ObjectVer, @ClassID, 1, 1, @ProcessBatch_ID, NULL, @StartTime);
+    (@ContextMenu_Id, @ObjectID, @ObjectType, @ObjectVer, @ClassID, 1, 1, @ProcessBatch_ID, NULL, @StartTime);
     SET @ContextMenuLog_ID = @@IDENTITY;
     
     END
 
-    IF @UpdateType > 1
+    IF @UpdateStatus > 1
 
     BEGIN
     UPDATE cmq
@@ -183,7 +186,5 @@ END TRY
 BEGIN CATCH
 RAISERROR('failed',16,1)
 END CATCH
-
-END;
 
 GO

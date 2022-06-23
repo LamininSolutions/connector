@@ -14,7 +14,7 @@ go
 
 IF EXISTS ( SELECT  1
             FROM    INFORMATION_SCHEMA.ROUTINES
-            WHERE   ROUTINE_NAME IN ('spMfGetSettingsForCofigurator','spMfGetSettingsForConfigurator')--name of procedure
+            WHERE   ROUTINE_NAME IN ('spMfGetSettingsForConfigurator')--name of procedure
                     AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
                     AND ROUTINE_SCHEMA = 'dbo' )
     BEGIN

@@ -4,7 +4,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFUpdateMFilesToMFSQL', -- nvarchar(100)
-                                 @Object_Release = '4.9.28.73',            -- varchar(50)
+                                 @Object_Release = '4.10.30.74',            -- varchar(50)
                                  @UpdateFlag = 2;
 
 -- smallint
@@ -181,6 +181,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-06-06  LC         resolve issue of removal of class table objects
+2022-05-06  LC         resolve bug with nextbatch_ID
 2022-01-25  LC         allow for batch processing of audit when max object > 100000
 2022-01-25  LC         increase maxobjects default to 100000
 2021-12-20  LC         Maintain same processbatch_ID for entire process
@@ -287,6 +289,7 @@ BEGIN
     DECLARE @BatchCount INT = 1;
     DECLARE @nextBatchID INT;
     DECLARE @tempObjidTable NVARCHAR(100);
+    DECLARE @RemainingCount INT;
 
     BEGIN TRY
         IF EXISTS (SELECT 1 FROM dbo.MFClass WHERE TableName = @MFTableName)
@@ -358,9 +361,11 @@ BEGIN
             --'Class'
             DECLARE @ClassColumn NVARCHAR(100);
 
+
             SELECT @ClassColumn = mp.ColumnName
             FROM dbo.MFProperty AS mp
             WHERE mp.MFID = 100;
+
 
             -------------------------------------------------------------
             -- Get last modified date
@@ -467,11 +472,12 @@ SELECT @MFLastModifiedDate = (SELECT Coalesce(MAX(' + QUOTENAME(@lastModifiedCol
 
 CREATE nonCLUSTERED INDEX idx_objidtable_objid ON ' + @tempObjidTable + N'(tableid,[objid],Batchgroup);';
 
-                --IF @debug > 0
-                --    PRINT @sql;
+                IF @debug > 0
+                    SELECT @tempObjidTable AS tempObjidTable;
+
 
                 EXEC sys.sp_executesql @sql;
-/*
+                /*
                 -- reset maxobjids
                 SELECT @MaxObjects = CASE
                                          WHEN MAX(mah.ObjID) < @MaxObjects THEN
@@ -773,7 +779,7 @@ CREATE nonCLUSTERED INDEX idx_objidtable_objid ON ' + @tempObjidTable + N'(table
                                                                @Debug = @debug;                     -- smallint
                     END;
 
-                    -- remove all items in class table not in audit table for the class
+                    -- remove all items in class table not in audit table for the class that have process id = 0
                     IF @return_value IN ( 0, 1 )
                     BEGIN
                         SET @sql
@@ -786,7 +792,7 @@ CREATE nonCLUSTERED INDEX idx_objidtable_objid ON ' + @tempObjidTable + N'(table
                               + N'= mah.class 
                 where mah.objid is null
                 )
-                DELETE FROM ' + QUOTENAME(@MFTableName) + N' WHERE objid IN (SELECT cte.objid FROM cte);';
+                DELETE FROM ' + QUOTENAME(@MFTableName) + N' WHERE objid IN (SELECT cte.objid FROM cte) and process_ID = 0;';
 
                         EXEC (@sql);
 
@@ -971,44 +977,54 @@ FROM dbo.MFAuditHistory AS mah
                     --    PRINT @sql;
 
                     EXEC sys.sp_executesql @sql, @sqlParam, @Class_ID, @ObjectType_ID;
-                  set  @rowcount = @@ROWCOUNT 
- 
- -------------------------------------------------------------
- -- remove rows from update list with no need to perform full update
- -- deletions (4) no longer in class table; not in class (5) no longer in class table
- -------------------------------------------------------------
- 
- SET @sql = CASE WHEN @RetainDeletions = 1 then N'
+                    SET @rowcount = @@ROWCOUNT;
+
+                    IF @debug > 0
+                        SELECT @rowcount AS 'To update - Statusflag  1,3,4,5';
+                    -------------------------------------------------------------
+                    -- remove rows from update list with no need to perform full update
+                    -- deletions (4) no longer in class table; not in class (5) no longer in class table
+                    -------------------------------------------------------------
+
+                    SET @sql
+                        = CASE
+                              WHEN @RetainDeletions = 1 THEN
+                                  N'
  Update obj
  SET type = 0
- FROM ' + @tempObjidTable
+ FROM ' +           @tempObjidTable
                                   + N' obj
  INNER JOIN  dbo.MFAuditHistory AS mah
  ON obj.objid = mah.objid
- INNER JOIN '+quotename(@MFTableName)+' AS t
+ INNER JOIN ' +     QUOTENAME(@MFTableName)
+                                  + ' AS t
  ON mah.objid = t.objid
- WHERE mah.Class = @Class_ID AND mah.StatusFlag =4 AND t.'+quotename(@DeletedColumn)+' IS NOT null
+ WHERE mah.Class = @Class_ID AND mah.StatusFlag =4 AND t.' + QUOTENAME(@DeletedColumn) + ' IS NOT null
  ;'
- WHEN @RetainDeletions = 0
- then N'
+                              WHEN @RetainDeletions = 0 THEN
+                                  N'
  Update obj
  SET type = 0
- FROM ' + @tempObjidTable
+ FROM ' +           @tempObjidTable
                                   + N' obj
  INNER JOIN  dbo.MFAuditHistory AS mah
  ON obj.objid = mah.objid
- left JOIN '+quotename(@MFTableName)+' AS t
+ left JOIN ' +      QUOTENAME(@MFTableName)
+                                  + ' AS t
  ON mah.objid = t.objid
  WHERE mah.Class = @Class_ID AND mah.StatusFlag =4 AND t.GUID IS null
  ;'
- END --end case
+                          END; --end case
 
- EXEC sp_executeSQL @SQL,N'@Class_ID int',@Class_ID
+                    EXEC sys.sp_executesql @sql, N'@Class_ID int', @Class_ID;
 
- SET @rowcount = @@ROWCOUNT
+                    SET @rowcount = @@ROWCOUNT;
 
-  SET @DebugText = N'';
-                    SET @DebugText = ' Count %i'
+                    IF @debug > 0
+                        SELECT @rowcount AS 'deleted objects to be removed from update';
+
+                    SET @DebugText = N'';
+                    SET @DebugText = N' Count %i';
                     SET @DebugText = @DefaultDebugText + @DebugText;
                     SET @ProcedureStep = N'Reset Deleted objects no need to re-process';
 
@@ -1017,19 +1033,22 @@ FROM dbo.MFAuditHistory AS mah
                         RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @rowcount);
                     END;
 
-SET @SQL = N'Delete from ' + @tempObjidTable
-                                  + N' where type = 0'
-EXEC sp_executeSQL @stmt = @SQL
+                    SET @sql = N'Delete from ' + @tempObjidTable + N' where type = 0';
+                    EXEC sys.sp_executesql @stmt = @sql;
                     -------------------------------------------------------------
                     -- get final rowcount for update
                     -------------------------------------------------------------
-SET @SQL = N'SELECT @rowcount = COUNT(objid) FROM ' + @tempObjidTable
-                                  + N' obj '
+                    SET @sql = N'SELECT @rowcount = COUNT(objid) FROM ' + @tempObjidTable + N' obj ';
 
-EXEC sp_executeSQL @stmt = @SQL, @Param = N'@rowcount int output', @Rowcount = @rowcount output
+                    EXEC sys.sp_executesql @stmt = @sql,
+                                           @Param = N'@rowcount int output',
+                                           @Rowcount = @rowcount OUTPUT;
 
-  SET @DebugText = N'';
-                    SET @DebugText = ' Count %i'
+                    IF @debug > 0
+                        SELECT @rowcount AS 'Final rowcount to update';
+
+                    SET @DebugText = N'';
+                    SET @DebugText = N' Count %i';
                     SET @DebugText = @DefaultDebugText + @DebugText;
                     SET @ProcedureStep = N'Final rowcount to re-process ';
 
@@ -1038,57 +1057,129 @@ EXEC sp_executeSQL @stmt = @SQL, @Param = N'@rowcount int output', @Rowcount = @
                         RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @rowcount);
                     END;
 
- -------------------------------------------------------------
+                    -------------------------------------------------------------
                     -- set groups
--------------------------------------------------------------
-  
-  IF @rowcount <= @Batchsize
+                    -------------------------------------------------------------
+                    SET @ProcedureStep = N'Setup batch groups';
+                    SET @LogTextDetail = N'Temptable: ' + @tempObjidTable;
+                    SET @LogStatusDetail = N'Started';
+                    SET @LogColumnName = NULL;
+                    SET @LogColumnValue = NULL;
+
+                    EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+                                                           @LogType = @LogTypeDetail,
+                                                           @LogText = @LogTextDetail,
+                                                           @LogStatus = @LogStatusDetail,
+                                                           @StartTime = @StartTime,
+                                                           @MFTableName = @MFTableName,
+                                                           @ColumnName = @LogColumnName,
+                                                           @ColumnValue = @LogColumnValue,
+                                                           @LogProcedureName = @ProcedureName,
+                                                           @LogProcedureStep = @ProcedureStep,
+                                                           @debug = @debug;
+
+
+                    SET @sqlParam = N'@nextBatchID int output, @batchsize int';
+                    SET @sql = N'
+SELECT @nextBatchID = min(ot.Tableid) + @BatchSize  FROM ' + @tempObjidTable + N' ot;';
+
+                    EXEC sys.sp_executesql @sql, @sqlParam, @nextBatchID OUTPUT, @Batchsize;
+
+
+                    IF @debug > 0
+                        SELECT @nextBatchID AS 'first next batch start',
+                               @BatchCount AS 'first batch no';
+
+                    WHILE @nextBatchID IS NOT NULL
                     BEGIN
-                        SET @sql = N'
-UPDATE ' +              @tempObjidTable + N'
-SET Batchgroup = 1
-WHERE objid IS NOT NULL;';
 
-                        EXEC sys.sp_executesql @sql;
-                    END;
-
-                    IF @rowcount > @Batchsize
-                    BEGIN
-                        SET @sqlParam = N'@nextBatchID int output, @Batchsize int';
-                        SET @sql = N'
-SELECT @nextBatchID = ot.Tableid FROM ' + @tempObjidTable + N' AS ot WHERE ot.Tableid = @Batchsize + 1;';
-
-                        EXEC sys.sp_executesql @sql, @sqlParam, @nextBatchID OUTPUT, @Batchsize;
+                        IF @debug > 0
+                            SELECT @BatchCount AS 'next batch to process',
+                                   @nextBatchID AS 'next batch end';
 
                         SET @sqlParam = N'@batchcount int, @nextBatchID int, @Batchsize int, @debug int';
                         SET @sql
                             = N'
-WHILE exists (SELECT ot.Tableid FROM ' + @tempObjidTable
-                              + N' AS ot WHERE ot.Batchgroup IS NULL)
-Begin
-
-if @debug > 0
-SELECT @batchcount,  @nextBatchID;
+begin tran
+;with cte as
+(SELECT top ' +         CAST(@Batchsize AS VARCHAR) + N' ot.Tableid FROM ' + @tempObjidTable
+                              + N' AS ot WHERE ot.Batchgroup IS NULL order by ot.tableid)
 
 UPDATE ot 
 SET ot.Batchgroup = @BatchCount
-FROM ' +                @tempObjidTable
-                              + N' AS ot WHERE ot.Tableid BETWEEN @nextBatchID - @BatchSize AND @nextBatchID 
+FROM ' +                @tempObjidTable + N' AS ot
+inner join cte
+on cte.tableid = ot.tableid
+commit
+;'                      ;
 
-SET @nextBatchID = CASE WHEN exists (SELECT ot.Tableid FROM ' + @tempObjidTable
-                              + N' AS ot WHERE ot.Batchgroup IS NULL)  THEN 
-@nextBatchID + @Batchsize + 1 ELSE NULL END
-
-SET @BatchCount = @BatchCount + 1
-END --end loop for batch groups;';
-
+                        --       select @SQL
                         EXEC sys.sp_executesql @sql,
                                                @sqlParam,
                                                @BatchCount,
                                                @nextBatchID,
                                                @Batchsize,
                                                @debug;
-                    END; -- end if for batchsize
+
+IF @debug > 0
+Begin
+                        SET @sql = N'
+Select batchgroup, COUNT(*) as rcount FROM ' + @tempObjidTable + N' AS ot group by batchgroup';
+                        EXEC sys.sp_executesql @sql;
+END
+
+                        SET @sqlParam = N'@rowcount int output, @BatchCount int';
+                        SET @sql = N'
+Select  @rowcount = COUNT(TableID)  FROM ' + @tempObjidTable + N' AS ot where ot.batchgroup = @BatchCount';
+
+                        EXEC sys.sp_executesql @sql, @sqlParam, @rowcount OUTPUT, @BatchCount;
+
+                        IF @debug > 0
+                            SELECT @BatchCount AS 'batchnumber',
+                                   @rowcount AS 'Batch count';
+
+                        SET @BatchCount = @BatchCount + 1;
+
+                        SET @sqlParam = N'@RemainingCount int output';
+                        SET @sql = N'
+SELECT @RemainingCount = COUNT(*) FROM ' + @tempObjidTable + N' WHERE batchgroup IS NULL;';
+
+                        EXEC sys.sp_executesql @sql, @sqlParam, @RemainingCount OUTPUT;
+
+                        SET @nextBatchID = CASE
+                                               WHEN @RemainingCount > 0 THEN
+                                                   @nextBatchID + @Batchsize
+                                               ELSE
+                                                   NULL
+                                           END;
+
+                    END; --end loop for batch groups;';
+
+IF @debug > 0
+Begin
+                        SET @sql = N'
+Select @LogColumnValue = cast(COUNT(*) as nvarchar(10)) FROM ' + @tempObjidTable + N' AS ot ';
+                        EXEC sys.sp_executesql @sql, N'@LogColumnValue nvarchar(100) output', @LogColumnValue;
+END
+               SET @ProcedureStep = N'Completed batch groups';
+                    SET @LogTextDetail = N'objects to update: ';
+                    SET @LogStatusDetail = N'In Process';
+                    SET @LogColumnName = 'Count of objects';
+                    SET @LogColumnValue = @LogColumnValue;
+
+                    EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
+                                                           @LogType = @LogTypeDetail,
+                                                           @LogText = @LogTextDetail,
+                                                           @LogStatus = @LogStatusDetail,
+                                                           @StartTime = @StartTime,
+                                                           @MFTableName = @MFTableName,
+                                                           @ColumnName = @LogColumnName,
+                                                           @ColumnValue = @LogColumnValue,
+                                                           @LogProcedureName = @ProcedureName,
+                                                           @LogProcedureStep = @ProcedureStep,
+                                                           @debug = @debug;
+
+
 
                     SET @ProcedureStep = N'AuditTable objids: ';
                     SET @sqlParam = N'@ToObjid int output';
@@ -1141,7 +1232,7 @@ END --end loop for batch groups;';
 
                     IF @debug > 0
                     BEGIN
-                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);                    
+                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                     END;
 
                     -------------------------------------------------------------
@@ -1183,8 +1274,18 @@ END --end loop for batch groups;';
                                                @Toobjid OUTPUT;
 
                         IF @debug > 0
-                        BEGIN                        
-                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep,@FromObjid,@Toobjid,@ToGroup,@rowcount);
+                        BEGIN
+                            RAISERROR(
+                                         @DebugText,
+                                         10,
+                                         1,
+                                         @ProcedureName,
+                                         @ProcedureStep,
+                                         @FromObjid,
+                                         @Toobjid,
+                                         @ToGroup,
+                                         @rowcount
+                                     );
                         END;
 
                         IF @rowcount > 0

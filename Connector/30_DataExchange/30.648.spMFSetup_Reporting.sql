@@ -31,7 +31,7 @@ GO
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFSetup_Reporting', -- nvarchar(100)
-                                 @Object_Release = '4.10.29.74',
+                                 @Object_Release = '4.10.30.74',
                                  @UpdateFlag = 2;
 GO
 
@@ -127,6 +127,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-05-25  LC         Change approach to only update selected tables
 2022-03-17  LC         add additional automated functionality
 2022-01-26  Lc         Fix valuelist creation
 2019-09-27  LC         Adjust to setup context menu group for access
@@ -463,19 +464,41 @@ BEGIN
         -------------------------------------------------------------
 
         SET @Procedurestep = N'Update all tables';
+        DECLARE @MFtableName NVARCHAR(258)
+        DECLARE @ID INT
+        DECLARE @MFLastUpdateDate SMALLDATETIME,
+                @Update_IDOut INT
 
-        EXEC dbo.spMFUpdateAllncludedInAppTables @UpdateMethod = 1,
-                                                 @RemoveDeleted = 1,
-                                                 @IsIncremental = 0,
-                                                 @RetainDeletions = 0,
-                                                 @SendClassErrorReport = 0,
-                                                 @ProcessBatch_ID = @ProcessBatch_ID,
-                                                 @Debug = 0;
+        SELECT @id = MIN(cl.id) FROM @ClassList AS cl
+        INNER JOIN mfclass mc
+        ON mc.mfid = cl.id
+        WHERE IncludeInApp IS NOT null
 
-        SET @DebugText = N'';
+        WHILE @ID IS NOT NULL
+        BEGIN
+        
+        SELECT @MFtableName = TableName
+        FROM MFclass WHERE mfid = @id 
+
+        EXEC dbo.spMFUpdateMFilesToMFSQL @MFTableName = @MFtableName,
+                                         @MFLastUpdateDate = @MFLastUpdateDate OUTPUT,
+                                         @UpdateTypeID = 0, 
+                                         @WithObjectHistory = 0,
+                                         @RetainDeletions = 0,
+                                         @WithStats = 1,
+                                         @Update_IDOut = @Update_IDOut OUTPUT,
+                                         @ProcessBatch_ID = @ProcessBatch_ID ,
+                                         @debug = 0
+
+        
+        SET @Procedurestep = N'Updated table ';
+
+        
+        SET @DebugText = N' %s';
         SET @DebugText = @DefaultDebugText + @DebugText;
 
-        RAISERROR(@DebugText, 10, 1, @ProcedureName, @Procedurestep);
+        RAISERROR(@DebugText, 10, 1, @ProcedureName, @Procedurestep, @MFTableName);
+
 
         -------------------------------------------------------------
         -- show table result
@@ -483,18 +506,6 @@ BEGIN
 
         --list TOP 10 OF every table
 
-        DECLARE @mfid INT;
-        DECLARE @MFTableName NVARCHAR(100);
-
-        SELECT @mfid = MIN(MFID)
-        FROM dbo.MFClass
-        WHERE IncludeInApp IS NOT NULL;
-
-        WHILE @mfid IS NOT NULL
-        BEGIN
-            SELECT @MFTableName = TableName
-            FROM dbo.MFClass
-            WHERE MFID = @mfid;
 
             SELECT 'Top 10 rows for ' + @MFTableName AS TableName;
             SET @sql = 'SELECT TOP 10 * FROM ' + @MFTableName;
@@ -510,10 +521,11 @@ BEGIN
                 SELECT 'Table ' + @MFTableName + ' does not exist. Class table to be created first';
 
 
-            SELECT @mfid =
-            (
-                SELECT MIN(MFID)FROM dbo.MFClass WHERE MFID > @mfid AND IncludeInApp is NOT null
-            );
+            SELECT @id = (SELECT MIN(cl.id) FROM @ClassList AS cl
+            INNER JOIN mfclass mc
+        ON mc.mfid = cl.id
+        WHERE IncludeInApp IS NOT null
+         AND cl.id > @id )
         END;
 
         -------------------------------------------------------------

@@ -2448,7 +2448,7 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFValidateModule', -- nvarchar(100)
-    @Object_Release = '3.1.5.41', -- varchar(50)
+    @Object_Release = '4.10.30.74', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 
 
@@ -2491,7 +2491,7 @@ EXEC (N'
 CREATE PROCEDURE [dbo].[spMFValidateModule]
 	@VaultSettings [nvarchar](2000),
 	@ModuleID [nvarchar](20),
-	@Status [nvarchar](20) OUTPUT
+	@Status [nvarchar](100) OUTPUT
 WITH EXECUTE AS CALLER
 AS
 EXTERNAL NAME [LSConnectMFilesAPIWrapper].[MFilesWrapper].[ValidateModule]

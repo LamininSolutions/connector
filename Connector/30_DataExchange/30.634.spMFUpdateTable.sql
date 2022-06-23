@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFUpdateTable',
                                  -- nvarchar(100)
-                                 @Object_Release = '4.9.29.74',
+                                 @Object_Release = '4.10.30.74',
                                  -- varchar(50)
                                  @UpdateFlag = 2;
 -- smallint
@@ -232,6 +232,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-06-01  LC         Resolve bug with data definition in large text properties
 2022-03-23  LC         Add protection against locking when updating class table
 2022-03-07  LC         Fix bug with not updating AuditTable
 2022-02-08  LC         Further optimize, replace UNPIVOT with new case method
@@ -856,6 +857,10 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
                 RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
             END;
 
+               IF (SELECT (OBJECT_ID('tempdb..#ColumnValuePair'))) IS NOT null
+                         DROP TABLE #ColumnValuePair;
+
+
             CREATE TABLE #ColumnValuePair
             (
                 Id INT,
@@ -863,7 +868,7 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
                 ObjVersion INT,
                 ExternalID NVARCHAR(100),
                 ColumnName NVARCHAR(200),
-                ColumnValue NVARCHAR(4000),
+                ColumnValue NVARCHAR(max),
                 Required INT,
                 MFID INT,
                 DataType INT
@@ -1069,7 +1074,7 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
             --             ObjVersion INT,
             --             ExternalID NVARCHAR(100),
             --             ColumnName NVARCHAR(200),
-            --             ColumnValue NVARCHAR(4000),
+            --             ColumnValue NVARCHAR(max),
             --             Required INT,
             --             MFID INT,
             --             DataType INT
@@ -1092,18 +1097,18 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
                 DataConversion
             )
             VALUES
-            (N'Float', N'3', 'Real', 'CAST(CAST(colvalue AS Decimal(32,4)) AS VARCHAR(4000))'),
-            ('Integer', '2', 'Int', 'CAST(colvalue AS VARCHAR(4000))'),
-            ('Integer', '9', 'Int', 'CAST(colvalue AS VARCHAR(4000))'),
-            ('Integer', '10', 'Int', 'CAST(colvalue AS VARCHAR(4000))'),
-            ('Text', '1', 'String', 'CAST(colvalue AS VARCHAR(4000))'),
-            ('MultiText', '13', 'String', 'CAST(colvalue AS VARCHAR(max))'),
-            ('MultiLookup', '10', 'String', 'CAST(colvalue AS VARCHAR(4000))'),
-            ('Time', '6', 'time', 'CAST(cast(colvalue as time(0)) AS VARCHAR(4000))'),
+            (N'Float', N'3', 'Real', 'CAST(CAST(colvalue AS Decimal(32,4)) AS NVARCHAR(4000))'),
+            ('Integer', '2', 'Int', 'CAST(colvalue AS NVARCHAR(4000))'),
+            ('Integer', '9', 'Int', 'CAST(colvalue AS NVARCHAR(4000))'),
+            ('Integer', '10', 'Int', 'CAST(colvalue AS NVARCHAR(4000))'),
+            ('Text', '1', 'String', 'CAST(colvalue AS NVARCHAR(4000))'),
+            ('MultiText', '13', 'String', 'CAST(colvalue AS NVARCHAR(max))'),
+            ('MultiLookup', '10', 'String', 'CAST(colvalue AS NVARCHAR(4000))'),
+            ('Time', '6', 'time', 'CAST(cast(colvalue as time(0)) AS NVARCHAR(4000))'),
             ('DateTime', '7', 'Datetime',
              'convert(nvarchar(4000),FORMAT(convert(datetime,Colvalue,102), ''yyyy-MM-dd HH:mm:ss.fff'' ))'),
-            ('Date', '5', 'Date', 'CAST(colvalue AS VARCHAR(4000))'),
-            ('Bit', '8', 'Int', 'CAST(colvalue AS VARCHAR(4000))');
+            ('Date', '5', 'Date', 'CAST(colvalue AS NVARCHAR(4000))'),
+            ('Bit', '8', 'Int', 'CAST(colvalue AS NVARCHAR(4000))');
 
             SET @ProcedureStep = 'Prepare column list';
 
@@ -1197,7 +1202,6 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
             SET @SQL
                 = N'
 insert into #ColumnValuePair
- 
 select a.id, a.objid, a.MFVersion, a.externalID,  b.column_name as ColumnName
 , column_value = 
     case b.column_name
@@ -1225,6 +1229,8 @@ cross join (
 
 
             EXEC sys.sp_executesql @SQL;
+
+                    SET @ProcedureStep = 'update #ColumnValuePair';
 
 
             UPDATE #ColumnValuePair

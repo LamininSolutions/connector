@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFUpdateAllncludedInAppTables', -- nvarchar(100)
-                                 @Object_Release = '4.9.28.73',                    -- varchar(250)
+                                 @Object_Release = '4.10.30.74',                   -- varchar(250)
                                  @UpdateFlag = 2;                                  -- smallint
 GO
 
@@ -133,6 +133,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-05-25  LC         Resolve loop bug with updating history
 2021-12-20  LC         Add logging to improve performance analysis
 2021-12-20  LC         Use same processbatchID for entire process
 2021-09-01  LC         add parameter to retain deletions for all tables
@@ -339,7 +340,10 @@ BEGIN TRY
                 GROUP BY mochuc.MFTableName
             ) h
                 ON h.MFTableName = mc.TableName
-        WHERE mc.IncludeInApp IN ( SELECT item FROM dbo.fnMFSplitString(@IncludeClass,',') );
+        WHERE mc.IncludeInApp IN
+              (
+                  SELECT Item FROM dbo.fnMFSplitString(@IncludeClass, ',')
+              );
 
         DECLARE @Row INT;
 
@@ -364,7 +368,7 @@ BEGIN TRY
                    @MFID = MFID,
                    @HistoryUpdate = HistoryUpdate
             FROM #TableList
-            WHERE ID = @id;  
+            WHERE ID = @id;
 
             DECLARE @MFLastUpdateDate SMALLDATETIME,
                     @Update_IDOut INT;

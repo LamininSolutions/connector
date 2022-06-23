@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFClassTableStats', -- nvarchar(100)
-    @Object_Release = '4.8.28.73',        -- varchar(50)
+    @Object_Release = '4.10.30.74',        -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
 GO
@@ -678,7 +678,7 @@ BEGIN
    -- DROP TABLE ##spMFClassTableStats;
 END;
 
-IF @SendReport = 1 AND (SELECT COUNT(*) FROM ##spMFClassTableStats where MFNotInSQL > 0 OR SQLNotInMF <> 0 or CheckedOut <> 0 or RequiredWorkflowError <> 0 or SyncError <> 0 or Process_ID_not_0 <> 0 or MFError <> 0 or SQLError <> 0) > 0
+IF @SendReport = 1 AND exists(SELECT TableName FROM ##spMFClassTableStats where Isnull(IncludeInApp,0)>0 AND MFNotInSQL > 0 OR SQLNotInMF <> 0 or CheckedOut <> 0 or RequiredWorkflowError <> 0 or SyncError <> 0 or Process_ID_not_0 <> 0 or MFError <> 0 or SQLError <> 0) 
 
 BEGIN
 
@@ -687,17 +687,19 @@ DECLARE @TableBody   NVARCHAR(MAX)
 DECLARE @Mailitem_ID INT
 DECLARE @ToEmail NVARCHAR(258);
    
-EXEC dbo.spMFConvertTableToHtml @SqlQuery = 'Select * from ##spMFClassTableStats where  IncludeInApp = 1 and (MFNotInSQL > 0 OR  SQLNotInMF <> 0 or CheckedOut <> 0 or RequiredWorkflowError <> 0 or SyncError <> 0 or Process_ID_not_0 <> 0 or MFError <> 0 or SQLError <> 0 or MissingTable > 0)',
+EXEC dbo.spMFConvertTableToHtml @SqlQuery = 'Select * from ##spMFClassTableStats where  Isnull(IncludeInApp,0)>0 and (MFNotInSQL > 0 OR  SQLNotInMF <> 0 or CheckedOut <> 0 or RequiredWorkflowError <> 0 or SyncError <> 0 or Process_ID_not_0 <> 0 or MFError <> 0 or SQLError <> 0 or MissingTable > 0)',
     @TableBody = @TableBody OUTPUT,
     @Debug = 0
 
 SELECT @Footer = ISNULL(@Footer, '<BR><p>Produced by MFSQL Connector</p>')
-SELECT @Body = ISNULL(@Body,'<p>The class tables in the following report is not up to date or is showing errors.  Consult https://doc.lamininsolutions.com/procedures/spMFClassTableStats.html for corrective action. </p> <BR> ' )
+SELECT @Body = ISNULL(ISNULL(@Body,''),'<p>The class tables in the following report is not up to date or is showing errors.  Consult https://doc.lamininsolutions.com/procedures/spMFClassTableStats.html for corrective action. </p> <BR> ' )
 SELECT @ToEmail = CAST(Value AS NVARCHAR(258)) FROM mfsettings WHERE name = 'SupportEmailRecipient'
 SELECT @MessageTitle =  ISNULL(@MessageTitle, DB_NAME() + ' : Class Table Error Report')
 
-SELECT @Body = @Body + @TableBody + @Footer
+SELECT @Body = ISNULL(@Body,'') + ISNULL(@TableBody,'') + ISNULL(@Footer,'')
 
+IF NOT @Body = ''
+Begin
 EXEC dbo.spMFSendHTMLBodyEmail @Body = @Body,
     @MessageTitle = @MessageTitle,
     @FromEmail = null,
@@ -705,7 +707,7 @@ EXEC dbo.spMFSendHTMLBodyEmail @Body = @Body,
     @CCEmail = null,
     @Mailitem_ID = @Mailitem_ID OUTPUT,
     @Debug = 0
-
+end
 END
 
 
