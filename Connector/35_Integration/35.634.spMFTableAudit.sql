@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFTableAudit', -- nvarchar(100)
-                                 @Object_Release = '4.9.28.73',   -- varchar(50)
+                                 @Object_Release = '4.10.30.74',   -- varchar(50)
                                  @UpdateFlag = 2;                 -- smallint
 GO
 
@@ -134,6 +134,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-09-08  LC         simplify query for flag 5 to ellimate objects not in Audit table
 2022-01-28  LC         set objids datatype to max
 2022-01-08  LC         new code to deal with class changes
 2021-12-20  LC         add revalidate of deleted objects when incremental update
@@ -850,45 +851,21 @@ ON ao.[objid] = t.[objid] ;';
             -------------------------------------------------------------
 IF @UpdateTypeID = 0
 BEGIN
+SET @SQL = NULL
     SET @ProcedureStep = N' reset flag 5 ';
             SET @Params = N'@ClassID int, @ObjectID int,  @Objids nvarchar(max)';
             SET @sql
-                = CASE
-                       WHEN @ObjIDs IS NULL  THEN
-                          N' ;WITH cte AS 
-                    (
-                    SELECT t.objid, @classid as class, @Objectid as ObjectType FROM ' + QUOTENAME(@MFTableName)
-                          + N' AS t
-                    left join MFAuditHistory mah
-                    on t.objid = mah.objid
-                    WHERE mah.objid is null and mah.class = @classID and mah.objectType = @ObjectID and t.guid IS NOT NULL
-                    except
-                    SELECT mah.objid, @classid, @Objectid FROM dbo.MFAuditHistory AS mah 
-                     where mah.class = @classid AND mah.objecttype = @ObjectID 
-                                                                      
-                    )
-                    SELECT t.id, GETDATE(), @ObjectID, @Classid, cte.objid,  t.MFVersion,0
+                =  N' SELECT t.id, GETDATE(), @ObjectID, @Classid, t.objid,  t.MFVersion,0
                     FROM ' + QUOTENAME(@MFTableName)
                           + N' t
-                    INNER JOIN cte
-                    ON cte.objid = t.objid 
+                    LEFT JOIN dbo.MFAuditHistory mah
+        ON t.ObjID = mah.ObjID AND mah.Class = @ClassID AND mah.ObjectType = @ObjectID
+WHERE mah.ObjID IS NULL AND t.GUID IS NOT NULL;
+
                      ;
                     '
-                      ELSE
-                          NULL
-                  END; --end case
-
-            --if @debug > 0 
-            --begin
-            --print @SQL;
-
-            -- EXEC sys.sp_executesql @Stmt = @sql,
-            --  @Param = @Params,
-            --  @ClassId = @ClassId,
-            --  @ObjectId = @ObjectId,
-            --  @ObjIDs = @ObjIDs;
-            --  end
-
+                    ; --end case
+          
             SET @ProcedureStep = N' Added mismatches ';
             SET @rowcount = 0;
 

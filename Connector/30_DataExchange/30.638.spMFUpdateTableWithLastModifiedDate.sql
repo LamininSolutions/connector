@@ -6,7 +6,7 @@ EXEC [setup].[spMFSQLObjectsControl]
     @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTableWithLastModifiedDate',
     -- nvarchar(100)
-    @Object_Release = '4.3.10.49',
+    @Object_Release = '4.10.30.74',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -58,6 +58,8 @@ ALTER PROCEDURE [dbo].[spMFUpdateTableWithLastModifiedDate]
     @TableName           sysname,
     @UpdateMethod        INT,
     @Return_LastModified DATETIME = NULL OUTPUT,
+    @RetainDeletions BIT = 0,
+    @IsDocumentCollection BIT = 0,
     @Update_IDOut        INT      = NULL OUTPUT,
     @ProcessBatch_ID     INT      = NULL OUTPUT,
     @debug               SMALLINT = 0
@@ -80,6 +82,12 @@ Parameters
     fixme description
   @Update\_IDOut int (output)
     fixme description
+  @RetainDeletions bit
+    - Default = No
+    - Set explicity to 1 if the class table should retain deletions
+  @IsDocumentCollection
+    - Default = No
+    - Set explicitly to 1 if the class table refers to a document collection class table
   @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @debug smallint
@@ -107,6 +115,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-09-02  LC         Update to include RetainDeletions and DocumentCollections
 2019-08-30  JC         Added documentation
 2019-07-07  LC         Change sequnce of paramters, add new method to include updating deletions.
 2018-10-22  LC         Add 1 second to last modified data to avoid reprocessing the last record.
@@ -244,6 +253,8 @@ Process Batch Initiate
 			@ObjIDs = NULL,
 			@Update_IDOut = @Update_IDOut output,
 			@ProcessBatch_ID = @ProcessBatch_ID output,
+           @RetainDeletions = @RetainDeletions,
+           @IsDocumentCollection = @IsDocumentCollection,
 			@Debug = @Debug
 			';
 

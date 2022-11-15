@@ -91,6 +91,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-08-03  LC         Update debugging for error trapping
 2022-06-16  LC         Fix conflict of name value in Pivot of Tempobjectlist
 2022-03-24  LC         Add isolation levels and no lock to avoid locking
 2021-04-14  LC         Fix timestamp datatype bug
@@ -169,6 +170,16 @@ BEGIN
             @TempIsTemplatelist  VARCHAR(100),
             @Name_or_Title       NVARCHAR(100),
             @class_ID int;
+           DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s';
+            DECLARE @DebugText AS NVARCHAR(256) = N'';
+  
+  Set @DebugText = ''
+Set @DebugText = @DefaultDebugText + @DebugText
+
+IF @debug > 0
+	Begin
+		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+	END
 
         SET @ProcedureStep = 'Drop temptables if exist';
 
@@ -223,9 +234,14 @@ BEGIN
 
         SELECT @ProcedureStep = 'Inserting Values into #Properties from XML';
 
-        IF @Debug > 9
-            RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
+          Set @DebugText = ''
+Set @DebugText = @DefaultDebugText + @DebugText
 
+IF @debug > 9
+	Begin
+		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+	END
+        
         ----------------------------------------
         --Insert XML data into Temp Table
         ----------------------------------------
@@ -282,14 +298,18 @@ BEGIN
 
         SELECT @ProcedureStep = 'Updating Table column Name';
 
-        IF @Debug > 9
-        BEGIN
-            SELECT 'List of properties from MF' AS Properties,
+                  Set @DebugText = ''
+Set @DebugText = @DefaultDebugText + @DebugText
+
+IF @debug > 9
+	BEGIN
+     SELECT 'List of properties from MF' AS Properties,
                 *
             FROM #Properties;
 
-            RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
-        END;
+		RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+	END
+        
 
         IF
         (
@@ -568,6 +588,7 @@ SELECT Name AS PropertyName FROM tempdb.sys.columns
 
             IF @Debug > 9
             BEGIN
+       --     SELECT @query AS 'new column query'
                 RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
             END;
 
@@ -622,7 +643,7 @@ Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
 		where #Columns.propertyName = v.ColumnName
 
 
-  /*          UPDATE #Columns
+            UPDATE #Columns
             SET dataType =
                 (
                     SELECT SQLDataType
@@ -639,10 +660,16 @@ Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
             ----Set dataype = NVARCHAR(100) for lookup and multiselect lookup values
             -------------------------------------------------------------------------
             UPDATE #Columns
-            SET dataType = ISNULL(dataType, 'NVARCHAR(100)');
-*/
+            SET dataType = ISNULL(dataType, 'NVARCHAR(100)')
+            ;
+
             SELECT @AlterQuery = N'';
 
+            IF @Debug > 9
+            BEGIN
+            SELECT '#Columns for alter',* FROM #Columns AS c
+        --        RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
+            END;
             ---------------------------------------------
             --Add new columns into MFTable
             ---------------------------------------------
@@ -652,6 +679,7 @@ Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
 
             IF @Debug > 9
             BEGIN
+            SELECT @AlterQuery AS 'ColumnAlterQuery'
                 RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
             END;
 
@@ -678,7 +706,7 @@ Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
 
             IF @Debug > 9
             BEGIN
-                --       SELECT  @ColumnNames AS 'Column Names';
+                       SELECT  @ColumnNames AS 'Column Names';
                 RAISERROR('Proc: %s Step: %s ', 10, 1, @ProcedureName, @ProcedureStep);
             END;
 

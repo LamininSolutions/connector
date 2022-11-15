@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFClassTableColumns',
     -- nvarchar(100)
-    @Object_Release = '4.9.27.72',
+    @Object_Release = '4.10.30.74',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -166,6 +166,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-09-27  LC         update following change of additional property approach
 2021-10-08  LC         Fix missing table not identying if table deleted
 2021-09-30  LC         fix bug on multilookup data type change error 
 2021-01-31  LC         update to allow for multi language default columns
@@ -238,6 +239,8 @@ SELECT columnname, 'MF Internal' FROM dbo.MFProperty AS mp WHERE mfid < 1000
         Property_MFID INT,
         ColumnName NVARCHAR(100),
         AdditionalProperty BIT,
+        IsAdditional BIT,
+        RetainIfNull BIT,
         IncludedInApp BIT,
         Required BIT,
         PredefinedOrAutomatic BIT,
@@ -259,6 +262,8 @@ SELECT columnname, 'MF Internal' FROM dbo.MFProperty AS mp WHERE mfid < 1000
         ColumnName,
         Class,
         TableName,
+        IsAdditional,
+        RetainIfNull,
         IncludedInApp,
         Required,
         PredefinedOrAutomatic,
@@ -274,6 +279,8 @@ SELECT columnname, 'MF Internal' FROM dbo.MFProperty AS mp WHERE mfid < 1000
            mfms.ColumnName,
            mfms.Class,
            mfms.TableName,
+           mfms.IsAdditional,
+           mfms.RetainIfNull,
            mfms.IncludeInApp,
            mfms.Required,
            mfms.PredefinedOrAutomatic,
@@ -335,6 +342,8 @@ SELECT ColumnType = NULL,
     Property_MFID = mp.MFID,
     ColumnName = c.COLUMN_NAME,
     AdditionalProperty =1,
+      cts.IsAdditional,
+    cts.RetainIfNull,
     IncludedInApp=1,
     Required = NULL,
     PredefinedOrAutomatic = NULL,
@@ -364,6 +373,8 @@ INSERT INTO ##spMFClassTableColumns
     Property_MFID,
     ColumnName,
     AdditionalProperty,
+    IsAdditional,
+    RetainIfNull,
     IncludedInApp,
     Required,
     PredefinedOrAutomatic,
@@ -381,6 +392,8 @@ SELECT cte.ColumnType,
        cte.Property_MFID,
        cte.ColumnName,
        cte.AdditionalProperty,
+         cte.IsAdditional,
+    cte.RetainIfNull,
        cte.IncludedInApp,
        cte.Required,
        cte.PredefinedOrAutomatic,
@@ -535,6 +548,8 @@ SELECT cte.ColumnType,
             pc.Property,
             pc.Property_MFID,
             pc.AdditionalProperty,
+            pc.IsAdditional,
+            pc.RetainIfNull,
             pc.IncludedInApp,
             pc.Required,
             pc.PredefinedOrAutomatic,

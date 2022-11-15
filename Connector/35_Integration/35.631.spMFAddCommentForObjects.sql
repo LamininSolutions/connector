@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFAddCommentForObjects',
                                  -- nvarchar(100)
-                                 @Object_Release = '4.8.22.62',
+                                 @Object_Release = '4.10.30.74',
                                  -- varchar(50)
                                  @UpdateFlag = 2;
 -- smallint
@@ -46,8 +46,11 @@ GO
 
 ALTER PROCEDURE dbo.spMFAddCommentForObjects
     @MFTableName NVARCHAR(250),
+    @RetainDeletions BIT = 0,
+    @IsDocumentCollection BIT = 0,
     @Process_id INT = 5,
     @Comment NVARCHAR(1000),
+    @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug SMALLINT = 0
 AS
 /*rST**************************************************************************
@@ -63,10 +66,17 @@ Parameters
   @MFTableName nvarchar(250)
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
+  @RetainDeletions bit
+    - Default = No
+    - Set explicity to 1 if the class table should retain deletions
+  @IsDocumentCollection
+    - Default = No
+    - Set explicitly to 1 if the class table refers to a document collection class table
   @Process\_id int
     process id of the object(s) to add the comment to
   @Comment nvarchar(1000)
     the text of the bulk comment
+
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
@@ -119,6 +129,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-09-02  LC         Add additional parameters for spmfupdatetable
 2020-08-22  LC         change of deleted column definition
 2019-11-23  LC         Redesign procedure
 2019-08-30  JC         Added documentation
@@ -132,7 +143,6 @@ SET NOCOUNT ON;
 
 BEGIN TRY
     DECLARE @Update_ID INT,
-            @ProcessBatch_ID INT,
             @return_value INT = 1;
 
 
@@ -398,12 +408,21 @@ BEGIN TRY
                        ofc.objid
                 FROM #ObjidsForComment AS ofc;
 
-            EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName,                -- nvarchar(200)
-                                     @UpdateMethod = 1,                          -- int
-                                     @ObjIDs = @Objids,                          -- nvarchar(max)
-                                     @Update_IDOut = @Update_IDOut OUTPUT,       -- int
-                                     @ProcessBatch_ID = @ProcessBatch_ID OUTPUT, -- int
-                                     @Debug = 0;                                 -- smallint
+            --EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName,                -- nvarchar(200)
+            --                         @UpdateMethod = 1,                          -- int
+            --                         @ObjIDs = @Objids,                          -- nvarchar(max)
+            --                         @Update_IDOut = @Update_IDOut OUTPUT,       -- int
+            --                         @ProcessBatch_ID = @ProcessBatch_ID OUTPUT, -- int
+            --                         @Debug = 0;                                 -- smallint
+
+EXEC dbo.spMFUpdateTable @MFTableName = @MFTablename,
+                         @UpdateMethod = 1,                         
+                         @ObjIDs = @Objids,
+                         @Update_IDOut = @Update_IDOut OUTPUT,
+                         @ProcessBatch_ID = @ProcessBatch_ID,
+                         @RetainDeletions = @RetainDeletions,
+                         @IsDocumentCollection = @IsDocumentCollection,
+                         @Debug = @debug
 
 -------------------------------------------------------------
 -- reset comments
@@ -449,6 +468,8 @@ BEGIN TRY
                                      @UpdateMethod = 0,                          -- int
                                      @Update_IDOut = @Update_IDOut OUTPUT,       -- int
                                      @ProcessBatch_ID = @ProcessBatch_ID OUTPUT, -- int
+                                      @RetainDeletions = @RetainDeletions,
+                                      @IsDocumentCollection = @IsDocumentCollection,
                                      @Debug = 0;                                 -- smallint
 
             -------------------------------------------------------------

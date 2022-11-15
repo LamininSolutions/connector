@@ -4,7 +4,7 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].
 GO
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFvwMetadataStructure', -- nvarchar(100)
-    @Object_Release = '4.9.27.71', -- varchar(50)
+    @Object_Release = '4.10.30.74', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
 
@@ -85,6 +85,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-09-03  LC         Add Retain if null for ad hoc properties
 2021-09-01  LC         Add valuelist_Class_MFID
 2020-12-20  LC         Add MFDatatype_ID
 2020-08-22  LC         Deleted column change to localisation
@@ -101,6 +102,8 @@ Date        Author     Description
             [mp].[ColumnName] ,
             [mp].[PredefinedOrAutomatic] ,
             [mcp].[Required] ,
+            RetainIfNull = CASE WHEN [mcp].isAdditional = 0 THEN 1 else ISNULL(mcp.RetainIfNull,0) end,
+            IsAdditional = mcp.IsAdditional,
             CASE WHEN mvl.mfid = 0 THEN NULL ELSE [mvl].[Name] end AS Valuelist ,
              CASE WHEN mvl.mfid = 0 THEN NULL ELSE [mvl].[Alias] end AS Valuelist_Alias ,
 			 CASE WHEN mvl.mfid = 0 THEN NULL ELSE mvl.id end AS Valuelist_ID,

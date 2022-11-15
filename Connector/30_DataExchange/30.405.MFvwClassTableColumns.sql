@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'MFvwClassTableColumns' -- nvarchar(100)
-                                    ,@Object_Release = '4.9.27.72'           -- varchar(50)
+                                    ,@Object_Release = '4.10.30.74'           -- varchar(50)
                                     ,@UpdateFlag = 2;                       -- smallint
 GO
 
@@ -32,16 +32,6 @@ GO
 SET NOEXEC OFF;
 GO
 
-/*
--- ============================================= 
--- Author: leRoux Cilliers, Laminin Solutions
--- Create date: 2018-11
-
--- Description:	Show nature of columns for class tables
--- Revision History:  
--- YYYYMMDD Author - Description 
--- =============================================
-*/
 ALTER VIEW [dbo].[MFvwClassTableColumns]
 AS
 
@@ -81,8 +71,9 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-
+2022-09-27  LC         updates following changes to additional property identification
 2021-10-26  LC         Set max columns to 10000
+2018-11-01  LC         Create view
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -90,11 +81,15 @@ Date        Author     Description
 SELECT TOP 10000
        [mc].[TableName]
       ,CASE
-           WHEN [mp2].[MFID] > 100
+           WHEN [mp2].[MFID] < 1000
                 AND [mcp].[MFProperty_ID] IS NULL THEN
-               'Alert'
+               'Alert'           
+ WHEN [mp2].[MFID] = 100 THEN 'No'
+ WHEN mcp.MFProperty_ID IS NULL THEN 'SQL only'
+           WHEN  mcp.IsAdditional = 0 THEN 'No'
+           WHEN  mcp.IsAdditional = 1 THEN 'Yes'
            ELSE
-               NULL
+            null  
        END          AS [AdditionalProperty]
       ,[mp2].[Name] AS [Property]
       ,[sc].[name]  AS [TableColumn]

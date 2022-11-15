@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFDropAndUpdateMetadata', -- nvarchar(100)
-                                 @Object_Release = '4.9.27.72',              -- varchar(50)
+                                 @Object_Release = '4.10.30.74',              -- varchar(50)
                                  @UpdateFlag = 2;
 -- smallint
 GO
@@ -46,6 +46,8 @@ ALTER PROCEDURE dbo.spMFDropAndUpdateMetadata
     @WithClassTableReset SMALLINT = 0,
     @WithColumnReset SMALLINT = 0,
     @IsStructureOnly SMALLINT = 1,
+    @RetainDeletions BIT = 0,
+    @IsDocumentCollection BIT = 0,
     @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug SMALLINT = 0
 AS
@@ -71,6 +73,12 @@ Parameters
   @IsStructureOnly smallint (optional)
     - Default = 0
     - 1 = include updating of all valuelist items or only main structure elements
+  @RetainDeletions bit
+    - Default = No
+    - Set explicity to 1 if the class table should retain deletions
+  @IsDocumentCollection
+    - Default = No
+    - Set explicitly to 1 if the class table refers to a document collection class table
   @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @Debug smallint (optional)
@@ -710,7 +718,15 @@ BEGIN TRY
                     PRINT 'Created table' + @TableName;
                     PRINT 'Synchronizing table ' + @TableName;
 
-                    EXEC dbo.spMFUpdateTable @TableName, 1;
+EXEC dbo.spMFUpdateTable @MFTableName = @Tablename,
+                         @UpdateMethod = 1,
+                         @ProcessBatch_ID = @ProcessBatch_ID,
+                         @RetainDeletions = @RetainDeletions,
+                         @IsDocumentCollection = @IsDocumentCollection,
+                         @Debug = @debug
+
+
+
                 END;
 
                 SET @TCounter = @TCounter + 1;

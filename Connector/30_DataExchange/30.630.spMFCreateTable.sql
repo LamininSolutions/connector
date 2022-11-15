@@ -4,9 +4,9 @@ GO
 SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
-    @ObjectName = N'spMFCreateTable', -- nvarchar(100)
-    @Object_Release = '4.9.28.73',    -- varchar(2506
-    @UpdateFlag = 2;
+                                 @ObjectName = N'spMFCreateTable', -- nvarchar(100)
+                                 @Object_Release = '4.10.30.74',   -- varchar(2506
+                                 @UpdateFlag = 2;
 
 IF EXISTS
 (
@@ -199,6 +199,9 @@ Date        Author     Description
 2020-11-21  LC         Fix bug with unique index on objid
 2021-01-22  LC         set default schema to dbo
 2022-01-04  LC         update app detail logging to include assembly logging
+2022-09-07  LC         update after changes to classproperty table to add IsAdditional
+2022-09-07  LC         revamp and simplify procedure
+2022-09-07  LC         remove unique index on externalid
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -209,15 +212,21 @@ BEGIN
         -------------------------------------------------------------
         -- Local variable Declaration
         -------------------------------------------------------------
-        DECLARE @Output    NVARCHAR(200),
-            @ClassID       INT,
-            @TableName     NVARCHAR(128),
-            @dsql          NVARCHAR(MAX) = N'',
-            @ConstColumn   NVARCHAR(MAX),
-            @IDColumn      NVARCHAR(MAX),
-            @Count         INT,
-            @ProcedureName sysname       = 'spMFCreateTable',
-            @ProcedureStep sysname       = 'Start';
+        DECLARE @Output NVARCHAR(200),
+                @ClassID INT,
+                @TableName NVARCHAR(128),
+                @dsql NVARCHAR(MAX) = N'',
+                @ConstColumn NVARCHAR(MAX),
+                @IDColumn NVARCHAR(MAX),
+                @Count INT,
+                @ProcedureName sysname = 'spMFCreateTable',
+                @ProcedureStep sysname = 'Start',
+                 @ClassCustomName NVARCHAR(100),
+                        @ClassMFID INT,
+                        @SQLDatatype_10 NVARCHAR(100),
+                        @SQLDatatype_9 NVARCHAR(100),
+                        @SQLDatatype_10_ID int,
+                        @SQLDatatype_9_ID INT;
 
         -------------------------------------------------------------
         --Check if the name exixsts in MFClass
@@ -237,94 +246,15 @@ BEGIN
             --Validating Module for calling CLR Procedure
             ------------------------------------------------------
             EXEC dbo.spMFCheckLicenseStatus 'spMFCreateTable',
-                'spMFCreateTable',
-                'Create Table';
+                                            'spMFCreateTable',
+                                            'Create Table';
 
-            -------------------------------------------------------------
-            --SELECT PROPERTY NAME AND DATA TYPE
-            -------------------------------------------------------------
-            SET @ProcedureStep = 'SELECT PROPERTY NAME AND DATA TYPE';
+               /*************************************************************************
+					  STEP Get id of of class column to set it up as default
+					  NOTES
+					  */
 
-            SELECT *
-            INTO #Temp
-            FROM
-            (
-                SELECT ColumnName,
-                    MFDataType_ID,
-                    ID
-                FROM dbo.MFProperty
-                WHERE ID IN
-                      (
-                          SELECT MFProperty_ID
-                          FROM dbo.MFClassProperty
-                          WHERE Deleted = 0
-                                AND MFClass_ID =
-                                (
-                                    SELECT ID FROM dbo.MFClass WHERE Name = @ClassName AND Deleted = 0
-                                )
-                      )
-            ) AS columnNameAndDataType;
-
-            SELECT @ClassID = ID
-            FROM dbo.MFClass
-            WHERE Name = @ClassName
-                  AND Deleted = 0;
-
-            ALTER TABLE #Temp ADD PredefinedOrAutomatic BIT;
-
-            IF @Debug = 1
-            BEGIN
-                SELECT *
-                FROM #Temp AS t;
-
-                RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
-            END;
-
-            -----------------------------------------------------------------
-            --Updating PredefinedOrAutomatic with values from MFClassProperty
-            -----------------------------------------------------------------
-            SET @ProcedureStep = 'Updating PredefinedOrAutomatic with values from MFClassProperty';
-
-            UPDATE #Temp
-            SET PredefinedOrAutomatic =
-                (
-                    SELECT Required
-                    FROM dbo.MFClassProperty
-                    WHERE MFProperty_ID = ID
-                          AND MFClass_ID = @ClassID
-                );
-
-            -----------------------------------------------------------------------------
-            --Checking if the required property is autocalculated 
-            --     or predefined,if yes, Updating required = FALSE
-            -----------------------------------------------------------------------------
-            UPDATE #Temp
-            SET PredefinedOrAutomatic =
-                (
-                    SELECT 1 ^ PredefinedOrAutomatic FROM dbo.MFProperty WHERE ID = #Temp.ID
-                )
-            WHERE PredefinedOrAutomatic = 1;
-
-            IF @Debug = 1
-                RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
-
-            -----------------------------------------------------------------------------
-            --CHANGE THE 'MFDataType_ID' COLUMN DATA TYPE TO 'NVARCHAR(250)'
-            -----------------------------------------------------------------------------
-            SET @ProcedureStep = 'CHANGE THE MFDataType_ID COLUMN DATA TYPE TO NVARCHAR(100)';
-
-            ALTER TABLE #Temp DROP COLUMN ID;
-
-            ALTER TABLE #Temp ALTER COLUMN MFDataType_ID NVARCHAR(250);
-
-            SELECT @TableName = TableName
-            FROM dbo.MFClass
-            WHERE Name = @ClassName;
-
-            IF @Debug = 1
-                RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
-
-            -----------------------------------------------------------------------------
+      -----------------------------------------------------------------------------
             --Check If the table already Existing in DB or not
             -----------------------------------------------------------------------------
             SET @ProcedureStep = 'Check If the table already Existing in DB or not';
@@ -337,10 +267,126 @@ BEGIN
                       AND OBJECTPROPERTY(id, N'IsUserTable') = 1
             )
             BEGIN
+
+            SELECT @SQLDatatype_10 = mdt.SQLDataType, @SQLDatatype_10_ID = mdt.id FROM dbo.MFDataType AS mdt
+            WHERE mdt.MFTypeID = 10
+
+            SELECT @SQLDatatype_9 = 'NVARCHAR(100)', @SQLDatatype_9_ID = mdt.id FROM dbo.MFDataType AS mdt
+            WHERE mdt.MFTypeID = 9
+               
+               SELECT @ClassCustomName = Name
+                FROM dbo.MFProperty
+                WHERE MFID = 100;
+
+                  SELECT @ClassID = ID, @TableName = TableName,@ClassMFID = MFID
+            FROM dbo.MFClass
+            WHERE Name = @ClassName
+                  AND Deleted = 0;
+ 
+ -------------------------------------------------------------
+            --SELECT PROPERTY NAME AND DATA TYPE
+            -------------------------------------------------------------
+            SET @ProcedureStep = 'SELECT PROPERTY NAME AND DATA TYPE';
+
+
+            IF (SELECT OBJECT_ID('tempdb..#temp')) IS NOT NULL
+            DROP TABLE #temp;
+
+            CREATE TABLE #temp
+            (ColumnName NVARCHAR(128) PRIMARY KEY
+            ,MFDataType_ID NVARCHAR(250)
+            ,SQLDataType NVARCHAR(100)
+            ,ID INT
+            ,PredefinedOrAutomatic NVARCHAR(100)
+            )
+
+            INSERT INTO #temp
+            (ColumnName,
+              MFDataType_ID,
+              SQLDataType,
+              ID,
+              PredefinedOrAutomatic
+              )
+           
+                SELECT DISTINCT ColumnName,
+                       CAST(MFDataType_ID AS VARCHAR(10)),
+                       mdt.SQLDataType,
+                       mp.ID,
+                       'NULL'
+                FROM dbo.MFProperty mp
+                INNER JOIN dbo.MFClassProperty AS mcp
+                ON mcp.MFProperty_ID = mp.id 
+                INNER JOIN dbo.MFClass AS mc
+                ON mcp.MFClass_ID = mc.ID
+                INNER JOIN dbo.MFDataType AS mdt
+                ON mdt.id = mp.MFDataType_ID
+                WHERE mp.Deleted = 0
+                 AND mcp.IsAdditional = 0
+                 AND mc.id = @Classid               
+
+            IF @Debug = 1
+            BEGIN
+                SELECT '#temp',t.*,mdt.SQLDataType
+                FROM #Temp AS t
+                INNER JOIN dbo.MFDataType AS mdt
+                ON t.MFDataType_ID = mdt.ID
+                ;
+
+                RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
+            END;
+
+            -----------------------------------------------------------------
+            --Updating PredefinedOrAutomatic with values from MFClassProperty
+            -----------------------------------------------------------------
+            SET @ProcedureStep = 'Updating PredefinedOrAutomatic with values from MFClassProperty';
+
+            --UPDATE #Temp
+            --SET PredefinedOrAutomatic =
+            --    (
+            --        SELECT Required
+            --        FROM dbo.MFClassProperty
+            --        WHERE MFProperty_ID = ID
+            --              AND MFClass_ID = @ClassID
+            --    );
+
+            -----------------------------------------------------------------------------
+            --Checking if the required property is autocalculated 
+            --     or predefined,if yes, Updating required = FALSE
+            -----------------------------------------------------------------------------
+            --UPDATE #Temp
+            --SET PredefinedOrAutomatic =
+            --    (
+            --        SELECT 1 ^ PredefinedOrAutomatic FROM dbo.MFProperty WHERE ID = #Temp.ID
+            --    )
+            --WHERE PredefinedOrAutomatic = 1;
+
+            --IF @Debug = 1
+            --    RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
+
+            -----------------------------------------------------------------------------
+            --CHANGE THE 'MFDataType_ID' COLUMN DATA TYPE TO 'NVARCHAR(250)'
+            -----------------------------------------------------------------------------
+            --SET @ProcedureStep = 'CHANGE THE MFDataType_ID COLUMN DATA TYPE TO NVARCHAR(100)';
+
+            --ALTER TABLE #Temp DROP COLUMN ID;
+
+            --ALTER TABLE #Temp ALTER COLUMN MFDataType_ID NVARCHAR(250);
+
+            --SELECT @TableName = TableName
+            --FROM dbo.MFClass
+            --WHERE Name = @ClassName;
+
+            --IF @Debug = 1
+            --    RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
+
+            IF @dEBUG > 0
+            SELECT @SQLDatatype_9,@SQLDatatype_9_id, @SQLDatatype_10,@SQLDatatype_10_id; 
+      
                 INSERT INTO #Temp
                 (
                     ColumnName,
                     MFDataType_ID,
+                    SQLDataType,
                     PredefinedOrAutomatic
                 )
                 SELECT *
@@ -352,13 +398,14 @@ BEGIN
                                ELSE
                                    SUBSTRING(ColumnName, 1, LEN(ColumnName) - 5)
                                    + REPLACE((SUBSTRING(ColumnName, (LEN(ColumnName) - 4), 5)), '_ID', '')
-                           END  AS ColumnName,
-                        1       AS MFDataType_ID,
-                        'False' AS PredefinedOrAutomatic
+                           END AS ColumnName,
+                           @SQLDatatype_9_ID AS MFDataType_ID,
+                            SQLDatatype =  @SQLDatatype_9 ,
+
+                           'NULL' AS PredefinedOrAutomatic
                     FROM #Temp
-                    WHERE MFDataType_ID IN
-                          (
-                              SELECT ID FROM dbo.MFDataType WHERE MFTypeID IN ( 9 )
+                    WHERE MFDataType_ID = (
+                              SELECT ID FROM dbo.MFDataType WHERE MFTypeID = 9
                           )
                 ) AS n1
                 UNION ALL
@@ -371,65 +418,70 @@ BEGIN
                                ELSE
                                    SUBSTRING(ColumnName, 1, LEN(ColumnName) - 5)
                                    + REPLACE((SUBSTRING(ColumnName, (LEN(ColumnName) - 4), 5)), '_ID', '')
-                           END  AS ColumnName,
-                        9       AS MFDataType_ID,
-                        'False' AS PredefinedOrAutomatic
+                           END AS ColumnName,
+                           @SQLDatatype_10_id AS MFDataType_ID,
+                           SQLDatatype =  @SQLDatatype_10  ,
+                           'NULL' AS PredefinedOrAutomatic
                     FROM #Temp
-                    WHERE MFDataType_ID IN
+                    WHERE MFDataType_ID = 
                           (
-                              SELECT ID FROM dbo.MFDataType WHERE MFTypeID = 10
+                              SELECT id FROM dbo.MFDataType WHERE MFTypeID = 10
                           )
                 ) AS n2;
 
                 IF @Debug = 1
                 BEGIN
-                    SELECT *
-                    FROM #Temp;
+                     SELECT 'AddedLookups',t.*,mdt.SQLDataType
+                FROM #Temp AS t
+                INNER JOIN dbo.MFDataType AS mdt
+                ON t.MFDataType_ID = mdt.ID;
 
                     RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
+               
+
                 -----------------------------------------------------------------------------
                 --CHANGE THE FKID WITH SQLDATATYPE
                 -----------------------------------------------------------------------------
-                UPDATE #Temp
-                SET MFDataType_ID =
-                    (
-                        SELECT SQLDataType FROM dbo.MFDataType WHERE ID = MFDataType_ID
-                    );
+                --UPDATE #Temp
+                --SET MFDataType_ID =
+                --    (
+                --        SELECT SQLDataType FROM dbo.MFDataType WHERE ID = MFDataType_ID
+                --    );
 
                 -----------------------------------------------------------------------------
                 --ALTERING THE #Temp TABLE COLUMN DATATYPE
-                -----------------------------------------------------------------------------
-                SET @ProcedureStep = 'ALTERING THE #Temp TABLE COLUMN DATATYPE';
+     --           -----------------------------------------------------------------------------
+    --            SET @ProcedureStep = 'ALTERING THE #Temp TABLE COLUMN DATATYPE';
 
-                --		IF EXISTS(SELECT name FROM sys.columns WHERE [columns].[object_id] = OBJECT_ID('tempdb..#Temp') AND name = 'PredefinedOrAutomatic')						  
-                ALTER TABLE #Temp ALTER COLUMN PredefinedOrAutomatic NVARCHAR(250);
+                ----		IF EXISTS(SELECT name FROM sys.columns WHERE [columns].[object_id] = OBJECT_ID('tempdb..#Temp') AND name = 'PredefinedOrAutomatic')						  
+                --ALTER TABLE #Temp ALTER COLUMN PredefinedOrAutomatic NVARCHAR(250);
 
-                UPDATE #Temp
-                SET PredefinedOrAutomatic = 'NULL'
-                WHERE PredefinedOrAutomatic = '0';
+                --UPDATE #Temp
+                --SET PredefinedOrAutomatic = 'NULL'
+                --WHERE PredefinedOrAutomatic = '0';
 
-                UPDATE #Temp
-                --                 SET     PredefinedOrAutomatic = 'NOT NULL'
-                SET PredefinedOrAutomatic = 'NULL'
-                WHERE PredefinedOrAutomatic = '1';
+                --UPDATE #Temp
+                ----                 SET     PredefinedOrAutomatic = 'NOT NULL'
+                --SET PredefinedOrAutomatic = 'NULL'
+                --WHERE PredefinedOrAutomatic = '1';
 
-                IF @Debug = 1
-                    RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
+                --IF @Debug = 1
+                --    RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
 
                 -----------------------------------------------------------------------------
                 --Add Additional Default columns in localised text
                 -----------------------------------------------------------------------------                  
-                SET @ProcedureStep = 'Add Additional Default columns in localised text';
+                --SET @ProcedureStep = 'Add Additional Default columns in localised text';
 
-                DECLARE @NameOrTitle   VARCHAR(100),
-                    @classPropertyName VARCHAR(100),
-                    @Workflow          VARCHAR(100),
-                    @State             VARCHAR(100),
-                    @SingleFile        VARCHAR(100),
-                    @WorkflowName      VARCHAR(100),
-                    @Deleted              VARCHAR(100);
+                DECLARE @NameOrTitle VARCHAR(100),
+                        @classPropertyName VARCHAR(100),
+                        @Workflow VARCHAR(100),
+                        @State VARCHAR(100),
+                        @SingleFile VARCHAR(100),
+                        @WorkflowName VARCHAR(100),
+                        @Deleted VARCHAR(100);
 
                 SELECT @NameOrTitle = ColumnName
                 FROM dbo.MFProperty
@@ -439,8 +491,8 @@ BEGIN
                 FROM dbo.MFProperty
                 WHERE MFID = 100;
 
-                SELECT @Workflow  = ColumnName,
-                    @WorkflowName = Name
+                SELECT @Workflow = ColumnName,
+                       @WorkflowName = Name
                 FROM dbo.MFProperty
                 WHERE MFID = 38;
 
@@ -453,83 +505,69 @@ BEGIN
                 FROM dbo.MFProperty
                 WHERE MFID = 22;
 
-                      ------Added By LC For 
+                ------Added By LC For 
                 SELECT @Deleted = ColumnName
                 FROM dbo.MFProperty
                 WHERE MFID = 27;
                 -------------------------------------------------------------
-                -- test duplicates
-                -------------------------------------------------------------
+                ---- test duplicates
+                ---------------------------------------------------------------
 
-                --SELECT @State =   CASE
-                --                        WHEN
-                --                        (
-                --                            SELECT COUNT(*) FROM [#Temp] AS [t] WHERE [t].[ColumnName] = @State
+                ----SELECT @State =   CASE
+                ----                        WHEN
+                ----                        (
+                ----                            SELECT COUNT(*) FROM [#Temp] AS [t] WHERE [t].[ColumnName] = @State
 
-                --                        ) > 0 THEN
-                --                            @WorkflowName +'_' + @State
-                --                        ELSE
-                --                            @State
-                --                    END
+                ----                        ) > 0 THEN
+                ----                            @WorkflowName +'_' + @State
+                ----                        ELSE
+                ----                            @State
+                ----                    END
 
-                ------Added By DevTeam2 For Task 937
+                --------Added By DevTeam2 For Task 937
 
-                --					SELECT @NameOrTitle,@classPropertyName,@Workflow, @State
-                INSERT INTO #Temp
-                (
-                    ColumnName,
-                    MFDataType_ID,
-                    PredefinedOrAutomatic
-                )
-                VALUES
-                (@classPropertyName, 'INTEGER', 'NOT NULL'),
-                (REPLACE(@classPropertyName, '_ID', ''), 'NVARCHAR(100)', 'NULL'),
-                (@Workflow, 'INTEGER', 'NULL'),
-                (REPLACE(@Workflow, '_ID', ''), 'NVARCHAR(100)', 'NULL'),
-                (@State, 'INTEGER', 'NULL'),
-                (REPLACE(@State, '_ID', ''), 'NVARCHAR(100)', 'NULL'),
-                (@SingleFile, 'BIT', 'NOT NULL '),
-                (@Deleted, 'Datetime', 'NULL ');
+                ----					SELECT @NameOrTitle,@classPropertyName,@Workflow, @State
+                --INSERT INTO #Temp
+                --(
+                --    ColumnName,
+                --    sqlDataType,
+                --    PredefinedOrAutomatic
+                --)
+                --VALUES
+                --(@classPropertyName, 'INTEGER', 'NOT NULL'),
+                --(REPLACE(@classPropertyName, '_ID', ''), 'NVARCHAR(100)', 'NULL'),
+                --(@Workflow, 'INTEGER', 'NULL'),
+                --(REPLACE(@Workflow, '_ID', ''), 'NVARCHAR(100)', 'NULL'),
+                --(@State, 'INTEGER', 'NULL'),
+                --(REPLACE(@State, '_ID', ''), 'NVARCHAR(100)', 'NULL'),
+                --(@SingleFile, 'BIT', 'NOT NULL '),
+                --(@Deleted, 'Datetime', 'NULL ');
 
-                SET @ProcedureStep = 'Add Class and Name or title';
+                --SET @ProcedureStep = 'Add Class and Name or title';
 
-                ------Added By DevTeam2 For Task 937
-                IF NOT EXISTS (SELECT * FROM #Temp AS t WHERE t.ColumnName = @NameOrTitle)
-                BEGIN
-                    INSERT INTO #Temp
-                    (
-                        ColumnName,
-                        MFDataType_ID,
-                        PredefinedOrAutomatic
-                    )
-                    VALUES
-                    (@NameOrTitle, 'NVARCHAR(100)', 'NULL');
-                END;
+                --------Added By DevTeam2 For Task 937
+                --IF NOT EXISTS (SELECT t.ColumnName FROM #Temp AS t WHERE t.ColumnName = @NameOrTitle)
+                --BEGIN
+                --    INSERT INTO #Temp
+                --    (
+                --        ColumnName,
+                --        sqlDataType,
+                --        PredefinedOrAutomatic
+                --    )
+                --    VALUES
+                --    (@NameOrTitle, 'NVARCHAR(100)', 'NULL');
+                --END;
 
-                IF @Debug = 1
-                BEGIN
-                    SELECT '#Temp',
-                        *
-                    FROM #Temp;
+                --IF @Debug = 1
+                --BEGIN
+                --    SELECT '#Temp',
+                --           *
+                --    FROM #Temp;
 
-                    RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
-                END;
+                --    RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
+                --END;
 
-                /*************************************************************************
-					  STEP Get id of of class column to set it up as default
-					  NOTES
-					  */
-                DECLARE @ClassCustomName NVARCHAR(100),
-                    @ClassMFID           INT;
-
-                SELECT @ClassCustomName = Name
-                FROM dbo.MFProperty
-                WHERE MFID = 100;
-
-                SELECT @ClassMFID = MFID
-                FROM dbo.MFClass
-                WHERE ID = @ClassID;
-
+  
                 -----------------------------------------------------------------------------
                 --GENERATING THE DYNAMIC QUERY TO CREATE TABLE    
                 -----------------------------------------------------------------------------                  
@@ -539,7 +577,7 @@ BEGIN
                     = N'[ID]  INT IDENTITY(1,1) NOT NULL ,[GUID] NVARCHAR(100),[MX_User_ID]  UNIQUEIDENTIFIER,';
 
                 SELECT @dsql
-                    = @dsql + QUOTENAME(ColumnName) + N' ' + MFDataType_ID + N' ' + PredefinedOrAutomatic + N','
+                    = @dsql + QUOTENAME(ColumnName) + N' ' + sqlDataType + N' ' + PredefinedOrAutomatic + N','
                 FROM #Temp
                 ORDER BY ColumnName;
 
@@ -554,17 +592,17 @@ BEGIN
                     = N'CREATE TABLE dbo.' + QUOTENAME(@TableName) + N' (' + LEFT(@dsql, LEN(@dsql) - 1)
                       + N'
 								 CONSTRAINT pk_' + @TableName + N'ID PRIMARY KEY (ID))' +
-									--ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Deleted_'
-         --             + @TableName + N']  DEFAULT 0 FOR [Deleted]
-         '
+                    --ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Deleted_'
+                    --             + @TableName + N']  DEFAULT 0 FOR [Deleted]
+                    N'
 									ALTER TABLE dbo.' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Process_id_'
                       + @TableName + N']  DEFAULT 1 FOR [Process_ID]
 				    ALTER TABLE dbo.' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_FileCount_' + @TableName
                       + N']  DEFAULT 0 FOR [FileCount]
                        ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_LastModified_' + @TableName
                       + N']  DEFAULT GetDate() FOR [LastModified]
-                        ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_'+@SingleFile+'_' + @TableName
-                      + N']  DEFAULT 0 FOR '+QUOTENAME(@SingleFile)+'
+                        ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_' + @SingleFile + N'_'
+                      + @TableName + N']  DEFAULT 0 FOR ' + QUOTENAME(@SingleFile) + N'
 				     ';
 
                 ---------------------------------------------------------------------------
@@ -594,12 +632,12 @@ BEGIN
                     = N'ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Class_' + @TableName
                       + N'] DEFAULT(' + CAST(-1 AS VARCHAR(10)) + N') FOR ' + QUOTENAME(@ClassCustomName + '_ID') + N'';
 
-       IF @Debug > 0
-       PRINT @dsql;
+                IF @Debug > 0
+                    PRINT @dsql;
 
                 EXEC sys.sp_executesql @Stmt = @dsql,
-                    @Param = @Params,
-                    @Tablename = @TableName;
+                                       @Param = @Params,
+                                       @Tablename = @TableName;
 
                 IF @Debug = 1
                 BEGIN
@@ -615,7 +653,7 @@ BEGIN
                 SET @ProcedureStep = 'Add MFSQL_Message and MFSQL_Process_Batch columns';
 
                 DECLARE @IsDetailLogging SMALLINT,
-                    @SQL                 NVARCHAR(MAX);
+                        @SQL NVARCHAR(MAX);
 
                 SELECT @IsDetailLogging = CAST(ISNULL(ms.Value, '0') AS INT)
                 FROM dbo.MFSettings AS ms
@@ -640,8 +678,8 @@ BEGIN
 Alter Table ' +             @TableName + N'
 Add MFSQL_Message nvarchar(max) null;';
 
-     IF @Debug > 0
-       PRINT @dsql;
+                            IF @Debug > 0
+                                PRINT @dsql;
 
 
                             EXEC (@SQL);
@@ -658,8 +696,8 @@ Add MFSQL_Message nvarchar(max) null;';
 Alter Table ' +             @TableName + N'
 Add  MFSQL_Process_batch int null;';
 
-     IF @Debug > 0
-       PRINT @dsql;
+                            IF @Debug > 0
+                                PRINT @dsql;
 
                             EXEC (@SQL);
                         END; --columns does not exist on table
@@ -679,17 +717,17 @@ Add  MFSQL_Process_batch int null;';
 
                 IF @CreateUniqueIndexes = 1
                 BEGIN
---                    SET @SQL
---                        = N'
+                    --                    SET @SQL
+                    --                        = N'
 
 
-----ALTER TABLE ' +     QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DF_' + @TableName
-----                          + N'_ObjID]  DEFAULT ((ROW_NUMBER() OVER ( ORDER BY objid))*-1 FOR [ObjID]';
+                    ----ALTER TABLE ' +     QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DF_' + @TableName
+                    ----                          + N'_ObjID]  DEFAULT ((ROW_NUMBER() OVER ( ORDER BY objid))*-1 FOR [ObjID]';
 
---                    IF @debug > 0
---                    PRINT @SQL;
-                    
---                    EXEC (@SQL);
+                    --                    IF @debug > 0
+                    --                    PRINT @SQL;
+
+                    --                    EXEC (@SQL);
 
                     SET @SQL
                         = N'
@@ -701,8 +739,8 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_' + @TableName + N'_Objid
 ON dbo.' +          @TableName + N'(Objid) WHERE Objid is not null;';
 
 
- IF @debug > 0
-                    PRINT @SQL;
+                    IF @Debug > 0
+                        PRINT @SQL;
 
                     EXEC (@SQL);
 
@@ -718,12 +756,12 @@ IF NOT EXISTS(SELECT 1
 FROM sys.indexes 
 WHERE name=''IX_' + @TableName + N'_ExternalID'' AND object_id = OBJECT_ID(''dbo.' + @TableName
                           + N'''))
-CREATE UNIQUE NONCLUSTERED INDEX IX_' + @TableName + N'_ExternalID
+CREATE NONCLUSTERED INDEX IX_' + @TableName + N'_ExternalID
 ON dbo.' +          @TableName + N'(ExternalID)
 WHERE ExternalID IS NOT NULL;';
 
- IF @debug > 0
-                    PRINT @SQL;
+                    IF @Debug > 0
+                        PRINT @SQL;
 
                     EXEC (@SQL);
 
@@ -737,8 +775,8 @@ CREATE NONCLUSTERED INDEX IX_' + @TableName + N'_Update_ID
 ON dbo.' +          @TableName + N'(Update_ID)
 WHERE Update_ID IS NOT NULL;';
 
- IF @debug > 0
-                    PRINT @SQL;
+                    IF @Debug > 0
+                        PRINT @SQL;
 
                     EXEC (@SQL);
 
@@ -824,17 +862,17 @@ NOTES
         )
         VALUES
         ('spMFCreateTable', ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), ERROR_STATE(), ERROR_SEVERITY(),
-            ERROR_LINE());
+         ERROR_LINE());
 
         -----------------------------------------------------------------------------
         -- DISPLAYING ERROR DETAILS
         -----------------------------------------------------------------------------
         SELECT ERROR_NUMBER() AS ErrorNumber,
-            ERROR_MESSAGE()   AS ErrorMessage,
-            ERROR_PROCEDURE() AS ErrorProcedure,
-            ERROR_STATE()     AS ErrorState,
-            ERROR_SEVERITY()  AS ErrorSeverity,
-            ERROR_LINE()      AS ErrorLine;
+               ERROR_MESSAGE() AS ErrorMessage,
+               ERROR_PROCEDURE() AS ErrorProcedure,
+               ERROR_STATE() AS ErrorState,
+               ERROR_SEVERITY() AS ErrorSeverity,
+               ERROR_LINE() AS ErrorLine;
 
         RETURN 2;
     END CATCH;

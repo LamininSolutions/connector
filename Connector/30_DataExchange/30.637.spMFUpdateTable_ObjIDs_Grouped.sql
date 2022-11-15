@@ -4,7 +4,7 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
 SET NOCOUNT ON;
 EXEC Setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTable_ObjIDs_Grouped', -- nvarchar(100)
-    @Object_Release = '3.1.2.38', -- varchar(50)
+    @Object_Release = '4.10.30.74', -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
 
@@ -41,6 +41,8 @@ ALTER PROCEDURE [dbo].[spMFUpdateTable_ObjIDs_Grouped]
       @UpdateMethod INT = 1,
       @ProcessId INT = 6,
       @UserId NVARCHAR(200) = NULL,
+    @RetainDeletions BIT = 0,
+    @IsDocumentCollection BIT = 0,
       @ProcessBatch_ID INT = NULL OUTPUT,
       @Debug SMALLINT = 0
     )
@@ -69,6 +71,12 @@ Parameters
   @UserId nvarchar(200) (optional)
     - Default = NULL
     - Update specific user
+  @RetainDeletions bit
+    - Default = No
+    - Set explicity to 1 if the class table should retain deletions
+  @IsDocumentCollection
+    - Default = No
+    - Set explicitly to 1 if the class table refers to a document collection class table
   @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @Debug smallint (optional)
@@ -100,6 +108,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-09-02  LC         Update to include RetainDeletions and DocumentCollections
 2019-08-30  JC         Added documentation
 2017-06-29  AC         @ObjIds_toUpdate change sizes to NVARCHAR(4000)
 2017-06-29  AC         @ObjIds_FieldLenth change default value to 2000
@@ -331,6 +340,8 @@ Date        Author     Description
 									, @MFModifiedDate = NULL
 									, @ObjIDs = @ObjIds_toUpdate -- CSV List
 									,@ProcessBatch_ID = @ProcessBatch_ID
+                         ,@RetainDeletions = @RetainDeletions
+                         ,@IsDocumentCollection = @IsDocumentCollection
 									, @Debug = @Debug;
 
 			  IF @Debug > 0

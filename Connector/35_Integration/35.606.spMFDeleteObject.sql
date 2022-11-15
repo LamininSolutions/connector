@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFDeleteObject', -- nvarchar(100)
-                                 @Object_Release = '4.9.29.73',     -- varchar(50)
+                                 @Object_Release = '4.10.30.74',     -- varchar(50)
                                  @UpdateFlag = 2;                   -- smallint
 GO
 IF EXISTS
@@ -41,7 +41,7 @@ ALTER PROCEDURE dbo.spMFDeleteObject
     @Output NVARCHAR(max) OUTPUT,
     @ObjectVersion INT = -1,
     @DeleteWithDestroy BIT = 0,
-    @Update_ID INT OUTPUT,
+    @Update_ID INT = null OUTPUT ,
     @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug SMALLINT = 0
 AS
@@ -195,6 +195,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-06-23  LC         Set a default for @Update_ID parameter
 2022-02-11  LC         Update audit history and class table with result
 2022-02-11  LC         Align the error codes with the assemblies
 2021-12-16  LC         Reset objectversion default to -1

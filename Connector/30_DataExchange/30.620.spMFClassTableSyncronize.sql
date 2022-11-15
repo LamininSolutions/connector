@@ -4,7 +4,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',   @ObjectName = N'spMFClassTableSynchronize', -- nvarchar(100)
-    @Object_Release = '3.1.4.40', -- varchar(50)
+    @Object_Release = '4.10.30.74', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 
 
@@ -59,6 +59,9 @@ GO
 
 ALTER PROC [dbo].[spMFClassTableSynchronize]
     @TableName sysname ,
+     @RetainDeletions BIT = 0,
+    @IsDocumentCollection BIT = 0,
+    @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug SMALLINT = 0
 AS /**************************Update procedure for table change*/
     BEGIN
@@ -108,11 +111,13 @@ AS /**************************Update procedure for table change*/
             SET @ProcedureStep = 'Transaction Update method'
 			;
 
-            EXEC @Result_Value = [dbo].[spMFUpdateTable] @MFTableName = @TableName, -- nvarchar(128)
-                @UpdateMethod = @UpdateMethod, -- int
-                @UserId = NULL, -- nvarchar(200)
-                @MFModifiedDate = NULL,--NULL to select all records
-                @ObjIDs = NULL, @Debug = 0; -- smallint
+
+                EXEC dbo.spMFUpdateTable @MFTableName = @TableName,
+                         @UpdateMethod = @UpdateMethod,
+                         @ProcessBatch_ID = @ProcessBatch_ID ,
+                         @RetainDeletions = @RetainDeletions,
+                         @IsDocumentCollection = @IsDocumentCollection,
+                         @Debug = @debug
 
             SELECT  @Result_Value;
 

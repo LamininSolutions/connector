@@ -13,6 +13,10 @@ MFProperty\_ID int (primarykey, not null)
   ID column of MFProperty
 Required bit (not null)
   If the property is required on the class
+RetainIfNull bit 
+  If set to 1 then property is additional property then property will be added to metadata card if null
+IsAdditional bit
+  Updated by system to indicate that property is not on defined on the structure as part of the class
 
 Additional Info
 ===============
@@ -42,32 +46,16 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-09-06  LC         add RetainIfNull and IsAdditional
 2020-04-22  LC         create constraints when table is created
 2019-09-07  JC         Added documentation
+2016-02-10  LC         Create table
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
 
 SET NOCOUNT ON; 
 GO
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2016-02
-	Database: 
-	Description: Class Property links the Class and the Property tables
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	2017-07-24		AC			Fix Foreign Key not being created when deployed to existing installation.
-------------------------------------------------------------------------------------------------*/
-/*-----------------------------------------------------------------------------------------------
-  USAGE:
-  =====
-  Select * from MFClassProperty
-  
------------------------------------------------------------------------------------------------*/
 
 PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
     + '.[dbo].[MFClassProperty]';
@@ -76,13 +64,10 @@ GO
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', -- nvarchar(128)
  @ObjectName = N'MFClassProperty', -- nvarchar(100)
-    @Object_Release = '4.1.5.41', -- varchar(50)
+    @Object_Release = '4.10.30.74', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
 
-/*
-2017-09-11	LC	Change name of foreign key
-*/
 
 IF NOT EXISTS ( SELECT  name
                 FROM    sys.tables
@@ -93,7 +78,9 @@ IF NOT EXISTS ( SELECT  name
             (
               [MFClass_ID] INT NOT NULL ,
               [MFProperty_ID] INT NOT NULL ,
-              [Required] BIT NOT NULL 
+              [Required] BIT NOT NULL ,
+              RetainIfNull BIT DEFAULT(0),
+              IsAdditional BIT DEFAULT(0)
 			  
               CONSTRAINT [PK_MFClassProperty] PRIMARY KEY CLUSTERED
                 ( [MFClass_ID] ASC, [MFProperty_ID] ASC ) 
@@ -107,8 +94,31 @@ ALTER TABLE [dbo].[MFClassProperty] ADD CONSTRAINT [FK_MFClassProperty_MFPropert
 
         PRINT SPACE(10) + '... Table: created';
     END;
+
 ELSE
-    PRINT SPACE(10) + '... Table: exists';
+Begin
+   IF NOT exists(SELECT c.object_ID FROM sys.columns c
+   INNER JOIN sys.tables t
+   ON c.object_id = t.object_id
+   WHERE c.name = 'RetainIfNull' AND t.name = 'MFclassProperty')
+   BEGIN
+   ALTER TABLE MFClassProperty
+   ADD RetainIfNull BIT DEFAULT(0)
+   END
+    IF NOT exists(SELECT c.object_ID FROM sys.columns c
+   INNER JOIN sys.tables t
+   ON c.object_id = t.object_id
+   WHERE c.name = 'IsAdditional' AND t.name = 'MFclassProperty')
+   BEGIN
+   ALTER TABLE MFClassProperty
+   ADD IsAdditional BIT DEFAULT(0)
+   END
+   
+   PRINT SPACE(10) + '...  Table: Updated';
+   END
+
+      PRINT SPACE(10) + '...  Table: Exists';
+
 
 --INDEXES #############################################################################################################################
 

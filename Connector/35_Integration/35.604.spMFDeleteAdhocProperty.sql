@@ -6,7 +6,7 @@ SET NOCOUNT ON;
 EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFDeleteAdhocProperty'
                                     -- nvarchar(100)
-                                    ,@Object_Release = '4.8.22.62'
+                                    ,@Object_Release = '4.10.30.74'
                                     -- varchar(50)
                                     ,@UpdateFlag = 2;
                                     -- smallint
@@ -46,6 +46,8 @@ ALTER PROCEDURE [dbo].[spMFDeleteAdhocProperty]
                                 --,@ObjId			    INT			-- ObjId the record
    ,@columnNames NVARCHAR(4000) --Property names separated by comma to delete the value 
    ,@process_ID SMALLINT        -- do not use 0
+    ,@RetainDeletions BIT = 0
+   , @IsDocumentCollection BIT = 0
    ,@ProcessBatch_ID INT = NULL OUTPUT
    ,@Debug SMALLINT = 0
 )
@@ -67,6 +69,12 @@ Parameters
     Name of the column to be removed
   @process\_ID smallint
     Use any flag that is not 0 = 4 to indicate the records that should be included. Set the flag on all records if the adhoc property should be removed from all
+  @RetainDeletions bit
+    - Default = No
+    - Set explicity to 1 if the class table should retain deletions
+  @IsDocumentCollection
+    - Default = No
+    - Set explicitly to 1 if the class table refers to a document collection class table
   @ProcessBatch\_ID int (optional, output)
     Referencing the ID of the ProcessBatch logging table
   @Debug smallint (optional)
@@ -117,6 +125,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-09-02  LC         Update to include RetainDeletions and DocumentCollections
 2020-08-22  LC         Update code for deleted column change
 2019-08-30  JC         Added documentation
 2018-04-25  LC         Fix bug to pick up both ID column and label column when deleting columns
@@ -419,13 +428,14 @@ WHERE mp.MFID = 27
 				EXEC sp_executeSQL @smtp = @UpdateQuery, @Param = @sqlParam, @Process_ID = @Process_ID
 
                 ---update using mfupdatetable method 0
-                EXEC [dbo].[spMFUpdateTable] @MFTableName = @MFTableName
-                                            ,@UpdateMethod = 0                   -- in		 	
-                                            ,@Update_IDOut = @Update_ID OUTPUT   -- int
-                                            ,@ProcessBatch_ID = @ProcessBatch_ID -- int
-                                            ,@Debug = 0;
 
-                                                                                 -- smallint
+  EXEC dbo.spMFUpdateTable @MFTableName = @MFTablename,
+                         @UpdateMethod = 0,
+                         @Update_IDOut = @Update_ID OUTPUT,
+                         @ProcessBatch_ID = @ProcessBatch_ID,
+                         @RetainDeletions = @RetainDeletions,
+                         @IsDocumentCollection = @IsDocumentCollection,
+                         @Debug = @debug                                                                               -- 
 
                 ---if all values for column is null then delete column
 

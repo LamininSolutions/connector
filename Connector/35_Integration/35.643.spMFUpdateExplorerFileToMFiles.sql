@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateExplorerFileToMFiles',
     -- nvarchar(100)
-    @Object_Release = '4.9.27.70',
+    @Object_Release = '4.10.30.74',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -49,6 +49,8 @@ ALTER PROCEDURE dbo.spMFUpdateExplorerFileToMFiles
     @MFTableName NVARCHAR(100),
     @SQLID INT,
     @IsFileDelete BIT = 0,
+    @RetainDeletions BIT = 0,
+    @IsDocumentCollection BIT = 0,
     @ProcessBatch_id INT = NULL OUTPUT,
     @Debug INT = 0
 AS
@@ -74,6 +76,12 @@ Parameters
   @IsFileDelete bit (optional)
     - Default = 0
     - 1 = the file should be deleted in folder
+  @RetainDeletions bit
+    - Default = No
+    - Set explicity to 1 if the class table should retain deletions
+  @IsDocumentCollection
+    - Default = No
+    - Set explicitly to 1 if the class table refers to a document collection class table
   @ProcessBatch\_id int (output)
     Output ID in MFProcessBatch for logging the process
   @Debug int (optional)
@@ -130,6 +138,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-09-02  LC         Update to include RetainDeletions and DocumentCollections
 2021-08-03  LC         Fix truncate string bug
 2021-05-21  LC         improve handling of files on network drive
 2020-12-31  LC         Improve error handling in procedure
@@ -353,13 +362,18 @@ BEGIN
 
                     EXEC sys.sp_executesql @Sql, @Params, @Objid;
 
-                    EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName, -- nvarchar(200)
-                        @UpdateMethod = 1,                                -- int                          
-                        @ObjIDs = @ObjIDs,                                -- nvarchar(max)
-                        @Update_IDOut = @Update_IDOut OUTPUT,             -- int
-                        @ProcessBatch_ID = @ProcessBatch_id;
 
-                END;
+EXEC dbo.spMFUpdateTable @MFTableName = @MFTablename,
+                         @UpdateMethod = 1,
+                         @ObjIDs = @ObjID,
+                         @Update_IDOut = @Update_IDOut OUTPUT,
+                         @ProcessBatch_ID = @ProcessBatch_ID,
+                         @RetainDeletions = @RetainDeletions,
+                         @IsDocumentCollection = @IsDocumentCollection,
+                         @Debug = @debug
+
+               
+               END;
 
                 IF @Objid IS NULL
                 BEGIN
@@ -369,11 +383,15 @@ BEGIN
 
                     EXEC sys.sp_executesql @Sql, @Params, @Objid;
 
-                    EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName, -- nvarchar(200)
-                        @UpdateMethod = 0,                                -- int                          
-                        @ObjIDs = @ObjIDs,                                -- nvarchar(max)
-                        @Update_IDOut = @Update_IDOut OUTPUT,             -- int
-                        @ProcessBatch_ID = @ProcessBatch_id;              -- int
+                    EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName, 
+                        @UpdateMethod = 0,                                                       
+                        @ObjIDs = @ObjIDs,                                
+                        @Update_IDOut = @Update_IDOut OUTPUT,             
+                        @ProcessBatch_ID = @ProcessBatch_id,
+                        @RetainDeletions = @RetainDeletions,
+                         @IsDocumentCollection = @IsDocumentCollection,
+                         @Debug = @debug;
+
                 END;
 
                 SET @ProcedureStep = 'Get Objid details';
@@ -901,7 +919,11 @@ BEGIN
                     @UpdateMethod = 1,
                     @ObjIDs = @ObjIDs,
                     @Update_IDOut = @Update_IDOut OUTPUT,
-                    @ProcessBatch_ID = @ProcessBatch_id OUTPUT;
+                    @ProcessBatch_ID = @ProcessBatch_id ,
+                     @RetainDeletions = @RetainDeletions,
+                     @IsDocumentCollection = @IsDocumentCollection,
+                      @Debug = @debug
+;
 
                     SET @Sql = N'
                     UPDATE mc

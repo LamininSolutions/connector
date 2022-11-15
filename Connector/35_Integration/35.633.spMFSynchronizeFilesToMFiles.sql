@@ -6,22 +6,12 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFSynchronizeFilesToMFiles',
     -- nvarchar(100)
-    @Object_Release = '4.6.16.58',
+    @Object_Release = '4.10.30.74',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
 GO
 
-/*
- ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  2019-1-15		LC			Fix bug with file import using GUID as unique ref; improve logging messages
-
-  ********************************************************************************
-*/
 
 IF EXISTS
 (
@@ -60,6 +50,8 @@ ALTER PROCEDURE dbo.spMFSynchronizeFilesToMFiles
     @TargetFileUniqueKeycolumnName NVARCHAR(100) = 'MFSQL_Unique_File_Ref',
     @BatchSize INT = 500,
     @Process_ID INT = 5,
+    @RetainDeletions BIT = 0,
+    @IsDocumentCollection BIT = 0,
     @ProcessBatch_id INT = NULL OUTPUT,
     @Debug INT = 0
 AS
@@ -74,43 +66,39 @@ Return
   - -1 = Error
 Parameters
   @SourceTableName nvarchar(100)
-    fixme description
+    Name of source table
   @FileUniqueKeyColumn nvarchar(100)
-    fixme description
+    column with unique key to reference file
   @FileNameColumn nvarchar(100)
-    fixme description
+    column name for file name
   @FileDataColumn nvarchar(100)
-    fixme description
+    column referencing the file content
   @MFTableName nvarchar(100)
     - Valid Class TableName as a string
     - Pass the class table name, e.g.: 'MFCustomer'
   @TargetFileUniqueKeycolumnName nvarchar(100)
-    fixme description
+    property name of unique key in MF
   @BatchSize int
-    fixme description
+    set manage import in batches
   @Process\_ID int
-    fixme description
+    process id for referencing the objects in the class table
+  @RetainDeletions bit
+    - Default = No
+    - Set explicity to 1 if the class table should retain deletions
+  @IsDocumentCollection
+    - Default = No
+    - Set explicitly to 1 if the class table refers to a document collection class table
   @ProcessBatch\_id int (output)
-    fixme description
+    Process batch for the logging
   @Debug int (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
 
 
 Purpose
 =======
 
-
-
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
+Procedure to synchronize files from a table to M-Files
 
 Examples
 ========
@@ -121,12 +109,13 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2019-01-10  LC         Fix bug with file import using GUID as unique ref; improve logging messages
 2019-08-30  JC         Added documentation
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
 BEGIN
-    -- RAISERROR('This procedure is currently under revision',16,1)
+   
     BEGIN TRY
         SET NOCOUNT ON;
 
@@ -517,7 +506,10 @@ GROUP BY ' +    QUOTENAME(@TargetFileUniqueKeycolumnName) + N' HAVING COUNT(*) >
                         @UpdateMethod = 1,                                -- int                          
                         @ObjIDs = @ObjIDs,                                -- nvarchar(max)
                         @Update_IDOut = @Update_IDOut OUTPUT,             -- int
-                        @ProcessBatch_ID = @ProcessBatch_id;              -- int
+                        @ProcessBatch_ID = @ProcessBatch_id,
+                         @RetainDeletions = @RetainDeletions,
+                         @IsDocumentCollection = @IsDocumentCollection;
+
 
                     SET @Params = N'@Process_ID int, @Objids nvarchar(4000)';
                     SET @Sql
@@ -1128,14 +1120,15 @@ GROUP BY ' +    QUOTENAME(@TargetFileUniqueKeycolumnName) + N' HAVING COUNT(*) >
                 --           PRINT @Sql;
                 EXEC (@Sql);
 
-                DECLARE @Return_LastModified DATETIME;
-
-                EXEC dbo.spMFUpdateTableWithLastModifiedDate @UpdateMethod = 1, -- int
-                    @Return_LastModified = @Return_LastModified OUTPUT,         -- datetime
-                    @TableName = @MFTableName,                                  -- sysname
-                    @Update_IDOut = @Update_IDOut OUTPUT,                       -- int
-                    @ProcessBatch_ID = @ProcessBatch_id,                        -- int
-                    @debug = 0;                                                 -- smallint
+                EXEC dbo.spMFUpdateMFilesToMFSQL @MFTableName = @MFTableName,
+                                                 @UpdateTypeID = 1,                                                 
+                                                 @WithObjectHistory = 0,
+                                                 @RetainDeletions = @RetainDeletions,
+                                                 @Update_IDOut = @Update_IDOut OUTPUT,
+                                                 @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
+                                                 @debug = @Debug
+                
+      
             END;
             ELSE
             BEGIN

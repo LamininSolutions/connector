@@ -228,7 +228,7 @@ Date        Author     Description
 **rST*************************************************************************/
 BEGIN
     SET NOCOUNT ON;
-
+    --SET ANSI_WARNINGS OFF
     SET XACT_ABORT ON;
 
     -------------------------------------------------------------
