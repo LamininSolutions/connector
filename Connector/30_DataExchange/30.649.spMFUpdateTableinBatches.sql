@@ -6,7 +6,7 @@ GO
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTableinBatches', -- nvarchar(100)
-    @Object_Release = '4.9.27.71',             -- varchar(50)
+    @Object_Release = '4.10.30.74',             -- varchar(50)
     @UpdateFlag = 2;                           -- smallint
 GO
 
@@ -151,6 +151,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-10-27  LC         add retaindeletions to spmfupdatetable processing
 2021-08-25  LC         add output to the processbatch_id parameter
 2021-05-03  LC         Fix bug to include first record of each batch
 2020-09-24  LC         Set updatetable objids to include unmatched versions
@@ -678,10 +679,11 @@ SELECT @maxid = MAX(id) FROM ' + +QUOTENAME(@MFTableName) + N' AS [mlv] WHERE [m
                     IF @Debug > 0
                         SELECT @sql AS SQL;
 
-                    EXEC @return_value = dbo.spMFUpdateTable @MFTableName = @MFTableName, -- nvarchar(200)
-                        @UpdateMethod = @UpdateMethod,                                    -- int
-                        @Update_IDOut = @Update_IDOut OUTPUT,                             -- int
-                        @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,                       -- int
+                    EXEC @return_value = dbo.spMFUpdateTable @MFTableName = @MFTableName, 
+                        @UpdateMethod = @UpdateMethod,                                    
+                        @Update_IDOut = @Update_IDOut OUTPUT,                             
+                        @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,                      
+                        @RetainDeletions = @RetainDeletions,
                         @Debug = 0;
 
                     --IF @return_value <> 1

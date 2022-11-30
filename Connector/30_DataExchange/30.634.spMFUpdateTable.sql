@@ -236,6 +236,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-11-18  LC         Change formatting of float to take account of culture
 2022-09-02  LC         Add retain deletions to spMFUpdateSynchronizeError
 2022-08-03  LC         Update sync precedence to resolve issue with not updating
 2022-06-01  LC         Resolve bug with data definition in large text properties
@@ -890,7 +891,7 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
                 Datatypes NVARCHAR(20),
                 Type_Ids NVARCHAR(100),
                 TypeGroup NVARCHAR(100),
-                DataConversion NVARCHAR(100)
+                DataConversion NVARCHAR(258)
             );
 
             INSERT INTO @DatatypeTable
@@ -901,7 +902,7 @@ SELECT @RemoveOtherClass = COUNT(*) FROM cte;';
                 DataConversion
             )
             VALUES
-            (N'Float', N'3', 'Real', 'CAST(CAST(colvalue AS Decimal(32,4)) AS NVARCHAR(4000))'),
+            (N'Float', N'3', 'Real', 'CAST(FORMAT(colvalue,''N'',dbo.fnMFGetCulture()) AS NVARCHAR(4000))'),
             ('Integer', '2', 'Int', 'CAST(colvalue AS NVARCHAR(4000))'),
             ('Integer', '9', 'Int', 'CAST(colvalue AS NVARCHAR(4000))'),
             ('Integer', '10', 'Int', 'CAST(colvalue AS NVARCHAR(4000))'),

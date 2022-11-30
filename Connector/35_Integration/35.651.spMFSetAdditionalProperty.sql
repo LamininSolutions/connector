@@ -85,6 +85,8 @@ When the property is set to retain if null, then the property will be updated an
 
 Properties defined on the metadata card will always be retained on the metadata card, even if they are null
 
+If the parameter is set to retain null = 0 and all the values in the class for the property is null then the procedure spMFDeleteAdhocProperty will automatically be triggered to remove the column from the class table and from the metadata cards.
+
 To remove a property that is defined as an additional property, or changed from being on the metadata card, to not being on the metadata card, the following steps should be followed
  - After a change to the metadata definition, the procedure spMFDropAndUpdateMetadata must be run before an update is process from SQL to MF.
  - Ensure that the value of the property is null in the class table. Follow the instructions below in a case where the value is not null, and the property should be set to null and then removed.
@@ -111,7 +113,9 @@ This procedure does not reset the definition of the property in M-Files. Use M-F
 Warnings
 ========
 
-The property rule is set by class.  It will apply to all the objects that is included in the update routine. 
+The property rule is set by class.  It will apply to all the objects that is included in the update routine.
+
+The procedure will perform a metadata synchronization and table update and may run for a considerable time to complete.
 
 Examples
 ========
@@ -254,7 +258,6 @@ BEGIN
         -- Process metadata
         -------------------------------------------------------------
 
-
         EXEC dbo.spMFDropAndUpdateMetadata @IsStructureOnly = 0,
                                            @RetainDeletions = @RetainDeletions,
                                            @IsDocumentCollection = @IsDocumentCollection,
@@ -265,7 +268,7 @@ BEGIN
 
         SET @DebugText = N' %s set to %i';
         SET @DebugText = @DefaultDebugText + @DebugText;
-        SET @ProcedureStep = 'Update property definition';
+        SET @ProcedureStep = N'Update property definition';
 
         SET @Updatetype = CAST(@RetainIfNull AS INT);
 
@@ -277,21 +280,65 @@ BEGIN
 
         DECLARE @ClassID INT;
         DECLARE @PropertyID INT;
+        DECLARE @ColumnName NVARCHAR(100);
 
         SELECT @ClassID = ID
         FROM dbo.MFClass
         WHERE TableName = @MFTableName;
-        SELECT @PropertyID = ID
+
+        SELECT @PropertyID = ID,
+               @ColumnName = ColumnName
         FROM dbo.MFProperty
         WHERE Name = @MFProperty;
 
         UPDATE mcp
-        SET RetainIfNull = @RetainIfNull
+        SET mcp.RetainIfNull = @RetainIfNull
         FROM dbo.MFClassProperty AS mcp
         WHERE mcp.MFClass_ID = @ClassID
               AND mcp.MFProperty_ID = @PropertyID;
 
+        IF @RetainIfNull = 0 
+        AND exists(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS AS c WHERE c.COLUMN_NAME = @ColumnName AND c.TABLE_NAME = @MFTableName)
+        BEGIN
 
+          SET @DebugText = N' ' + @MFtableName;
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = N'Reset class table';
+
+        IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        END;
+
+
+            SET @sql = N'Select @Count = count(*) from ' + QUOTENAME(@MFTableName) + '';
+
+            EXEC sys.sp_executesql @sql, N'@Count int output', @count OUTPUT;
+
+            SET @sql
+                = N'Select @Count = count(*) from ' + QUOTENAME(@MFTableName) + ' where ' + QUOTENAME(@ColumnName)
+                  + ' is not null';
+
+            EXEC sys.sp_executesql @sql, N'@Count int output', @count OUTPUT;
+
+            IF @count = 0
+            BEGIN
+
+                SET @sql = N'UPDATE mc
+SET process_ID = 5
+FROM ' +        QUOTENAME(@MFTableName) + ' AS mc 
+WHERE objid > 0 and GUID is null';
+
+                EXEC (@sql);
+
+                EXEC dbo.spMFDeleteAdhocProperty @MFTableName = @MFTableName,
+                                                 @columnNames = @ColumnName,
+                                                 @process_ID = 5,
+                                                 @Debug = 0;
+
+            END;
+
+        END;
 
         SET @LogTypeDetail = N'Status';
         SET @LogStatusDetail = N'Debug';

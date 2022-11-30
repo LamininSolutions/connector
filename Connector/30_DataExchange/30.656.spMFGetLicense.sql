@@ -221,12 +221,12 @@ BEGIN
         WHERE fmss.ID = 2;
 
         
-        SET @DebugText = N' Error %s ExpiryDate %s  ';
+        SET @DebugText = N' ErrorCode %s ExpiryDate %s  ';
         SET @DebugText = @DefaultDebugText + @DebugText;
 
         IF @Debug > 0
         BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @error, @LicenseExpiryTXT);
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @errorCode, @LicenseExpiryTXT);
         END;
 
         -------------------------------------------------------------
@@ -234,8 +234,8 @@ BEGIN
         -------------------------------------------------------------
                 SET @ProcedureStep = 'Validate date'
 
-        --convert license expiry date to date format
-		-- Check if a license expiry text have some values then find the delimiter from it and use it in a function  
+   --     convert license expiry date to date format
+		 --Check if a license expiry text have some values then find the delimiter from it and use it in a function  
 		--IF LEN(@LicenseExpiryTXT) > 0
 		--Set @delimiter  = Case when @LicenseExpiryTXT like '%.%' then '.' 
 		--					   when @LicenseExpiryTXT like '%/%' then '/' 
@@ -250,8 +250,23 @@ BEGIN
   --                               ELSE
   --                                   NULL
   --                           END;
-
+BEGIN try
+SELECT @ExpiryDate = CONVERT(DATETIME, @LicenseExpiryTXT,105)
+END TRY
+BEGIN CATCH
 SELECT @ExpiryDate= DATEFROMPARTS(DATEPART(year,@LicenseExpiryTXT),DATEPART(month,@LicenseExpiryTXT),DATEPART(DAY,@LicenseExpiryTXT))
+END CATCH
+
+
+IF @ExpiryDate IS NULL AND @LicenseExpiryTXT IS NOT NULL 
+BEGIN
+
+ SET @DebugText = N' Unable to validate date:Expiry date: ' + CAST(ISNULL(@ExpiryDate,'') AS NVARCHAR(10)) + ' License date ' + @LicenseExpiryTXT ;
+        SET @DebugText = @DefaultDebugText + @DebugText;
+
+            RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+END
+
 
         SET @CurrentDate = CONVERT(DATE, DATEADD(DAY, 1, GETDATE()));
         SET @DaysToExpiry = CASE

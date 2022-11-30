@@ -95,7 +95,7 @@ ALTER TABLE [dbo].[MFClassProperty] ADD CONSTRAINT [FK_MFClassProperty_MFPropert
         PRINT SPACE(10) + '... Table: created';
     END;
 
-ELSE
+
 Begin
    IF NOT exists(SELECT c.object_ID FROM sys.columns c
    INNER JOIN sys.tables t
@@ -104,6 +104,7 @@ Begin
    BEGIN
    ALTER TABLE MFClassProperty
    ADD RetainIfNull BIT DEFAULT(0)
+     PRINT SPACE(10) + '... Table: Add column RetainIfNull ';
    END
     IF NOT exists(SELECT c.object_ID FROM sys.columns c
    INNER JOIN sys.tables t
@@ -112,6 +113,7 @@ Begin
    BEGIN
    ALTER TABLE MFClassProperty
    ADD IsAdditional BIT DEFAULT(0)
+    PRINT SPACE(10) + '... Table: Add column IsAdditional ';
    END
    
    PRINT SPACE(10) + '...  Table: Updated';

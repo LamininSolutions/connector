@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFCheckLicenseStatus', -- nvarchar(100)
-    @Object_Release = '4.7.25.67',           -- varchar(50)
+    @Object_Release = '4.10.30.74',           -- varchar(50)
     @UpdateFlag = 2;                         -- smallint
 GO
 
@@ -115,6 +115,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-11-25  LC         Improve logging and outcome messages
 2021-03-15  LC         Set default schema for MFmodule
 2021-01-06  LC         Debug module 2 license
 2020-12-31  LC         update message for license expired
@@ -191,6 +192,37 @@ DECLARE @HoursfromlastChecked INT;
 -------------------------------------------------------------
 SET @ProcedureStep = 'Start Logging';
 SET @LogText = N'Processing ' + @ProcedureName;
+
+
+		EXEC [dbo].[spMFProcessBatch_Upsert]
+			@ProcessBatch_ID = @ProcessBatch_ID OUTPUT
+		  , @ProcessType = @ProcessType
+		  , @LogType = N'Status'
+		  , @LogText = @LogText
+		  , @LogStatus = N'In Progress'
+		  , @debug = @Debug
+
+                         
+                           SET @LogTypeDetail = 'Status';
+                           SET @LogStatusDetail = @logstatus;
+                           SET @LogTextDetail = 'check license status for ' + @InternalProcedureName
+                           SET @LogColumnName = '';
+                           SET @LogColumnValue = '';
+
+                           EXECUTE [dbo].[spMFProcessBatchDetail_Insert]
+                            @ProcessBatch_ID = @ProcessBatch_ID
+                          , @LogType = @LogTypeDetail
+                          , @LogText = @LogTextDetail
+                          , @LogStatus = @LogStatusDetail
+                          , @StartTime = @StartTime
+                          , @MFTableName = @MFTableName
+                          , @Validation_ID = null
+                          , @ColumnName = @LogColumnName
+                          , @ColumnValue = @LogColumnValue
+                          , @Update_ID = null
+                          , @LogProcedureName = @ProcedureName
+                          , @LogProcedureStep = @ProcedureStep
+                          , @debug = @debug
 
 -------------------------------------------------------------
 -- Get settings
@@ -731,6 +763,43 @@ BEGIN TRY
     BEGIN
         RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
     END;
+
+    		-------------------------------------------------------------
+			--END PROCESS
+			-------------------------------------------------------------
+			
+			SET @ProcedureStep = 'End'
+			Set @LogStatus = 'Completed'
+			-------------------------------------------------------------
+			-- Log End of Process
+			-------------------------------------------------------------   
+
+			EXEC [dbo].[spMFProcessBatch_Upsert]
+				@ProcessBatch_ID = @ProcessBatch_ID
+			  , @ProcessType = @ProcessType
+			  , @LogType = N'Message'
+			  , @LogText = @msg
+			  , @LogStatus = @LogStatus
+			  , @debug = @Debug
+
+			SET @StartTime = GETUTCDATE()
+             SET @LogtextDetail = @ProcessType + ' : '  + @Msg
+
+			EXEC [dbo].[spMFProcessBatchDetail_Insert]
+				@ProcessBatch_ID = @ProcessBatch_ID
+			  , @LogType = N'Debug'
+			  , @LogText = @LogTextDetail
+			  , @LogStatus = @LogStatus
+			  , @StartTime = @StartTime
+			  , @MFTableName = @MFTableName
+			  , @Validation_ID = null
+			  , @ColumnName = NULL
+			  , @ColumnValue = NULL
+			  , @Update_ID = null
+			  , @LogProcedureName = @ProcedureName
+			  , @LogProcedureStep = @ProcedureStep
+			  , @debug = 0
+
 
     RETURN @ErrorCode;
 END TRY -- update license check check status > 4

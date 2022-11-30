@@ -565,4 +565,6 @@ SELECT cte.ColumnType,
         ORDER BY pc.TableName,
             pc.columnName;
 END;
+
+RETURN 1
 GO

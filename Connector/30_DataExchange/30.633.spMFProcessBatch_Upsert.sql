@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFProcessBatch_Upsert' -- nvarchar(100)
-                                    ,@Object_Release = '4.9.28.73'             -- varchar(50)
+                                    ,@Object_Release = '4.10.30.74'             -- varchar(50)
                                     ,@UpdateFlag = 2;                         -- smallint
 GO
 
@@ -125,6 +125,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-09-30  LC         Reset logtype to include message logging
 2022-01-04  LC         Add Assembly logging for app detail logging
 2020-03-12  LC         Remove debug text
 2019-08-30  JC         Added documentation
@@ -204,8 +205,10 @@ BEGIN
 -------------------------------------------------------------
 -- Set default logtype
 -------------------------------------------------------------
-SET @LogType = CASE WHEN @LogStatus LIKE 'Complete%' THEN 'END'
-WHEN @LogStatus LIKE 'Error%' THEN 'FAIL'
+SET @LogType = CASE 
+WHEN @logType = 'Message'  THEN @logtype
+WHEN @logType <>  'Message' and @LogStatus LIKE 'Complete%' THEN 'END'
+WHEN @logType <>  'Message' AND @LogStatus LIKE 'Error%' THEN 'FAIL'
 WHEN @LogType IS NULL  THEN 'Debug'
 ELSE @LogType
 END

@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFCheckAndUpdateAssemblyVersion',
     -- nvarchar(100)
-    @Object_Release = '4.9.27.72',
+    @Object_Release = '4.10.30.74',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -93,6 +93,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-11-03  LC         Include validation that assemblies are in place
 2021-12-16  LC         Fix bug to stop continious updates when no change took place
 2021-08-11  LC         Improve control when version could not be found
 2020-10-27  LC         Improve error message
@@ -115,7 +116,7 @@ BEGIN
     DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s';
     DECLARE @DebugText AS NVARCHAR(256) = N'';
     DECLARE @Msg AS NVARCHAR(256) = N'';
-
+ DECLARE  @LsMFilesVersion NVARCHAR(100)
     BEGIN TRY
         ---------------------------------------------
         DECLARE @IsVersionMisMatch BIT = 0,
@@ -130,13 +131,50 @@ BEGIN
             @Username  = Username,
             @VaultName = VaultName
         FROM dbo.MFVaultSettings;
+  
+ IF NOT EXISTS ( SELECT  1
+            FROM    INFORMATION_SCHEMA.ROUTINES
+            WHERE   ROUTINE_NAME = 'spmfGetLocalMFilesVersionInternal'--name of procedure
+                    AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
+                    AND ROUTINE_SCHEMA = 'dbo' )
+    BEGIN
 
-        SET @ProcedureStep = N' Get Install assembly Version M-Files ';
+            SET @DebugText = N' Missing Assembly for getting version';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = N'updater assembly for allowing to get MFversion ';
+
+
+EXEC (N'
+CREATE PROCEDURE [dbo].[spmfGetLocalMFilesVersionInternal]
+    @Result NVARCHAR(MAX) OUTPUT
+AS EXTERNAL NAME
+    [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetLocalMFilesVersion];
+');
+
+
+        IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        END;
+
+END
+
+        SELECT @MFilesOldVersion = CAST(Value AS VARCHAR(100))
+        FROM dbo.MFSettings
+        WHERE Name = 'MFVersion';
+
+            SET @DebugText = N' Is missmatch %i new MFVersion %s version in MFsetting %s';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = N'get MFversion and check missmatch ';
 
         EXEC @RC = dbo.spMFGetMFilesAssemblyVersion @IsVersionMisMatch OUTPUT,
-            @MFilesVersion OUTPUT;
+            @MFilesVersion OUTPUT, @Debug = @debug;
 
         SET @MFilesVersion = COALESCE(@MFilesVersion, 'Unable to get version');
+
+            UPDATE dbo.MFSettings
+            SET Value = ISNULL(@MFilesVersion, 'No version found')
+            WHERE Name = 'MFVersion';
 
         DECLARE @Mismatch NVARCHAR(10);
 
@@ -146,31 +184,86 @@ BEGIN
                             ELSE
                                 'No'
                         END;
-        SET @DebugText = N' Version mismatched %s ; Version %s';
-        SET @DebugText = @DefaultDebugText + @DebugText;
-        SET @ProcedureStep = N'Get Mfiles Assembly version: ';
 
         IF @Debug > 0
         BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Mismatch, @MFilesVersion);
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Mismatch, @MFilesVersion,@MFilesOldVersion);
         END;
 
-        SELECT @MFilesOldVersion = CAST(Value AS VARCHAR(100))
-        FROM dbo.MFSettings
-        WHERE Name = 'MFVersion';
+        IF NOT EXISTS ( SELECT  1
+            FROM    INFORMATION_SCHEMA.ROUTINES
+            WHERE   ROUTINE_NAME = 'spmfConnectionTestInternal'--name of procedure
+                    AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
+                    AND ROUTINE_SCHEMA = 'dbo' ) AND @IsVersionMisMatch = 0
+    BEGIN
+
+        SET @DebugText = N' no missmatch but missing assemblies';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = N'Update Assemblies ';
+
+        IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        END;
+
+
+         EXECUTE spmfGetLocalMFilesVersionInternal
+                                              @LsMFilesVersion OUTPUT;
+
+       SET @DebugText = N' new version %s';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = N'Get new version ';
+
+        IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep,@LsMFilesVersion);
+        END;
+
+        EXEC dbo.spMFUpdateAssemblies @LsMFilesVersion;
+
+end
 
         IF @MFilesOldVersion = 'No version found' OR @MFilesVersion = 'No version found'
         SET @IsVersionMisMatch = 1;
 
         IF @IsVersionMisMatch = 1
-   --        AND @MFilesVersion <> @MFilesOldVersion 
+           AND @MFilesVersion <> @MFilesOldVersion 
         BEGIN
-            SET @ProcedureStep = N' Update Matched version ';
+            
+           SET @ProcedureStep =  'GET new version'
 
-            UPDATE dbo.MFSettings
-            SET Value = ISNULL(@MFilesVersion, 'No version found')
-            WHERE Name = 'MFVersion';
+                  IF NOT EXISTS ( SELECT  1
+            FROM    INFORMATION_SCHEMA.ROUTINES
+            WHERE   ROUTINE_NAME = 'spmfGetLocalMFilesVersionInternal'--name of procedure
+                    AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
+                    AND ROUTINE_SCHEMA = 'dbo' )
+    BEGIN
 
+EXEC (N'
+CREATE PROCEDURE [dbo].[spmfGetLocalMFilesVersionInternal]
+    @Result NVARCHAR(MAX) OUTPUT
+AS EXTERNAL NAME
+    [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetLocalMFilesVersion];
+');
+
+
+       SET @DebugText = N' new version %s';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = N'Get new version for Update Assemblies';
+
+         EXECUTE spmfGetLocalMFilesVersionInternal
+                                              @LsMFilesVersion OUTPUT;
+
+                                                      IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep,@LsMFilesVersion);
+        END;
+
+        EXEC dbo.spMFUpdateAssemblies @LsMFilesVersion;
+
+END
+
+  
             INSERT INTO dbo.MFUpdateHistory
             (
                 Username,
@@ -193,6 +286,7 @@ BEGIN
 
             SELECT @DBName = DB_NAME();
 
+  
             --	Select @ScriptFilePath=cast(Value as varchar(250)) from MFSettings where Name='AssemblyInstallPath'
           IF ISNULL(@MFilesVersion,'No version found') <> 'No version found'
           EXEC dbo.spMFUpdateAssemblies @MFilesVersion;

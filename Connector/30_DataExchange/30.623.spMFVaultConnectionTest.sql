@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC [setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFVaultConnectionTest' -- nvarchar(100)
-                                    ,@Object_Release = '4.9.28.73'             -- varchar(50)
+                                    ,@Object_Release = '4.10.30.74'             -- varchar(50)
                                     ,@UpdateFlag = 2;                         -- smallint
 GO
 
@@ -47,6 +47,8 @@ GO
 ALTER PROC [dbo].[spMFVaultConnectionTest]
     @IsSilent INT = 0
    ,@MessageOut NVARCHAR(250) = NULL OUTPUT
+   ,@ProcessBatch_id INT = NULL OUTPUT
+   , @Debug INT = 0
 AS
 
 /*rST**************************************************************************
@@ -102,6 +104,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-11-25  LC         Add logging and improve messaging
 2021-12-20  LC         Add guid to result set
 2020-03-29  LC         Add documentation 
 2020-02-08  LC         Fix bug for check license validation
@@ -112,6 +115,44 @@ Date        Author     Description
 
 BEGIN
     SET NOCOUNT ON;
+    -------------------------------------------------------------
+		-- VARIABLES: DEBUGGING
+		-------------------------------------------------------------
+		DECLARE @ProcedureName AS NVARCHAR(128) = 'schema.procname';
+		DECLARE @ProcedureStep AS NVARCHAR(128) = 'Start';
+		DECLARE @DefaultDebugText AS NVARCHAR(256) = 'Proc: %s Step: %s'
+		DECLARE @DebugText AS NVARCHAR(256) = ''
+		DECLARE @Msg AS NVARCHAR(256) = ''
+		DECLARE @MsgSeverityInfo AS TINYINT = 10
+		DECLARE @MsgSeverityObjectDoesNotExist AS TINYINT = 11
+		DECLARE @MsgSeverityGeneralError AS TINYINT = 16
+
+		-------------------------------------------------------------
+		-- VARIABLES: LOGGING
+		-------------------------------------------------------------
+		DECLARE @LogType AS NVARCHAR(50) = 'Status'
+		DECLARE @LogText AS NVARCHAR(4000) = '';
+		DECLARE @LogStatus AS NVARCHAR(50) = 'Started'
+
+		DECLARE @LogTypeDetail AS NVARCHAR(50) = 'System'
+		DECLARE @LogTextDetail AS NVARCHAR(4000) = '';
+		DECLARE @LogStatusDetail AS NVARCHAR(50) = 'In Progress'
+		DECLARE @ProcessBatchDetail_IDOUT AS INT = NULL
+
+		DECLARE @LogColumnName AS NVARCHAR(128) = NULL
+		DECLARE @LogColumnValue AS NVARCHAR(256) = NULL
+
+		DECLARE @count INT = 0;
+		DECLARE @Now AS DATETIME = GETDATE();
+		DECLARE @StartTime AS DATETIME = GETUTCDATE();
+		DECLARE @StartTime_Total AS DATETIME = GETUTCDATE();
+		DECLARE @RunTime_Total AS DECIMAL(18, 4) = 0;
+
+        DECLARE @MFTableName AS NVARCHAR(128) = ''
+		DECLARE @ProcessType AS NVARCHAR(50);
+
+		SET @ProcessType = ISNULL(@ProcessType, 'Check vault connection')
+
 
     DECLARE @Return_Value INT;
     DECLARE @Guid NVARCHAR(128);
@@ -120,6 +161,39 @@ BEGIN
 
     SELECT @vaultsettings = [dbo].[FnMFVaultSettings]();
     SELECT @Guid =CAST(value AS NVARCHAR(128)) FROM mfsettings WHERE name = 'VaultGUID'
+
+    	-------------------------------------------------------------
+		-- INTIALIZE PROCESS BATCH
+		-------------------------------------------------------------
+		SET @ProcedureStep = 'Start Logging'
+
+		SET @LogText = 'Processing ' + @ProcedureName
+
+		EXEC [dbo].[spMFProcessBatch_Upsert]
+			@ProcessBatch_ID = @ProcessBatch_ID OUTPUT
+		  , @ProcessType = @ProcessType
+		  , @LogType = N'Status'
+		  , @LogText = @LogText
+		  , @LogStatus = N'In Progress'
+		  , @debug = @Debug
+
+
+		EXEC [dbo].[spMFProcessBatchDetail_Insert]
+			@ProcessBatch_ID = @ProcessBatch_ID
+		  , @LogType = N'Debug'
+		  , @LogText = @ProcessType
+		  , @LogStatus = N'Started'
+		  , @StartTime = @StartTime
+		  , @MFTableName = @MFTableName
+		  , @Validation_ID = null
+		  , @ColumnName = NULL
+		  , @ColumnValue = NULL
+		  , @Update_ID = null
+		  , @LogProcedureName = @ProcedureName
+		  , @LogProcedureStep = @ProcedureStep
+		, @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT 
+		  , @debug = 0
+
 
 
     BEGIN TRY
@@ -213,34 +287,72 @@ BEGIN
 
    -- DECLARE @messageOut NVARCHAR(50)
 
-    SET @MessageOut = 'License is not validated'
+    SET @MessageOut = 'Unable to validate license'
 
 
---    IF @Return_Value = 1
     BEGIN
         BEGIN TRY
 
-        EXEC @return_value= dbo.spMFCheckLicenseStatus @InternalProcedureName = N'spmfGetclass',               -- nvarchar(500)
-                                @ProcedureName = N'spMFVaultConnectionTest',                       -- nvarchar(500)
-                                @ProcedureStep = 'Validate License:',                      -- sysname
-                                @ExpiryNotification = 0,                    -- int
-                                @IsLicenseUpdate = 1,                    -- bit
-                                @Debug = 0                                 -- int
-
-          IF @Return_Value = 1
-          Begin
-          SET @MessageOut = 'Validated License'
-          END
-          ELSE
-          BEGIN
-         
-          SET @MessageOut = 'License is invalid'
+        EXEC @return_value= dbo.spMFCheckLicenseStatus @InternalProcedureName = N'spmfGetclass',             
+                                @ProcedureName = N'spMFVaultConnectionTest',                       
+                                @ProcedureStep = 'Validate License:',                      
+                                @ExpiryNotification = 0,                    
+                                @IsLicenseUpdate = 1,                    
+                                @ProcessBatch_id = @ProcessBatch_id,
+                                @Debug = 0                                 
+ 
+     
+   
+   SELECT @MessageOut = CASE WHEN @Return_Value = 1 -- module exist in license; 
+          THEN 'Validated License'
+          WHEN @Return_Value = 2 --with no date if license expired
+         THEN 'Invalid license date'
+         WHEN @Return_Value = 3 --module does not exist in license
+         THEN 'Procedure not included in license'
+         WHEN @Return_Value = 4 --module does not exist in license
+         THEN 'no license exist (no date returned)'
+         ELSE @MessageOut
            END         
 
 
             --   SELECT @Return_Value;
             IF @IsSilent = 0
                 SELECT @MessageOut AS [OutputMessage];
+
+		-------------------------------------------------------------
+			--END PROCESS
+			-------------------------------------------------------------
+			END_RUN:
+			SET @ProcedureStep = 'End'
+			Set @LogStatus = 'Completed'
+			-------------------------------------------------------------
+			-- Log End of Process
+			-------------------------------------------------------------   
+
+			EXEC [dbo].[spMFProcessBatch_Upsert]
+				@ProcessBatch_ID = @ProcessBatch_ID
+			  , @ProcessType = @ProcessType
+			  , @LogType = N'Status'
+			  , @LogText = @MessageOut
+			  , @LogStatus = @LogStatus
+			  , @debug = @Debug
+
+			SET @StartTime = GETUTCDATE()
+
+			EXEC [dbo].[spMFProcessBatchDetail_Insert]
+				@ProcessBatch_ID = @ProcessBatch_ID
+			  , @LogType = N'Debug'
+			  , @LogText = @MessageOut
+			  , @LogStatus = @LogStatus
+			  , @StartTime = @StartTime
+			  , @MFTableName = @MFTableName
+			  , @Validation_ID = null
+			  , @ColumnName = NULL
+			  , @ColumnValue = NULL
+			  , @Update_ID = null
+			  , @LogProcedureName = @ProcedureName
+			  , @LogProcedureStep = @ProcedureStep
+			  , @debug = 0
 
             RETURN 1;
         END TRY

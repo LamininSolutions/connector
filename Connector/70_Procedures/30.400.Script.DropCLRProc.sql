@@ -1,18 +1,7 @@
 
-
 /*
 Script to drop all the CLR tables 
 Execute before updating Assemblies
-*/
-
-/*
-MODIFICAITONS TO SCRIPT
-
-version 3.1.2.38	LC	add spMFGetFilesInternal
-version 3.1.2.38 ADD spMFGetHistory
-test that all the clr procedures have been dropped
-version 4.8.24.65  prevent assemblies to be deleted if
-
 */
 
 IF (SELECT OBJECT_ID('dbo.spMFConnectionTestInternal')) IS null
@@ -34,6 +23,22 @@ SET NOCOUNT ON;
     DECLARE @SchemaName NVARCHAR(100);
     DECLARE @SchemaID INT;
     DECLARE @SQL NVARCHAR(MAX);
+    DECLARE @ProcedureName AS NVARCHAR(128) = 'spMFUpdateAssemblies';
+    DECLARE @ProcedureStep AS NVARCHAR(128) = 'Start';
+    DECLARE @DefaultDebugText AS NVARCHAR(256) = 'Proc: %s Step: %s';
+    DECLARE @DebugText AS NVARCHAR(256) = '';  
+
+    
+        SET @DebugText = N' ';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = N'drop all the CLR tables  ';
+
+         IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        END;
+
+
 
     INSERT INTO @ProcList
     (

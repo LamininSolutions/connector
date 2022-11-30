@@ -313,7 +313,7 @@ BEGIN
                        mdt.SQLDataType,
                        mp.ID,
                        'NULL'
-                FROM dbo.MFProperty mp
+               FROM dbo.MFProperty mp
                 INNER JOIN dbo.MFClassProperty AS mcp
                 ON mcp.MFProperty_ID = mp.id 
                 INNER JOIN dbo.MFClass AS mc
@@ -321,7 +321,7 @@ BEGIN
                 INNER JOIN dbo.MFDataType AS mdt
                 ON mdt.id = mp.MFDataType_ID
                 WHERE mp.Deleted = 0
-                 AND mcp.IsAdditional = 0
+                 AND ISNULL(mcp.IsAdditional,0) = 0
                  AND mc.id = @Classid               
 
             IF @Debug = 1
@@ -379,8 +379,8 @@ BEGIN
             --IF @Debug = 1
             --    RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
 
-            IF @dEBUG > 0
-            SELECT @SQLDatatype_9,@SQLDatatype_9_id, @SQLDatatype_10,@SQLDatatype_10_id; 
+            --IF @dEBUG > 0
+            --SELECT @SQLDatatype_9,@SQLDatatype_9_id, @SQLDatatype_10,@SQLDatatype_10_id; 
       
                 INSERT INTO #Temp
                 (
@@ -473,7 +473,7 @@ BEGIN
                 -----------------------------------------------------------------------------
                 --Add Additional Default columns in localised text
                 -----------------------------------------------------------------------------                  
-                --SET @ProcedureStep = 'Add Additional Default columns in localised text';
+                SET @ProcedureStep = 'Add Additional Default columns in localised text';
 
                 DECLARE @NameOrTitle VARCHAR(100),
                         @classPropertyName VARCHAR(100),
@@ -513,20 +513,20 @@ BEGIN
                 ---- test duplicates
                 ---------------------------------------------------------------
 
-                ----SELECT @State =   CASE
-                ----                        WHEN
-                ----                        (
-                ----                            SELECT COUNT(*) FROM [#Temp] AS [t] WHERE [t].[ColumnName] = @State
+                --SELECT @State =   CASE
+                --                        WHEN
+                --                        (
+                --                            SELECT COUNT(*) FROM [#Temp] AS [t] WHERE [t].[ColumnName] = @State
 
-                ----                        ) > 0 THEN
-                ----                            @WorkflowName +'_' + @State
-                ----                        ELSE
-                ----                            @State
-                ----                    END
+                --                        ) > 0 THEN
+                --                            @WorkflowName +'_' + @State
+                --                        ELSE
+                --                            @State
+                --                    END
 
-                --------Added By DevTeam2 For Task 937
+                ----Added By DevTeam2 For Task 937
 
-                ----					SELECT @NameOrTitle,@classPropertyName,@Workflow, @State
+         --      SELECT @NameOrTitle,@classPropertyName,@Workflow, @State
                 --INSERT INTO #Temp
                 --(
                 --    ColumnName,
@@ -545,7 +545,7 @@ BEGIN
 
                 --SET @ProcedureStep = 'Add Class and Name or title';
 
-                --------Added By DevTeam2 For Task 937
+                ----Added By DevTeam2 For Task 937
                 --IF NOT EXISTS (SELECT t.ColumnName FROM #Temp AS t WHERE t.ColumnName = @NameOrTitle)
                 --BEGIN
                 --    INSERT INTO #Temp

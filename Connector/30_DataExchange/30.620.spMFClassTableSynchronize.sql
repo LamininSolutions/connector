@@ -4,7 +4,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',   @ObjectName = N'spMFClassTableSynchronize', -- nvarchar(100)
-    @Object_Release = '3.1.4.40', -- varchar(50)
+    @Object_Release = '4.10.30.74', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 
 
@@ -13,7 +13,7 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',   @ObjectName = N'spMFC
 	Author: leRoux Cilliers, Laminin Solutions
 	Create date: 2016-02
 	Database: 
-	Description: Syncronise specific class table
+	Description: Synchronize specific class table triggered by included in app set to 2
 ------------------------------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------------------------------
   MODIFICATION HISTORY
@@ -22,6 +22,7 @@ EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',   @ObjectName = N'spMFC
 	2016-8-23		lc			change Objids to NVARCHAR(4000)
 	2016-12-20		ac			TFS 972: Comment out EXTRA BEGIN TRAN 
 	2017-11-23		lc			localization of MF_LastModified date
+    2022-11-03      lc          modify for retain deletions
 ------------------------------------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------------------------
   USAGE:
@@ -59,6 +60,9 @@ GO
 
 ALTER PROC [dbo].[spMFClassTableSynchronize]
     @TableName sysname ,
+     @RetainDeletions BIT = 0,
+    @IsDocumentCollection BIT = 0,
+    @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug SMALLINT = 0
 AS /**************************Update procedure for table change*/
     BEGIN
@@ -108,11 +112,13 @@ AS /**************************Update procedure for table change*/
             SET @ProcedureStep = 'Transaction Update method'
 			;
 
-            EXEC @Result_Value = [dbo].[spMFUpdateTable] @MFTableName = @TableName, -- nvarchar(128)
-                @UpdateMethod = @UpdateMethod, -- int
-                @UserId = NULL, -- nvarchar(200)
-                @MFModifiedDate = NULL,--NULL to select all records
-                @ObjIDs = NULL, @Debug = 0; -- smallint
+
+                EXEC dbo.spMFUpdateTable @MFTableName = @TableName,
+                         @UpdateMethod = @UpdateMethod,
+                         @ProcessBatch_ID = @ProcessBatch_ID ,
+                         @RetainDeletions = @RetainDeletions,
+                         @IsDocumentCollection = @IsDocumentCollection,
+                         @Debug = @debug
 
             SELECT  @Result_Value;
 

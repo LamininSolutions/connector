@@ -3,29 +3,6 @@
 --THIS COLLECTION OF PROCEDURES CREATE ALL THE CLR PROCEDURES
 
 
-/*------------------------------------------------------------------------------------------------
-	Author: leRoux Cilliers, Laminin Solutions
-	Create date: 2015-12
-	Database: 
-	Description: CLR procedure to create objects
-------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------
-  MODIFICATION HISTORY
-  ====================
- 	DATE			NAME		DESCRIPTION
-	YYYY-MM-DD		{Author}	{Comment}
-	2016-09-26      DevTeam2    Removed vault settings parameters and pass them as comma separated
-	                            string in @VaultSettings parameter.
-    2017-05-04      DevTeam2    Added new parameter @DeleteWithDestroy
-version 3.1.2.38 ADD spMFGetFilesInternal
-version 3.1.2.38 ADD spMFGetHistory
-version 3.1.5.41 ADD spMFSynchronizeFileToMFilesInternal
-version 4.9.25.67 ADD spMFGetFileListInternal
-
-
-------------------------------------------------------------------------------------------------*/
-
-
 -- -------------------------------------------------------- 
 -- sp.spMFEncrypt.sql 
 -- -------------------------------------------------------- 

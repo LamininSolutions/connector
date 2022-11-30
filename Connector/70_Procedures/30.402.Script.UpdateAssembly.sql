@@ -1,13 +1,7 @@
 
 /*
 MODIFICATIONS
-
-2017-7-25 LC	ADD SETTING TO SET OWNER TO SA
-2018-9-27 LC	Add control to check and update M-Files version. This is to allow for the CLR script to be able to be executed without running the app.
-2019-1-9	lc	add additional controls to validate MFversion, exist when not exist.
-2019-1-11	LC	IF version in mfsettings is different from installer then use installer 
-add parameter to set MFVersion
-2021-4-01   LC  get master db owner and set DB to default owner
+Validate assemblies
  
 */
 
@@ -26,6 +20,17 @@ DECLARE @Output NVARCHAR(MAX);
 DECLARE @CLRInstallationFlag BIT = 0;
 DECLARE @FileName VARCHAR(255);
 DECLARE @File_Exists INT;
+
+      SET @DebugText = N' ';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = N'Validateassemblies  ';
+
+         IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        END;
+
+
 
 /*
 Test validity of the Assembly locations before proceding with installation

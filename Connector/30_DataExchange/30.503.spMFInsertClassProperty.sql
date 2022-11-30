@@ -106,15 +106,39 @@ BEGIN TRY
     -----------------------------------------------------    
     SELECT @ProcedureStep = 'Copy Custom data into temp table';
 
-    SELECT *
-    INTO #TempClassProperty
-    FROM dbo.MFClassProperty;
+    IF (SELECT OBJECT_ID('tempdb..#TempClassProperty')) IS NOT NULL
+    DROP TABLE #TempClassProperty;
+
+     CREATE TABLE #TempClassProperty
+    (
+        MFClass_ID INT,
+        MFProperty_ID INT,
+        Required BIT,
+        RetainIfNull BIT,
+        IsAdditional BIT
+    );
+    INSERT INTO #TempClassProperty
+    (
+        MFClass_ID ,
+        MFProperty_ID ,
+        Required ,
+        RetainIfNull ,
+        IsAdditional
+    )
+    SELECT MFClass_ID,
+           MFProperty_ID,
+           Required ,
+        RetainIfNull ,
+        IsAdditional
+           FROM dbo.MFClassProperty;
 
     -----------------------------------------------------
     -- GET CLASS PROPERTY INFORMATION FROM M-FILES
 
     -----------------------------------------------------   	   
 
+        IF (SELECT OBJECT_ID('tempdb..#ClassProperty')) IS NOT NULL
+    DROP TABLE #ClassProperty;
 
     CREATE TABLE #ClassProperty
     (
@@ -154,25 +178,27 @@ BEGIN TRY
     ;
 
     ---------------------------------------------------------------
-    ---- insert property for class
+    ---- insert property for required classes
     ---------------------------------------------------------------
     --          INSERT  INTO [#ClassProperty]
     --                ( [MFClass_ID] ,
     --                       [MFProperty_ID] ,
-    --                  [Required]
+    --                  [Required],
+    --    RetainIfNull,
+    --    IsAdditional
     --                )
-    --                SELECT distinct [t].[c].[value]('(@classID)[1]', 'INT') AS [MFClass_ID] 
-    --                ,100,1
+    --                SELECT distinct [t].[c].[value]('(@Single_File)[1]', 'bit') AS [MFClass_ID] 
+    --                ,22,1,1,0
     --                FROM    @XML.[nodes]('/form/ClassProperty') AS [t] ( [c] )               
     --                ;
 
-    SELECT @ProcedureStep = 'Updating #ClassProperty with Required value from MFClassProperty';
+    --SELECT @ProcedureStep = 'Updating #ClassProperty with Required value from MFClassProperty';
 
-    IF @Debug = 1
+    IF @Debug > 1
     BEGIN
         RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
         SELECT MCP.*
-        FROM dbo.#ClassProperty AS mcp
+        FROM #ClassProperty AS mcp
                 
     END;
 
@@ -200,6 +226,13 @@ BEGIN TRY
     -------------------------------------------------------------
     -- add additional properties by class
     -------------------------------------------------------------
+
+     SET @ProcedureStep = 'add additional properties';
+
+    IF @Debug = 1
+    BEGIN
+        RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
+    END;
 
           INSERT INTO #ClassProperty
           (
@@ -234,7 +267,7 @@ BEGIN TRY
         RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
         SELECT '#classProperty',
                mcp.*, mc.TableName, mc.mfid classmfid, mp.ColumnName, mp.mfid PropertyID
-        FROM dbo.#ClassProperty AS mcp
+        FROM #ClassProperty AS mcp
          inner JOIN  dbo.MFClass AS mc
                 ON mcp.MFClass_ID = mc.ID
             INNER JOIN dbo.MFProperty AS mp
@@ -245,6 +278,12 @@ BEGIN TRY
     -------------------------------------------------------------
     -- Update settings for RetainIfNull
     -------------------------------------------------------------
+         SET @ProcedureStep = 'add additional properties';
+
+    IF @Debug = 1
+    BEGIN
+        RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
+    END;
 
     UPDATE cp
     SET cp.RetainIfNull = tcp.RetainIfNull

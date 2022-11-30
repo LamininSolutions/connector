@@ -34,7 +34,9 @@ GO
 SET NOEXEC OFF
 GO
 ALTER PROC [dbo].[spMFUpdateAssemblies]
-(@MFilesVersion NVARCHAR(100) = null)
+(@MFilesVersion NVARCHAR(100) = NULL
+,@Debug INT = 0
+)
     
 AS 
 
@@ -96,9 +98,19 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2021-10-07  LC         add spMFGetFilesInternal, spMFGetHistory
+2021-04-01  LC         Get master db owner and set DB to default owner
+2020-11-10  LC         test that all the clr procedures have been dropped
+2020-11-10  LC         prevent assemblies to be deleted 
 2020-10-27  LC         Refine error messages and logging
 2019-09-27  LC         Add MFilesVersion parameter with default
-2019-03-10  LC         Created
+2019-01-11  LC         IF version in mfsettings is different from installer then use installer add parameter to set MFVersion
+2019-01-09	LC         Add additional controls to validate MFversion, exist when not exist.
+2018-09-27  LC         Add control to check and update M-Files version. This is to allow for the CLR script to be able to be executed without running the app.
+2017-07-25  LC	       ADD SETTING TO SET OWNER TO SA
+2017-05-04  DevTeam2   Added new parameter DeleteWithDestroy
+2016-09-26  DevTeam2   Removed vault settings parameters and pass them as comma separated string in VaultSettings parameter.
+2016-03-10  LC         Created
 ==========  =========  ========================================================
 
 **rST*************************************************************************/

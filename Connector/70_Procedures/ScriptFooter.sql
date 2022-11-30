@@ -1,4 +1,15 @@
 
+
+      SET @DebugText = N' ';
+        SET @DebugText = @DefaultDebugText + @DebugText;
+        SET @ProcedureStep = N'Finalise update assemblies  ';
+
+         IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        END;
+
+
 EXEC dbo.spMFDeploymentDetails @Type = 0
 
 SET NOCOUNT OFF;
