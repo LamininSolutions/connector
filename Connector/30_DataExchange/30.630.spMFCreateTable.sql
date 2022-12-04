@@ -202,6 +202,8 @@ Date        Author     Description
 2022-09-07  LC         update after changes to classproperty table to add IsAdditional
 2022-09-07  LC         revamp and simplify procedure
 2022-09-07  LC         remove unique index on externalid
+2022-12-01  LC         improve debugging and logging
+2022-12-01  LC         improve handling of mfsql properties and indexes
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -227,7 +229,9 @@ BEGIN
                         @SQLDatatype_9 NVARCHAR(100),
                         @SQLDatatype_10_ID int,
                         @SQLDatatype_9_ID INT;
-
+DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s'
+		DECLARE @DebugText AS NVARCHAR(256) = N''
+		DECLARE @Msg AS NVARCHAR(256) = N''
         -------------------------------------------------------------
         --Check if the name exixsts in MFClass
         -------------------------------------------------------------
@@ -268,10 +272,10 @@ BEGIN
             )
             BEGIN
 
-            SELECT @SQLDatatype_10 = mdt.SQLDataType, @SQLDatatype_10_ID = mdt.id FROM dbo.MFDataType AS mdt
+            SELECT @SQLDatatype_10 = mdt.SQLDataType, @SQLDatatype_10_ID = mdt.ID FROM dbo.MFDataType AS mdt
             WHERE mdt.MFTypeID = 10
 
-            SELECT @SQLDatatype_9 = 'NVARCHAR(100)', @SQLDatatype_9_ID = mdt.id FROM dbo.MFDataType AS mdt
+            SELECT @SQLDatatype_9 = N'NVARCHAR(100)', @SQLDatatype_9_ID = mdt.ID FROM dbo.MFDataType AS mdt
             WHERE mdt.MFTypeID = 9
                
                SELECT @ClassCustomName = Name
@@ -282,11 +286,21 @@ BEGIN
             FROM dbo.MFClass
             WHERE Name = @ClassName
                   AND Deleted = 0;
+
+            SET @DebugText = N'class %s table %s'
+			Set @DebugText = @DefaultDebugText + @DebugText
+
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@ClassName, @TableName );
+				END
+
  
  -------------------------------------------------------------
             --SELECT PROPERTY NAME AND DATA TYPE
             -------------------------------------------------------------
-            SET @ProcedureStep = 'SELECT PROPERTY NAME AND DATA TYPE';
+            SET @ProcedureStep = 'Select property and datatype';
 
 
             IF (SELECT OBJECT_ID('tempdb..#temp')) IS NOT NULL
@@ -308,8 +322,8 @@ BEGIN
               PredefinedOrAutomatic
               )
            
-                SELECT DISTINCT ColumnName,
-                       CAST(MFDataType_ID AS VARCHAR(10)),
+                SELECT DISTINCT mp.ColumnName,
+                       CAST(mp.MFDataType_ID AS VARCHAR(10)),
                        mdt.SQLDataType,
                        mp.ID,
                        'NULL'
@@ -324,64 +338,29 @@ BEGIN
                  AND ISNULL(mcp.IsAdditional,0) = 0
                  AND mc.id = @Classid               
 
-            IF @Debug = 1
+	SET @DebugText = N'#Temp table count %i'
+			Set @DebugText = @DefaultDebugText + @DebugText
+            
+           IF @Debug > 0
             BEGIN
                 SELECT '#temp',t.*,mdt.SQLDataType
                 FROM #Temp AS t
                 INNER JOIN dbo.MFDataType AS mdt
                 ON t.MFDataType_ID = mdt.ID
-                ;
 
-                RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
+                SELECT @count = COUNT(*) FROM #temp AS t
+
+				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@count );
+				END
+      
             END;
 
             -----------------------------------------------------------------
             --Updating PredefinedOrAutomatic with values from MFClassProperty
             -----------------------------------------------------------------
-            SET @ProcedureStep = 'Updating PredefinedOrAutomatic with values from MFClassProperty';
+            SET @ProcedureStep = 'Adding lookup columns';
 
-            --UPDATE #Temp
-            --SET PredefinedOrAutomatic =
-            --    (
-            --        SELECT Required
-            --        FROM dbo.MFClassProperty
-            --        WHERE MFProperty_ID = ID
-            --              AND MFClass_ID = @ClassID
-            --    );
-
-            -----------------------------------------------------------------------------
-            --Checking if the required property is autocalculated 
-            --     or predefined,if yes, Updating required = FALSE
-            -----------------------------------------------------------------------------
-            --UPDATE #Temp
-            --SET PredefinedOrAutomatic =
-            --    (
-            --        SELECT 1 ^ PredefinedOrAutomatic FROM dbo.MFProperty WHERE ID = #Temp.ID
-            --    )
-            --WHERE PredefinedOrAutomatic = 1;
-
-            --IF @Debug = 1
-            --    RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
-
-            -----------------------------------------------------------------------------
-            --CHANGE THE 'MFDataType_ID' COLUMN DATA TYPE TO 'NVARCHAR(250)'
-            -----------------------------------------------------------------------------
-            --SET @ProcedureStep = 'CHANGE THE MFDataType_ID COLUMN DATA TYPE TO NVARCHAR(100)';
-
-            --ALTER TABLE #Temp DROP COLUMN ID;
-
-            --ALTER TABLE #Temp ALTER COLUMN MFDataType_ID NVARCHAR(250);
-
-            --SELECT @TableName = TableName
-            --FROM dbo.MFClass
-            --WHERE Name = @ClassName;
-
-            --IF @Debug = 1
-            --    RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
-
-            --IF @dEBUG > 0
-            --SELECT @SQLDatatype_9,@SQLDatatype_9_id, @SQLDatatype_10,@SQLDatatype_10_id; 
-      
+                  
                 INSERT INTO #Temp
                 (
                     ColumnName,
@@ -429,51 +408,29 @@ BEGIN
                           )
                 ) AS n2;
 
-                IF @Debug = 1
-                BEGIN
-                     SELECT 'AddedLookups',t.*,mdt.SQLDataType
+             SET @DebugText = N'#Temp table count %i'
+			Set @DebugText = @DefaultDebugText + @DebugText
+            
+           IF @Debug > 0
+            BEGIN
+                SELECT '#temp - lookups',t.*,mdt.SQLDataType
                 FROM #Temp AS t
                 INNER JOIN dbo.MFDataType AS mdt
-                ON t.MFDataType_ID = mdt.ID;
+                ON t.MFDataType_ID = mdt.ID
+                WHERE t.MFDataType_ID IN (9,10)
 
-                    RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
-                END;
+                SELECT @count = COUNT(*) FROM #temp AS t
 
-               
+				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@count );
+				END
+      
+      --      END;
 
-                -----------------------------------------------------------------------------
-                --CHANGE THE FKID WITH SQLDATATYPE
-                -----------------------------------------------------------------------------
-                --UPDATE #Temp
-                --SET MFDataType_ID =
-                --    (
-                --        SELECT SQLDataType FROM dbo.MFDataType WHERE ID = MFDataType_ID
-                --    );
-
-                -----------------------------------------------------------------------------
-                --ALTERING THE #Temp TABLE COLUMN DATATYPE
-     --           -----------------------------------------------------------------------------
-    --            SET @ProcedureStep = 'ALTERING THE #Temp TABLE COLUMN DATATYPE';
-
-                ----		IF EXISTS(SELECT name FROM sys.columns WHERE [columns].[object_id] = OBJECT_ID('tempdb..#Temp') AND name = 'PredefinedOrAutomatic')						  
-                --ALTER TABLE #Temp ALTER COLUMN PredefinedOrAutomatic NVARCHAR(250);
-
-                --UPDATE #Temp
-                --SET PredefinedOrAutomatic = 'NULL'
-                --WHERE PredefinedOrAutomatic = '0';
-
-                --UPDATE #Temp
-                ----                 SET     PredefinedOrAutomatic = 'NOT NULL'
-                --SET PredefinedOrAutomatic = 'NULL'
-                --WHERE PredefinedOrAutomatic = '1';
-
-                --IF @Debug = 1
-                --    RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
-
+          
                 -----------------------------------------------------------------------------
                 --Add Additional Default columns in localised text
                 -----------------------------------------------------------------------------                  
-                SET @ProcedureStep = 'Add Additional Default columns in localised text';
+                SET @ProcedureStep = 'Variables for Default columns in localised text';
 
                 DECLARE @NameOrTitle VARCHAR(100),
                         @classPropertyName VARCHAR(100),
@@ -500,78 +457,19 @@ BEGIN
                 FROM dbo.MFProperty
                 WHERE MFID = 39;
 
-                ------Added By DevTeam2 For Task 937
                 SELECT @SingleFile = ColumnName
                 FROM dbo.MFProperty
                 WHERE MFID = 22;
 
-                ------Added By LC For 
                 SELECT @Deleted = ColumnName
                 FROM dbo.MFProperty
                 WHERE MFID = 27;
-                -------------------------------------------------------------
-                ---- test duplicates
-                ---------------------------------------------------------------
-
-                --SELECT @State =   CASE
-                --                        WHEN
-                --                        (
-                --                            SELECT COUNT(*) FROM [#Temp] AS [t] WHERE [t].[ColumnName] = @State
-
-                --                        ) > 0 THEN
-                --                            @WorkflowName +'_' + @State
-                --                        ELSE
-                --                            @State
-                --                    END
-
-                ----Added By DevTeam2 For Task 937
-
-         --      SELECT @NameOrTitle,@classPropertyName,@Workflow, @State
-                --INSERT INTO #Temp
-                --(
-                --    ColumnName,
-                --    sqlDataType,
-                --    PredefinedOrAutomatic
-                --)
-                --VALUES
-                --(@classPropertyName, 'INTEGER', 'NOT NULL'),
-                --(REPLACE(@classPropertyName, '_ID', ''), 'NVARCHAR(100)', 'NULL'),
-                --(@Workflow, 'INTEGER', 'NULL'),
-                --(REPLACE(@Workflow, '_ID', ''), 'NVARCHAR(100)', 'NULL'),
-                --(@State, 'INTEGER', 'NULL'),
-                --(REPLACE(@State, '_ID', ''), 'NVARCHAR(100)', 'NULL'),
-                --(@SingleFile, 'BIT', 'NOT NULL '),
-                --(@Deleted, 'Datetime', 'NULL ');
-
-                --SET @ProcedureStep = 'Add Class and Name or title';
-
-                ----Added By DevTeam2 For Task 937
-                --IF NOT EXISTS (SELECT t.ColumnName FROM #Temp AS t WHERE t.ColumnName = @NameOrTitle)
-                --BEGIN
-                --    INSERT INTO #Temp
-                --    (
-                --        ColumnName,
-                --        sqlDataType,
-                --        PredefinedOrAutomatic
-                --    )
-                --    VALUES
-                --    (@NameOrTitle, 'NVARCHAR(100)', 'NULL');
-                --END;
-
-                --IF @Debug = 1
-                --BEGIN
-                --    SELECT '#Temp',
-                --           *
-                --    FROM #Temp;
-
-                --    RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
-                --END;
-
+   
   
                 -----------------------------------------------------------------------------
                 --GENERATING THE DYNAMIC QUERY TO CREATE TABLE    
                 -----------------------------------------------------------------------------                  
-                SET @ProcedureStep = 'GENERATING THE DYNAMIC QUERY TO CREATE TABLE';
+                SET @ProcedureStep = 'dynamic create table query';
 
                 SELECT @IDColumn
                     = N'[ID]  INT IDENTITY(1,1) NOT NULL ,[GUID] NVARCHAR(100),[MX_User_ID]  UNIQUEIDENTIFIER,';
@@ -592,8 +490,6 @@ BEGIN
                     = N'CREATE TABLE dbo.' + QUOTENAME(@TableName) + N' (' + LEFT(@dsql, LEN(@dsql) - 1)
                       + N'
 								 CONSTRAINT pk_' + @TableName + N'ID PRIMARY KEY (ID))' +
-                    --ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Deleted_'
-                    --             + @TableName + N']  DEFAULT 0 FOR [Deleted]
                     N'
 									ALTER TABLE dbo.' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Process_id_'
                       + @TableName + N']  DEFAULT 1 FOR [Process_ID]
@@ -608,49 +504,47 @@ BEGIN
                 ---------------------------------------------------------------------------
                 --EXECUTE DYNAMIC QUERY TO CREATE TABLE
                 -----------------------------------------------------------------------------
-                IF @Debug = 1
-                BEGIN
-                    SELECT @dsql AS CreateTable;
-                END;
 
+            SET @DebugText = N''
+			Set @DebugText = @DefaultDebugText + @DebugText
+            
+           IF @Debug > 0
+            BEGIN
+                  SELECT @dsql AS CreateTable;
+				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep);    
+            END;
                 EXEC sys.sp_executesql @Stmt = @dsql;
 
-                /*************************************************************************
-         STEP alter table to set default for class
-         NOTES
+          /*************************************************************************
+        Alter table
          */
-                SET @ProcedureStep = 'Set default for Class_ID';
+                SET @ProcedureStep = 'default constraint for Class_ID';
 
                 DECLARE @Params NVARCHAR(100);
 
                 SET @Params = N'@Tablename nvarchar(100)';
 
-                --SELECT  @dsql = N'ALTER TABLE '
-                --      + QUOTENAME(@TableName) + ' ADD  CONSTRAINT [DK_Class_' + @TableName + '] DEFAULT('+ CAST(@ClassMFID AS VARCHAR(10)) +') FOR '
-                --   + QUOTENAME(@ClassCustomName +'_ID') + '';
                 SELECT @dsql
                     = N'ALTER TABLE ' + QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DK_Class_' + @TableName
                       + N'] DEFAULT(' + CAST(-1 AS VARCHAR(10)) + N') FOR ' + QUOTENAME(@ClassCustomName + '_ID') + N'';
 
-                IF @Debug > 0
-                    PRINT @dsql;
+            SET @DebugText = N''
+			Set @DebugText = @DefaultDebugText + @DebugText
+            
+           IF @Debug > 0
+            BEGIN
+                  SELECT @dsql AS Class_Constraint;
+				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep);    
+            END;
 
                 EXEC sys.sp_executesql @Stmt = @dsql,
                                        @Param = @Params,
                                        @Tablename = @TableName;
 
-                IF @Debug = 1
-                BEGIN
-                    SELECT @dsql AS [Alter table for defaults];
-                END;
-
-                IF @Debug = 1
-                    RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
-
                 -------------------------------------------------------------
                 -- ADD standard Logging properties
                 -------------------------------------------------------------
-                SET @ProcedureStep = 'Add MFSQL_Message and MFSQL_Process_Batch columns';
+                SET @ProcedureStep = 'Add MFSQL_Message column';
 
                 DECLARE @IsDetailLogging SMALLINT,
                         @SQL NVARCHAR(MAX);
@@ -659,52 +553,59 @@ BEGIN
                 FROM dbo.MFSettings AS ms
                 WHERE ms.Name = 'App_DetailLogging';
 
-                IF @IsDetailLogging > 0
-                    SELECT @Count = COUNT(*)
+                SET @count = 0
+                IF (@IsDetailLogging > 0 AND EXISTS(
+                    SELECT mp.MFID
                     FROM dbo.MFProperty AS mp
-                    WHERE mp.Name IN ( 'MFSQL_Message', 'MFSQL_Process_Batch' );
-
-                IF @Count = 2
-                BEGIN
-                    BEGIN
-                        SELECT @Count = COUNT(*)
-                        FROM INFORMATION_SCHEMA.COLUMNS AS c
+                    WHERE mp.Name =  'MFSQL_Message')
+                    AND NOT EXISTS( SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS AS c
                         WHERE c.COLUMN_NAME = 'MFSQL_Message'
-                              AND c.TABLE_NAME = @TableName;
-
-                        IF @Count = 0
+                              AND c.TABLE_NAME = @TableName))
                         BEGIN
                             SET @SQL = N'
 Alter Table ' +             @TableName + N'
 Add MFSQL_Message nvarchar(max) null;';
 
-                            IF @Debug > 0
-                                PRINT @dsql;
-
-
                             EXEC (@SQL);
-                        END; --columns does not exist on table
-
-                        SELECT @Count = COUNT(*)
-                        FROM INFORMATION_SCHEMA.COLUMNS AS c
-                        WHERE c.COLUMN_NAME = 'MFSQL_Process_batch'
-                              AND c.TABLE_NAME = @TableName;
-
-                        IF @Count = 0
+                            SET @count = 1
+                        END
+                       
+ 
+            SET @DebugText = N'Added %i'
+			Set @DebugText = @DefaultDebugText + @DebugText
+            
+           IF @Debug > 0
+            BEGIN
+                  SELECT @dsql AS AddMFSQLMessage;
+				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@Count);    
+            END;
+ SET @ProcedureStep = 'Add MFSQL_Process_Batch column';
+ SET @Count = 0
+                         IF (@IsDetailLogging > 0 AND EXISTS(
+                    SELECT mp.MFID
+                    FROM dbo.MFProperty AS mp
+                    WHERE mp.Name = 'MFSQL_Process_Batch'
+                    AND NOT EXISTS( SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS AS c
+                        WHERE c.COLUMN_NAME = 'MFSQL_Process_Batch'
+                              AND c.TABLE_NAME = @TableName)))
                         BEGIN
                             SET @SQL = N'
 Alter Table ' +             @TableName + N'
-Add  MFSQL_Process_batch int null;';
+Add  MFSQL_Process_batch int nul;';
 
-                            IF @Debug > 0
-                                PRINT @dsql;
 
                             EXEC (@SQL);
-                        END; --columns does not exist on table
-                    END; --properties have been setup
-                END;
+                            SET @count = 1
+                        END
 
-                --Detail logging  = 1
+           SET @DebugText = N'Added %i'
+			Set @DebugText = @DefaultDebugText + @DebugText
+            
+           IF @Debug > 0
+            BEGIN
+                  SELECT @dsql AS AddMFSQLProcessBatch;
+				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@Count);    
+            END;
 
                 -------------------------------------------------------------
                 -- Add indexes and foreign keys
@@ -717,18 +618,8 @@ Add  MFSQL_Process_batch int null;';
 
                 IF @CreateUniqueIndexes = 1
                 BEGIN
-                    --                    SET @SQL
-                    --                        = N'
-
-
-                    ----ALTER TABLE ' +     QUOTENAME(@TableName) + N' ADD  CONSTRAINT [DF_' + @TableName
-                    ----                          + N'_ObjID]  DEFAULT ((ROW_NUMBER() OVER ( ORDER BY objid))*-1 FOR [ObjID]';
-
-                    --                    IF @debug > 0
-                    --                    PRINT @SQL;
-
-                    --                    EXEC (@SQL);
-
+ 
+ SET @ProcedureStep = 'Index for objid'
                     SET @SQL
                         = N'
 IF NOT EXISTS(SELECT 1 
@@ -739,17 +630,20 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_' + @TableName + N'_Objid
 ON dbo.' +          @TableName + N'(Objid) WHERE Objid is not null;';
 
 
-                    IF @Debug > 0
-                        PRINT @SQL;
+                  SET @DebugText = N'Added %i'
+			Set @DebugText = @DefaultDebugText + @DebugText
+            
+           IF @Debug > 0
+            BEGIN
+                  SELECT @dsql AS Index_Objid;
+				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@Count);    
+            END;
+
 
                     EXEC (@SQL);
 
-                    -------------------------------------------------------------
-                    -- Set index on objid
-                    -------------------------------------------------------------
+ SET @ProcedureStep = 'Index for ExternalID'
 
-                    --select @SQL
-                    --           EXEC (@SQL);
                     SET @SQL
                         = N'
 IF NOT EXISTS(SELECT 1 
@@ -760,27 +654,19 @@ CREATE NONCLUSTERED INDEX IX_' + @TableName + N'_ExternalID
 ON dbo.' +          @TableName + N'(ExternalID)
 WHERE ExternalID IS NOT NULL;';
 
-                    IF @Debug > 0
-                        PRINT @SQL;
+                      SET @DebugText = N'Added %i'
+			Set @DebugText = @DefaultDebugText + @DebugText
+            
+           IF @Debug > 0
+            BEGIN
+                  SELECT @dsql AS Index_External_ID;
+				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@Count);    
+            END;
 
                     EXEC (@SQL);
 
-                    SET @SQL
-                        = N'
-IF NOT EXISTS(SELECT 1 
-FROM sys.indexes 
-WHERE name=''IX_' + @TableName + N'_Update_ID'' AND object_id = OBJECT_ID(''dbo.' + @TableName
-                          + N'''))
-CREATE NONCLUSTERED INDEX IX_' + @TableName + N'_Update_ID
-ON dbo.' +          @TableName + N'(Update_ID)
-WHERE Update_ID IS NOT NULL;';
-
-                    IF @Debug > 0
-                        PRINT @SQL;
-
-                    EXEC (@SQL);
-
-                END;
+ 
+                END; -- create indexes
 
                 /*************************************************************************
 STEP Add trigger to table
@@ -795,37 +681,40 @@ NOTES
 
                     EXEC dbo.spMFCreateClassTableSynchronizeTrigger @TableName;
 
-                    IF @Debug = 1
-                        RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
-                END;
+                               SET @DebugText = N' Include in App = 2 '
+			Set @DebugText = @DefaultDebugText + @DebugText
+            
+           IF @Debug > 0
+            BEGIN        
+				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep);    
+            END;
 
-                IF @Debug = 1
-                    RAISERROR('Table %s Created', 10, 1, @TableName);
+                END;--end includeinapp = 2
+              
 
                 IF (OBJECT_ID('tempdb..#Temp')) IS NOT NULL
                     DROP TABLE #Temp;
-            END;
+         
+         END; -- table exists
             ELSE
             BEGIN
                 -----------------------------------------------------------------------------
                 --SHOW ERROR MESSAGE
                 -----------------------------------------------------------------------------
-                IF @Debug = 1
-                    RAISERROR('Table %s Already Exist', 10, 1, @TableName);
-
-                IF (OBJECT_ID('tempdb..#Temp')) IS NOT NULL
-                    DROP TABLE #Temp;
+                 SET @DebugText = N' Table already exists'
+			Set @DebugText = @DefaultDebugText + @DebugText
+            
+           IF @Debug > 0
+            BEGIN           
+				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep);    
             END;
-        END;
-        ELSE
-        BEGIN
+
+ 
+
             -----------------------------------------------------------------------------
             --SHOW ERROR MESSAGE
             -----------------------------------------------------------------------------
-            RAISERROR('Entered Class Name does not Exists in MFClass Table', 10, 1, @ProcedureName, @ProcedureStep);
-
-            IF (OBJECT_ID('tempdb..#Temp')) IS NOT NULL
-                DROP TABLE #Temp;
+    --        RAISERROR('Entered Class Name does not Exists in MFClass Table', 10, 1, @ProcedureName, @ProcedureStep);
 
             RETURN -1;
         END;
@@ -833,7 +722,7 @@ NOTES
         -----------------------------------------------------------------------------
         --SET INCLUDEINAPP TO 1 IF NULL
         -----------------------------------------------------------------------------
-        SET @ProcedureStep = 'SET INCLUDEINAPP TO 1 IF NULL';
+        SET @ProcedureStep = 'Set Included in App if null';
 
         UPDATE mc
         SET mc.IncludeInApp = 1
@@ -841,8 +730,13 @@ NOTES
         WHERE @TableName = mc.TableName
               AND mc.IncludeInApp IS NULL;
 
-        IF @Debug = 1
-            RAISERROR('Proc: %s Step: %s', 10, 1, @ProcedureName, @ProcedureStep);
+                         SET @DebugText = N''
+			Set @DebugText = @DefaultDebugText + @DebugText
+            
+           IF @Debug > 0
+            BEGIN
+				RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep);    
+            END;      
 
         RETURN 1;
     END TRY

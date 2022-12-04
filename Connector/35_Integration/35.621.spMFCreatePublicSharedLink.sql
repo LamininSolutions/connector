@@ -255,10 +255,13 @@ IF @debug > 0
 			RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
 		END
 	
-    EXEC [dbo].[spMFCheckLicenseStatus] 
-		             'spMFCreatePublicSharedLinkInternal'
-		             ,'spMFCreatePublicSharedLink'
-					 ,'Checking module access for CLR procdure  spMFCreatePublicSharedLinkInternal'			  
+     
+EXEC dbo.spMFCheckLicenseStatus @InternalProcedureName = 'spMFCreatePublicSharedLinkInternal',
+    @ProcedureName = @ProcedureName,
+    @ProcedureStep = @ProcedureStep,
+--    @ProcessBatch_id = @ProcessBatch_id,
+    @Debug = 0            
+                 
 
 Set @DebugText = ''
 Set @DebugText = @DefaultDebugText + @DebugText

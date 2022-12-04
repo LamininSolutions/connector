@@ -118,7 +118,7 @@ BEGIN
     -------------------------------------------------------------
 		-- VARIABLES: DEBUGGING
 		-------------------------------------------------------------
-		DECLARE @ProcedureName AS NVARCHAR(128) = 'schema.procname';
+		DECLARE @ProcedureName AS NVARCHAR(128) = 'spMFVaultConnectionTest';
 		DECLARE @ProcedureStep AS NVARCHAR(128) = 'Start';
 		DECLARE @DefaultDebugText AS NVARCHAR(256) = 'Proc: %s Step: %s'
 		DECLARE @DebugText AS NVARCHAR(256) = ''
@@ -205,7 +205,23 @@ BEGIN
         IF @RC < 0
         BEGIN
             SET @MessageOut = 'Unable to Connect';
-		--	SELECT @MessageOut
+		
+
+        	EXEC [dbo].[spMFProcessBatchDetail_Insert]
+			@ProcessBatch_ID = @ProcessBatch_ID
+		  , @LogType = N'Error'
+		  , @LogText = @MessageOut
+		  , @LogStatus = N'Status'
+		  , @StartTime = @StartTime
+		  , @MFTableName = @MFTableName
+		  , @Validation_ID = null
+		  , @ColumnName = NULL
+		  , @ColumnValue = NULL
+		  , @Update_ID = null
+		  , @LogProcedureName = @ProcedureName
+		  , @LogProcedureStep = @ProcedureStep
+		, @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT 
+		  , @debug = 0
 
             RAISERROR('Error:  %s - Check MFlog or email for error detail', 16, 1, @MessageOut)
 			RETURN;

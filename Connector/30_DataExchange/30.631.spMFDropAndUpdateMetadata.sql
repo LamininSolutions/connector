@@ -310,7 +310,8 @@ BEGIN TRY
 
     EXEC @return_value = dbo.spMFCheckLicenseStatus @InternalProcedureName = 'spMFGetClass', -- nvarchar(500)
                                                     @ProcedureName = @ProcedureName,         -- nvarchar(500)
-                                                    @ProcedureStep = @ProcedureStep;
+                                                    @ProcedureStep = @ProcedureStep,
+                                                    @ProcessBatch_ID = @processbatch_ID;
 
     SET @DebugText = N'License Return %s';
     SET @DebugText = @DefaultDebugText + @DebugText;

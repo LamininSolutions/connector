@@ -460,9 +460,13 @@ BEGIN TRY
     -----------------------------------------------------------------
     -- Checking module access for CLR procdure  spMFCreateObjectInternal
     ------------------------------------------------------------------
-    EXEC dbo.spMFCheckLicenseStatus 'spMFCreateObjectInternal',
-                                    @ProcedureName,
-                                    @ProcedureStep;
+  
+
+EXEC dbo.spMFCheckLicenseStatus @InternalProcedureName = 'spMFCreateObjectInternal',
+    @ProcedureName = @ProcedureName,
+    @ProcedureStep = @ProcedureStep,
+    @ProcessBatch_id = @ProcessBatch_id,
+    @Debug = 0
 
     -------------------------------------------------------------
     -- Get objids

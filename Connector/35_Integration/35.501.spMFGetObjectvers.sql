@@ -266,9 +266,11 @@ BEGIN
         ------------------------------------------------------------------
         SET @ProcedureStep = N'Check license';
 
-        EXEC dbo.spMFCheckLicenseStatus 'spMFGetObjectVersInternal',
-            @ProcedureName,
-            @ProcedureStep;
+EXEC dbo.spMFCheckLicenseStatus @InternalProcedureName = 'spMFGetObjectVersInternal',
+    @ProcedureName = @ProcedureName,
+    @ProcedureStep = @ProcedureStep,
+    @ProcessBatch_id = @ProcessBatch_id,
+    @Debug = 0
 
         SET @DebugText
             = N'Filters: Class %i :Date ' + CAST(ISNULL(@dtModifiedDate, '') AS VARCHAR(30))

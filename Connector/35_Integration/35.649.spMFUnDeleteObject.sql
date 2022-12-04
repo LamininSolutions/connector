@@ -257,10 +257,12 @@ BEGIN
         ------------------------------------------------------
         --Validating Module for calling CLR Procedure
         ------------------------------------------------------
-        EXEC dbo.spMFCheckLicenseStatus 'spMFUnDeleteObject',
-                                        'spMFUnDeleteObject',
-                                        'UnDeleting object';
 
+EXEC dbo.spMFCheckLicenseStatus @InternalProcedureName = 'spMFUnDeleteObject',
+    @ProcedureName = @ProcedureName,
+    @ProcedureStep = @ProcedureStep,
+    @ProcessBatch_id = @ProcessBatch_id,
+    @Debug = 0
 
         -------------------------------------------------------------
         --	Create Update_id for process start 

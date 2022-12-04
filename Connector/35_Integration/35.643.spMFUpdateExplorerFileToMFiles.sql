@@ -316,9 +316,12 @@ BEGIN
             -- license check
             -------------------------------------------------------------
 
-                EXEC dbo.spMFCheckLicenseStatus 'spMFUpdateExplorerFileToMFiles',
-                'spMFUpdateExplorerFileToMFiles',
-                'Import file';
+
+EXEC dbo.spMFCheckLicenseStatus @InternalProcedureName = 'spMFUpdateExplorerFileToMFiles',
+    @ProcedureName = @ProcedureName,
+    @ProcedureStep = @ProcedureStep,
+    @ProcessBatch_id = @ProcessBatch_id,
+    @Debug = 0
 
                 -------------------------------------------------------------
                 -- Get objid for record

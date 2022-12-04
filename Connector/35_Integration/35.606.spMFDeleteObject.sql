@@ -395,9 +395,12 @@ BEGIN
         ------------------------------------------------------
         --Validating Module for calling CLR Procedure
         ------------------------------------------------------
-        EXEC dbo.spMFCheckLicenseStatus 'spMFDeleteObjectListInternal',
-                                        'spMFDeleteObject',
-                                        'Deleting object';
+
+EXEC dbo.spMFCheckLicenseStatus @InternalProcedureName = 'spMFDeleteObjectListInternal',
+    @ProcedureName = @ProcedureName,
+    @ProcedureStep = @ProcedureStep,
+    @ProcessBatch_id = @ProcessBatch_id,
+    @Debug = 0
 
         -----------------------------------------------------
         -- CALLS PROCEDURE spMFDeleteObjectInternal

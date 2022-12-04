@@ -587,6 +587,29 @@ BEGIN TRY
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Checkstatus, @Msg);
         END;
 
+          
+                           SET @LogTypeDetail = 'Status';
+                           SET @LogStatusDetail = @logstatus;
+                           SET @LogTextDetail = 'check Status ' + @Msg
+                           SET @LogColumnName = '';
+                           SET @LogColumnValue = '';
+
+                           EXECUTE [dbo].[spMFProcessBatchDetail_Insert]
+                            @ProcessBatch_ID = @ProcessBatch_ID
+                          , @LogType = @LogTypeDetail
+                          , @LogText = @LogTextDetail
+                          , @LogStatus = @LogStatusDetail
+                          , @StartTime = @StartTime
+                          , @MFTableName = @MFTableName
+                          , @Validation_ID = null
+                          , @ColumnName = @LogColumnName
+                          , @ColumnValue = @LogColumnValue
+                          , @Update_ID = null
+                          , @LogProcedureName = @ProcedureName
+                          , @LogProcedureStep = @ProcedureStep
+                          , @debug = @debug
+
+
                 -------------------------------------------------------------
                 -- LICENSE NOTIFICATION
                 -------------------------------------------------------------

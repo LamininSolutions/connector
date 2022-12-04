@@ -277,10 +277,13 @@ Date        Author     Description
 					-----------------------------------------------------------------
 	                  -- Checking module access for CLR procedure  
                     ------------------------------------------------------------------
-                     EXEC [dbo].[spMFCheckLicenseStatus] 
-					      'spMFAliasesUpsert'
-						  ,@ProcedureName
-						  ,@ProcedureStep
+
+
+    EXEC dbo.spMFCheckLicenseStatus @InternalProcedureName = 'spMFAliasesUpsert',
+    @ProcedureName = @ProcedureName,
+    @ProcedureStep = @ProcedureStep,
+    @ProcessBatch_id = @ProcessBatch_id,
+    @Debug = 0
 					
             -------------------------------------------------------------
             -- Local declarations

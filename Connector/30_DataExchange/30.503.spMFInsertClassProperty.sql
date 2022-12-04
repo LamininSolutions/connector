@@ -74,6 +74,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2022-12-01  LC         Improve debugging logging and handling of properties
 2022-09-07  LC         Introduce columns RetainIfNull and IsAdditional
 2020-12-23  LC         Add class as a property 100
 2019-08-30  JC         Added documentation
@@ -94,11 +95,20 @@ BEGIN TRY
             @ProcedureName sysname = 'spMFInsertClassProperty',
             @XML XML = @Doc;
 
+DECLARE @DefaultDebugText AS NVARCHAR(256) = 'Proc: %s Step: %s'
+		DECLARE @DebugText AS NVARCHAR(256) = ''
+		DECLARE @Msg AS NVARCHAR(256) = ''
+		
 
-    IF @Debug = 1
-    BEGIN
-        RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
-    END;
+            	SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
+			
+			IF @debug > 0
+				BEGIN
+                SELECT CAST(@XML AS XML)
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				END
+
 
     -----------------------------------------------------
     -- COPY CUSTOM DATA INTO TEMP TABLE
@@ -150,10 +160,7 @@ BEGIN TRY
     );
 
     SELECT @ProcedureStep = 'Inserting values into #ClassProperty';
-    IF @Debug = 1
-    BEGIN
-        RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
-    END;
+
     --------------------------------------------------------------
     -- INSERT DATA FROM XML INTO TEMPORARY TABLE 
     --------------------------------------------------------------          
@@ -175,64 +182,71 @@ BEGIN TRY
                 ON t.c.value('(@classID)[1]', 'INT') = mc.MFID
             INNER JOIN dbo.MFProperty AS mp
                 ON mp.MFID = t.c.value('(@PropertyID)[1]', 'INT');
-    ;
+
+    SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
+			
+			IF @debug > 0
+				BEGIN
+                 SELECT * FROM #ClassProperty AS cp;
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				END
+
 
     ---------------------------------------------------------------
-    ---- insert property for required classes
+    ---- insert additional properties properties
     ---------------------------------------------------------------
-    --          INSERT  INTO [#ClassProperty]
-    --                ( [MFClass_ID] ,
-    --                       [MFProperty_ID] ,
-    --                  [Required],
-    --    RetainIfNull,
-    --    IsAdditional
-    --                )
-    --                SELECT distinct [t].[c].[value]('(@Single_File)[1]', 'bit') AS [MFClass_ID] 
-    --                ,22,1,1,0
-    --                FROM    @XML.[nodes]('/form/ClassProperty') AS [t] ( [c] )               
-    --                ;
+  
+  
+  SET @ProcedureStep = 'insert additional properties'
+  DECLARE @AdditionalProperties NVARCHAR(MAX) = '22,27,38,39,100'
 
-    --SELECT @ProcedureStep = 'Updating #ClassProperty with Required value from MFClassProperty';
+  SET @DebugText = ' Additional properties %i '
+			Set @DebugText = @DefaultDebugText + @DebugText
 
-    IF @Debug > 1
-    BEGIN
-        RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
-        SELECT MCP.*
-        FROM #ClassProperty AS mcp
-                
-    END;
+			
+			IF @debug > 0
+				BEGIN
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep,@AdditionalProperties );
+				END
 
-    --SET @ProcedureStep = 'Updating #ClassProperty';
+;WITH cte AS
+                (SELECT cp.MFClass_ID FROM #ClassProperty AS cp
+                GROUP BY cp.MFClass_ID)
+    INSERT  INTO [#ClassProperty]
+                    ( [MFClass_ID] ,
+                           [MFProperty_ID] ,
+                      [Required],
+        RetainIfNull,
+        IsAdditional
+                    )SELECT DISTINCT cte.MFClass_ID,p.id,1,1,0  FROM mfproperty p
+                    CROSS APPLY cte
+                    INNER JOIN dbo.fnMFParseDelimitedString(@AdditionalProperties,',') AS fmpds
+                    ON fmpds.ListItem = p.MFID
+                    LEFT JOIN #ClassProperty AS cp                   
+                    ON p.id = cp.MFProperty_ID
+                    WHERE cp.MFProperty_ID IS null
 
-    --IF @Debug = 1
-    --BEGIN
-    --    RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
-    --END;
-
-    --UPDATE #ClassProperty
-    --SET MFClass_ID =
-    --    (
-    --        SELECT ID FROM dbo.MFClass WHERE MFID = #ClassProperty.MFClass_ID
-    --    ),
-    --    MFProperty_ID =
-    --    (
-    --        SELECT ID FROM dbo.MFProperty WHERE MFID = #ClassProperty.MFProperty_ID
-    --    );
-
-    --UPDATE #ClassProperty
-    --SET MFClass_ID = 0
-    --WHERE MFClass_ID IS NULL;
+                     SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
+			
+			IF @debug > 0
+				BEGIN
+                 SELECT cp.MFClass_ID,p.mfid, p.ColumnName FROM #ClassProperty AS cp
+                 LEFT JOIN dbo.MFProperty p
+                 ON cp.MFProperty_ID = p.id
+                 LEFT JOIN dbo.fnMFParseDelimitedString(@AdditionalProperties,',') AS fmpds
+                 ON p.mfid = fmpds.ListItem
+                 ORDER BY cp.MFClass_ID;
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				END
 
     -------------------------------------------------------------
     -- add additional properties by class
     -------------------------------------------------------------
 
-     SET @ProcedureStep = 'add additional properties';
+     SET @ProcedureStep = 'add non standard properties';
 
-    IF @Debug = 1
-    BEGIN
-        RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
-    END;
 
           INSERT INTO #ClassProperty
           (
@@ -244,9 +258,9 @@ BEGIN TRY
           )
         SELECT DISTINCT mc.ID MFclass_ID,
                mp.ID MFProperty_ID,
-               CASE WHEN mp.mfid < 999 THEN 1 ELSE 0 end,
+               CASE WHEN mp.mfid < 999 THEN 1 ELSE 0 END,
                RetainIfNull = 0,
-               CASE WHEN mp.mfid < 999 THEN 0 ELSE 1 end           
+               CASE WHEN mp.mfid < 999 THEN 0 ELSE 1 END           
         FROM sys.tables AS t
          INNER JOIN  dbo.MFClass mc
                 ON mc.TableName = t.name
@@ -257,15 +271,15 @@ BEGIN TRY
             LEFT JOIN #ClassProperty AS mcp
                 ON mcp.MFClass_ID = mc.ID
                    AND mcp.MFProperty_ID = mp.ID
-    WHERE mcp.MFClass_ID IS null   
+    WHERE mcp.MFClass_ID IS NULL   
 
-  
-    SET @ProcedureStep = 'Inserting values into #ClassPpt';
+    SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
 
-    IF @Debug = 1
-    BEGIN
-        RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
-        SELECT '#classProperty',
+			
+			IF @debug > 0
+				BEGIN
+                  SELECT '#classProperty',
                mcp.*, mc.TableName, mc.mfid classmfid, mp.ColumnName, mp.mfid PropertyID
         FROM #ClassProperty AS mcp
          inner JOIN  dbo.MFClass AS mc
@@ -273,17 +287,15 @@ BEGIN TRY
             INNER JOIN dbo.MFProperty AS mp
                 ON mp.ID = mcp.MFProperty_ID
                 ORDER BY mc.mfid, mp.mfid;
-    END;
+
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				END
 
     -------------------------------------------------------------
     -- Update settings for RetainIfNull
     -------------------------------------------------------------
-         SET @ProcedureStep = 'add additional properties';
+         SET @ProcedureStep = 'Update settings for RetainIfNull';
 
-    IF @Debug = 1
-    BEGIN
-        RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
-    END;
 
     UPDATE cp
     SET cp.RetainIfNull = tcp.RetainIfNull
@@ -292,53 +304,20 @@ BEGIN TRY
     ON cp.MFClass_ID = tcp.MFClass_ID AND cp.MFProperty_ID = tcp.MFProperty_ID
     WHERE cp.RetainIfNull <> tcp.RetainIfNull
 
-    ----          --------------------------------------------------------------
-    ----          ----Storing the difference into #tempNewObjectTypeTble 
-    ----          --------------------------------------------------------------
-    --SET @ProcedureStep = 'Storing the difference into #tempTbl';
-    --SELECT *
-    --INTO #ClassPpt
-    --FROM
-    --(
-    --    SELECT MFClass_ID,
-    --           MFProperty_ID,
-    --           Required,
-    --           RetainIfNull,
-    --           IsAdditional
-    --    FROM #ClassProperty
-    --    EXCEPT
-    --    SELECT MFClass_ID,
-    --           MFProperty_ID,
-    --           Required,
-    --           RetainIfNull,
-    --           IsAdditional
-    --    FROM dbo.MFClassProperty
-    --) tempTbl;
+    SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				END
 
-    --IF @Debug = 1
-    --BEGIN
-    --    RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
-    --    SELECT '#ClassPpt ',
-    --           *
-    --    FROM dbo.MFClass AS mc
-    --        FULL OUTER JOIN dbo.#ClassPpt AS mcp
-    --            ON mcp.MFClass_ID = mc.ID
-    --        INNER JOIN dbo.MFProperty AS mp
-    --            ON mp.ID = mcp.MFProperty_ID;
-    --    SELECT *
-    --    FROM #ClassPpt
-    --        LEFT JOIN dbo.MFClassProperty cp
-    --            ON (
-    --                   cp.MFClass_ID = #ClassPpt.MFClass_ID
-    --                   AND cp.MFProperty_ID = #ClassPpt.MFProperty_ID
-    --               );
-    --END;
-
+   
     ------------------------------------------------------
     --Drop CONSTRAINT
     ------------------------------------------------------
     SET @ProcedureStep = 'Drop CONSTRAINT';
-    IF @Debug = 1
+    IF @Debug > 0
     Begin
         RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
     End
@@ -384,10 +363,11 @@ BEGIN TRY
                cp.Required,
                cp.RetainIfNull,
                cp.IsAdditional FROM #ClassProperty AS cp
+               WHERE cp.MFClass_ID IS NOT null
 
        --          SET @Output = 'Updated records ' + CAST(@@ROWCOUNT AS VARCHAR(10));
 
-        IF @Debug = 1
+        IF @Debug > 0
         BEGIN
             RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
 
@@ -430,7 +410,7 @@ BEGIN TRY
     --        FROM dbo.MFClassProperty
     --    ) newPprty;
         --SET @Output = @Output + @@ROWCOUNT;
-        IF @Debug = 1
+        IF @Debug> 0
         BEGIN
 
             IF (@isFullUpdate = 1)
@@ -579,7 +559,7 @@ BEGIN TRY
 
     SELECT @ProcedureStep = 'END Insert ClassProperty Properties';
 
-    IF @Debug = 1
+    IF @Debug > 0
     BEGIN
         RAISERROR('%s : Step %s Return 1', 10, 1, @ProcedureName, @ProcedureStep);
     END;

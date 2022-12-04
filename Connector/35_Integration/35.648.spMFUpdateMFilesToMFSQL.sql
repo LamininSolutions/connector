@@ -775,6 +775,7 @@ CREATE nonCLUSTERED INDEX idx_objidtable_objid ON ' + @tempObjidTable + N'(table
                         EXEC dbo.spMFUpdateObjectChangeHistory @MFTableName = @MFTableName,         -- nvarchar(200)
                                                                @WithClassTableUpdate = 0,           -- int
                                                                @Objids = NULL,                      -- nvarchar(max)
+                                                               @IsFullHistory = 0,
                                                                @ProcessBatch_ID = @ProcessBatch_ID, -- int
                                                                @Debug = @debug;                     -- smallint
                     END;
@@ -1546,6 +1547,7 @@ ON t2.objid = cte.objid
                     EXEC dbo.spMFUpdateObjectChangeHistory @MFTableName = @MFTableName,
                                                            @WithClassTableUpdate = 0,
                                                            @Objids = @ObjIds_toUpdate,
+                                                           @IsFullHistory = 0,
                                                            @ProcessBatch_ID = @ProcessBatch_ID,
                                                            @Debug = @debug;
                 END;

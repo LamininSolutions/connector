@@ -448,9 +448,12 @@ BEGIN
                 ------------------------------------------------------------------
                 SET @ProcedureStep = 'Check license';
 
-                EXEC dbo.spMFCheckLicenseStatus 'spMFGetFilesListInternal',
-                    @ProcedureName,
-                    @ProcedureStep;
+                    
+EXEC dbo.spMFCheckLicenseStatus @InternalProcedureName = 'spMFGetFilesListInternal',
+    @ProcedureName = @ProcedureName,
+    @ProcedureStep = @ProcedureStep,
+    @ProcessBatch_id = @ProcessBatch_id,
+    @Debug = 0
 
                 -------------------------------------------------------------
                 -- Create list of objids and filenr

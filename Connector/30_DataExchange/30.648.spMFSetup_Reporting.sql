@@ -547,7 +547,7 @@ BEGIN
         SET @DebugText = @DefaultDebugText + @DebugText;
 
         RAISERROR(@DebugText, 10, 1, @ProcedureName, @Procedurestep);
-
     END;
 END;
+RETURN 1
 GO
