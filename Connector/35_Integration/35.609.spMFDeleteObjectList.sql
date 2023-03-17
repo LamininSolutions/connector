@@ -5,7 +5,7 @@ GO
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFDeleteObjectList', -- nvarchar(100)
-                                 @Object_Release = '4.9.29.73',         -- varchar(50)
+                                 @Object_Release = '4.10.30.75',         -- varchar(50)
                                  @UpdateFlag = 2;                       -- smallint
 GO
 
@@ -43,7 +43,7 @@ ALTER PROC dbo.spMFDeleteObjectList
     @Process_id INT,
     @DeleteWithDestroy BIT = 0,
     @RetainDeletions BIT = 0,
-    @Update_ID INT OUTPUT,
+    @Update_ID INT = null output ,
     @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug INT = 0
 )
@@ -156,6 +156,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-01-25  LC         Set default value for Update_ID parameter
 2022-02-10  LC         Add update ID to record deletions in history
 2021-12-20  LC         Pair connection test with accessing assembly
 2021-06-08  LC         Remove object from class table if not found

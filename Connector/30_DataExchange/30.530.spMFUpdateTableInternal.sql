@@ -8,7 +8,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateTableInternal', -- nvarchar(100)
-    @Object_Release = '4.10.30.74',            -- varchar(250)
+    @Object_Release = '4.10.30.75',            -- varchar(250)
     @UpdateFlag = 2;
 -- smallint
 GO
@@ -91,6 +91,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-02-15  LC         Resolve bug for converting datetime incorrectly when new record is added
 2022-08-03  LC         Update debugging for error trapping
 2022-06-16  LC         Fix conflict of name value in Pivot of Tempobjectlist
 2022-03-24  LC         Add isolation levels and no lock to avoid locking
@@ -726,11 +727,15 @@ Select  substring(PropertyName,1,(len(mp.columnName)-3)) as Columnname
                         WHEN DATA_TYPE = 'TIME' THEN
                             ' CONVERT(TIME(0), NULLIF(' + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),0) AS '
                             + QUOTENAME(COLUMN_NAME) + ','
-                        WHEN DATA_TYPE = 'DATETIME' THEN
-                            ' DATEADD(MINUTE,DATEDIFF(MINUTE,getUTCDATE(),Getdate()),CONVERT(DATETIME, NULLIF('
-                            + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),102 )) AS ' + QUOTENAME(COLUMN_NAME)
-                            + ','
-                        WHEN DATA_TYPE = 'BIT' THEN
+                        --WHEN DATA_TYPE = 'DATETIME' THEN
+                        --    ' DATEADD(MINUTE,DATEDIFF(MINUTE,getUTCDATE(),Getdate()),CONVERT(DATETIME, NULLIF('
+                        --    + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),102 )) AS ' + QUOTENAME(COLUMN_NAME)
+                        --    + ','
+                        	    WHEN DATA_TYPE = 'DATETIME' THEN
+                             '  CONVERT(DATETIME,NULLIF('
+                            + REPLACE(QUOTENAME(COLUMN_NAME), '.', ':') + ',''''),102 )  AS ' + QUOTENAME(COLUMN_NAME)
+                           + ','
+                   when DATA_TYPE = 'BIT' THEN
                             'CASE WHEN ' + QUOTENAME(COLUMN_NAME) + ' = ''1'' THEN  CAST(''1'' AS BIT) WHEN '
                             + QUOTENAME(COLUMN_NAME) + ' = ''0'' THEN CAST(''0'' AS BIT)  ELSE 
 						null END AS '                            + QUOTENAME(COLUMN_NAME) + ','

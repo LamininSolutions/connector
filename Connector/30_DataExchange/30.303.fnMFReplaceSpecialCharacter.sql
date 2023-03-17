@@ -6,7 +6,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'fnMFReplaceSpecialCharacter', -- nvarchar(100)
-    @Object_Release = '4.4.11.52', -- varchar(50)
+    @Object_Release = '4.10.30.75', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
 
@@ -50,6 +50,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-02-15  LC         add pipe sign to exclusions
 2019-08-30  JC         Added documentation
 2019-08-06  LC         Add brackets as exclusion
 2017-12-03  LC         Fix bug of adding 2 underscores
@@ -95,7 +96,7 @@ Date        Author     Description
       ----------------------------------
       SET @ColumnName = Replace(@ColumnName, '  ', '_') --two spaces
 	  SET @ColumnName = Replace(@ColumnName, ' ', '_') --one space
-
+      SET @ColumnName =replace(@ColumnName,'|','_') -- delimiter character
 	
 
       RETURN @ColumnName

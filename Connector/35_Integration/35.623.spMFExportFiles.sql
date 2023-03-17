@@ -1,61 +1,61 @@
 
 GO
 
-PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFExportFiles]';
-GO
+print space(5) + quotename(@@servername) + '.' + quotename(db_name()) + '.[dbo].[spMFExportFiles]';
+go
 
-SET NOCOUNT ON;
+set nocount on;
 
-EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
+exec setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFExportFiles',
     -- nvarchar(100)
-    @Object_Release = '4.9.26.67',
+    @Object_Release = '4.10.30.75',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
-GO
+go
 
-IF EXISTS
+if exists
 (
-    SELECT 1
-    FROM INFORMATION_SCHEMA.ROUTINES
-    WHERE ROUTINE_NAME = 'spMFExportFiles' --name of procedure
-          AND ROUTINE_TYPE = 'PROCEDURE' --for a function --'FUNCTION'
-          AND ROUTINE_SCHEMA = 'dbo'
+    select 1
+    from INFORMATION_SCHEMA.ROUTINES
+    where ROUTINE_NAME = 'spMFExportFiles' --name of procedure
+          and ROUTINE_TYPE = 'PROCEDURE' --for a function --'FUNCTION'
+          and ROUTINE_SCHEMA = 'dbo'
 )
-BEGIN
-    PRINT SPACE(10) + '...Stored Procedure: update';
+begin
+    print space(10) + '...Stored Procedure: update';
 
-    SET NOEXEC ON;
-END;
-ELSE
-    PRINT SPACE(10) + '...Stored Procedure: create';
-GO
+    set noexec on;
+end;
+else
+    print space(10) + '...Stored Procedure: create';
+go
 
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE dbo.spMFExportFiles
-AS
-SELECT 'created, but not implemented yet.';
+create procedure dbo.spMFExportFiles
+as
+select 'created, but not implemented yet.';
 --just anything will do
-GO
+go
 
 -- the following section will be always executed
-SET NOEXEC OFF;
-GO
+set noexec off;
+go
 
-ALTER PROCEDURE dbo.spMFExportFiles
+alter procedure dbo.spMFExportFiles
 (
-    @TableName NVARCHAR(128),
-    @PathProperty_L1 NVARCHAR(128) = NULL,
-    @PathProperty_L2 NVARCHAR(128) = NULL,
-    @PathProperty_L3 NVARCHAR(128) = NULL,
-    @IsDownload BIT = 1,
-    @IncludeDocID BIT = 1,
-    @Process_id INT = 1,
-    @ProcessBatch_ID INT = NULL OUTPUT,
-    @Debug INT = 0
+    @TableName nvarchar(128),
+    @PathProperty_L1 nvarchar(128) = null,
+    @PathProperty_L2 nvarchar(128) = null,
+    @PathProperty_L3 nvarchar(128) = null,
+    @IsDownload bit = 1,
+    @IncludeDocID bit = 0,
+    @Process_id int = 0,
+    @ProcessBatch_ID int = null output,
+    @Debug int = 0
 )
-AS
+as
 /*rST**************************************************************************
 
 ===============
@@ -182,6 +182,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-02-15  LC         bug to handle pipe sign in multifile document name
+2023-01-07  LC         reset filesize to bigint
 2021-01-07  LC         Change CLR to improve downloading multiple files
 2021-01-07  LC         Include parameter to restrict download of files
 2021-01-05  LC         Improve productivity and processing logic
@@ -197,9 +199,9 @@ Date        Author     Description
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
-BEGIN
-    BEGIN TRY
-        SET NOCOUNT ON;
+begin
+    begin try
+        set nocount on;
 
         -----------------------------------------------------
         --DECLARE LOCAL VARIABLE
@@ -286,8 +288,11 @@ BEGIN
 
         IF EXISTS (SELECT 1 FROM dbo.MFClass WHERE TableName = @TableName) 
         BEGIN
+
+		if @debug > 0
+		Begin
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @TableName);
-        
+       end        
             -------------------------------------------------------------
             -- Get deleted column name
             -------------------------------------------------------------
@@ -325,7 +330,7 @@ BEGIN
             IF @Rootfolder != ''
             BEGIN
                 SET @ProcedureStep = 'File download path: ';
-                SET @DebugText = N'';
+                SET @DebugText = @Rootfolder + @MFClassFileExportFolder;
                 SET @DebugText = @DefaultDebugText + @DebugText;
 
                 IF @Debug > 0
@@ -484,21 +489,32 @@ EXEC dbo.spMFCheckLicenseStatus @InternalProcedureName = 'spMFGetFilesListIntern
                 Insert into #Filelist
                 (Filecount, Filenr, objid)
 
-                SELECT  t.filecount, 1,t.ObjID
+                SELECT  isnull(t.filecount,0), 1,t.ObjID
                 FROM ' + QUOTENAME(@TableName) + N' AS t where process_ID = @Process_ID';
 
                 EXEC sys.sp_executesql @vquery, @Params, @ObjID OUTPUT, @Process_id;
 
                 SELECT @objid = MIN(objid) FROM #Filelist AS f
+				Select @RC = count(*) from #Filelist
 
-                SET @DebugText = N' %i ';
+                SET @DebugText = N' start %i count %i';
                 SET @DebugText = @DefaultDebugText + @DebugText;
                 SET @ProcedureStep = 'Objid id start';
 
                 IF @Debug > 0
                 BEGIN
-                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ObjID);
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ObjID, @RC);
                 END;
+
+				if @objid is null 
+				SET @DebugText = N' %i ';
+                SET @DebugText = @DefaultDebugText + @DebugText;
+                SET @ProcedureStep = 'start of loop is null';
+
+                IF @Debug > 0
+                BEGIN
+                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ObjID);
+                END;		
 
                 SET @Filenr = 1;
 
@@ -568,12 +584,13 @@ EXEC dbo.spMFCheckLicenseStatus @InternalProcedureName = 'spMFGetFilesListIntern
                 -------------------------------------------------------------
                 -- Add values of columns for each object
                 -------------------------------------------------------------
-
+if (Select count(*) from #Filelist) > 0
+Begin
 IF (@PathProperty_L1 IS NOT NULL AND @PathProperty_L2 IS NOT NULL AND @PathProperty_L3 IS NOT NULL)
 BEGIN -- all paths define
 SET @vquery = N'
 UPDATE f
-SET PathProperty_L1 = ' + QUOTENAME(@PathProperty_L1) +', PathProperty_L2 = '+ QUOTENAME(@PathProperty_L2) + ', PathProperty_L3 = ' + QUOTENAME(@PathProperty_L3)  + ' FROM ' + QUOTENAME(@TableName) + ' t
+SET PathProperty_L1 = substring(' + QUOTENAME(@PathProperty_L1) +',1,95), PathProperty_L2 = substring('+ QUOTENAME(@PathProperty_L2) + ',1,95), PathProperty_L3 = substring(' + QUOTENAME(@PathProperty_L3)  + ',1,95) FROM ' + QUOTENAME(@TableName) + ' t
 INNER JOIN #Filelist AS f
 ON t.ObjID = f.objid'
 END
@@ -581,7 +598,7 @@ ELSE IF (@PathProperty_L1 IS NOT NULL AND @PathProperty_L2 IS NOT NULL AND @Path
 BEGIN  -- path 1, 2 defined
 SET @vquery = N'
 UPDATE f
-SET PathProperty_L1 =  ' + QUOTENAME(@PathProperty_L1) +',PathProperty_L2 = '+ QUOTENAME(@PathProperty_L2) + ' FROM ' + QUOTENAME(@TableName) + ' t
+SET PathProperty_L1 =  substring(' + QUOTENAME(@PathProperty_L1) +',1,95), PathProperty_L2 = substring('+ QUOTENAME(@PathProperty_L2) + ',1,95) FROM ' + QUOTENAME(@TableName) + ' t
 INNER JOIN #Filelist AS f
 ON t.ObjID = f.objid'
 END
@@ -589,7 +606,7 @@ ELSE IF (@PathProperty_L1 IS NOT NULL AND @PathProperty_L2 IS NULL AND @PathProp
 BEGIN -- path 1 defined
 SET @vquery = N'
 UPDATE f
-SET PathProperty_L1 =  ' + QUOTENAME(@PathProperty_L1) +' FROM ' + QUOTENAME(@TableName) + ' t
+SET PathProperty_L1 =  substring(' + QUOTENAME(@PathProperty_L1) +',1,95) FROM ' + QUOTENAME(@TableName) + ' t
 INNER JOIN #Filelist AS f
 ON t.ObjID = f.objid'
 END
@@ -669,7 +686,7 @@ DECLARE @Isdownload BIT = 0
                     FileCount INT,
                     FileObjectID INT,
                     Extension NVARCHAR(100),
-                    FileSize INT
+                    FileSize BIGINT
                 );
 
                 SET @Params
@@ -727,8 +744,8 @@ end
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
                 END;
 
-                          --IF @Debug > 0
-                          --      PRINT @vquery;
+                          IF @Debug > 100
+                                PRINT @vquery;
                 ;
 
                 SET @ProcedureStep = 'Insert into #ExportFiles';
@@ -753,7 +770,7 @@ end
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @RC);
                 END;
 
-                IF @Debug > 100
+                IF @Debug > 0
                     SELECT *
                     FROM #ExportFiles AS ef;
 
@@ -772,7 +789,7 @@ end
                         moch.MFVersion    AS [ObjectFilesItem/@ObjVersion],
                         moch.IsDownload   AS [ObjectFilesItem/@IsDownload],
                         moch.IncludeDocID AS [ObjectFilesItem/@IncludeDocID],
-                        REPLACE(moch.FilePath,'\*','') + '\'    AS [ObjectFilesItem/@FilePath]
+                        (REPLACE(moch.FilePath,'\*','') + '\')    AS [ObjectFilesItem/@FilePath]
                     FROM #ExportFiles AS moch
                     ORDER BY moch.ObjID
                     FOR XML PATH(''), ROOT('ObjectFilesList')
@@ -869,19 +886,39 @@ end
                 --             EXEC ('Update ' + @TableName + ' set Process_ID=0 where ObjID=' + 'cast(' + @ObjID + 'as varchar(10))');
                 SET @ProcedureStep = 'Update ExportFiles with return ';
 
-                UPDATE ef
-                SET ef.FileName = t.c.value('(@FileName)[1]', 'NVARCHAR(400)'),
-                    ef.FileCheckSum = t.c.value('(@FileCheckSum)[1]', 'nvarchar(1000)'),
-                    ef.FileCount = t.c.value('(@FileCount)[1]', 'INT'),
-                    ef.FileObjectID = t.c.value('(@FileObjectID)[1]', 'INT'),
-                    ef.Extension = t.c.value('(@Extension)[1]', 'nvarchar(100)'),
-                    ef.FileSize = t.c.value('(@FileSize)[1]', 'INT')
-                FROM @XmlOut.nodes('/document/Files/FileItem') AS t(c)
-                    INNER JOIN #Filelist              AS f
-                        ON t.c.value('(@ObjID)[1]', 'INT') = f.objid
-                    INNER JOIN #ExportFiles           AS ef
-                        ON ef.ObjID = f.objid;
- --                          AND ef.FileNr = f.FileNr;
+
+--				;with CTE_exported as
+--				(SELECT 
+--t.c.value('(@ClassID)[1]', 'INT') as ClassID,
+--t.c.value('(@ObjID)[1]', 'INT') as ObjID,
+--t.c.value('(ObjType)[1]', 'INT') as ObjType,
+--t.c.value('(@FileName)[1]', 'NVARCHAR(400)') as FileName,
+-- t.c.value('(@FileCheckSum)[1]', 'nvarchar(1000)') as FileCheckSum,
+-- t.c.value('(@FileCount)[1]', 'INT') as FileCount,
+-- t.c.value('(@FileObjectID)[1]', 'INT') as FileObjectID,
+-- t.c.value('(@Extension)[1]', 'nvarchar(100)') as Extension,
+-- t.c.value('(@FileSize)[1]', 'BIGINT') as FileSize
+--FROM @XmlOut.nodes('/document/Files/FileItem') AS t(c)
+--)
+--Merge into #ExportFiles ef
+--Using CTE_Export cte
+--on ef.Objid = cte.Objid 
+--and 
+                
+				
+--				UPDATE ef
+--                SET ef.FileName = t.c.value('(@FileName)[1]', 'NVARCHAR(400)'),
+--                    ef.FileCheckSum = t.c.value('(@FileCheckSum)[1]', 'nvarchar(1000)'),
+--                    ef.FileCount = t.c.value('(@FileCount)[1]', 'INT'),
+--                    ef.FileObjectID = t.c.value('(@FileObjectID)[1]', 'INT'),
+--                    ef.Extension = t.c.value('(@Extension)[1]', 'nvarchar(100)'),
+--                    ef.FileSize = t.c.value('(@FileSize)[1]', 'BIGINT')
+--                FROM @XmlOut.nodes('/document/Files/FileItem') AS t(c)
+--                    INNER JOIN #Filelist              AS f
+--                        ON t.c.value('(@ObjID)[1]', 'INT') = f.objid
+--                    INNER JOIN #ExportFiles           AS ef
+--                        ON ef.ObjID = f.objid;
+--                           --AND ef.FileNr = f.FileNr;
 
                 SET @DebugText = N'';
                 SET @DebugText = @DefaultDebugText + @DebugText;
@@ -896,6 +933,20 @@ end
                     SELECT * FROM #ExportFiles AS ef
                     INNER JOIN #Filelist  AS ef2
                     ON ef.ObjID = ef2.ObjID 
+					inner join (SELECT 
+t.c.value('(@ClassID)[1]', 'INT') as ClassID,
+t.c.value('(@ObjID)[1]', 'INT') as ObjID,
+t.c.value('(ObjType)[1]', 'INT') as ObjType,
+t.c.value('(@FileName)[1]', 'NVARCHAR(400)') as FileName,
+ t.c.value('(@FileCheckSum)[1]', 'nvarchar(1000)') as FileCheckSum,
+ t.c.value('(@FileCount)[1]', 'INT') as FileCount,
+ t.c.value('(@FileObjectID)[1]', 'INT') as FileObjectID,
+ t.c.value('(@Extension)[1]', 'nvarchar(100)') as Extension,
+ t.c.value('(@FileSize)[1]', 'BIGINT') as FileSize
+FROM @XmlOut.nodes('/document/Files/FileItem') AS t(c)
+) explist
+on ef.objID = ExpList.ObjID
+
                 END;
 
 
@@ -914,12 +965,12 @@ end
                         ef.FilePath,
                         ef.IsDownload,
                         ef.IncludeDocID,
-                        ef.FileName,
-                        ef.FileCheckSum,
-                        ef.FileCount,
-                        ef.FileObjectID,
-                        ef.Extension,
-                        ef.FileSize,
+                        explist.FileName,
+                        explist.FileCheckSum,
+                        explist.FileCount,
+                        explist.FileObjectID,
+                        explist.Extension,
+                        explist.FileSize,
                         @FilePath     AS FileExportRoot,
                         ef2.PathProperty_L1 AS subFolder_1,
                         ef2.PathProperty_L2 AS subFolder_2,
@@ -927,10 +978,23 @@ end
                     FROM #ExportFiles AS ef
                     INNER JOIN #Filelist  AS ef2
                     ON ef.ObjID = ef2.ObjID 
+					inner join (SELECT 
+t.c.value('(@ClassID)[1]', 'INT') as ClassID,
+t.c.value('(@ObjID)[1]', 'INT') as ObjID,
+t.c.value('(ObjType)[1]', 'INT') as ObjType,
+t.c.value('(@FileName)[1]', 'NVARCHAR(400)') as FileName,
+ t.c.value('(@FileCheckSum)[1]', 'nvarchar(1000)') as FileCheckSum,
+ t.c.value('(@FileCount)[1]', 'INT') as FileCount,
+ t.c.value('(@FileObjectID)[1]', 'INT') as FileObjectID,
+ t.c.value('(@Extension)[1]', 'nvarchar(100)') as Extension,
+ t.c.value('(@FileSize)[1]', 'BIGINT') as FileSize
+FROM @XmlOut.nodes('/document/Files/FileItem') AS t(c)
+) explist
+on ef.objID = ExpList.ObjID
                 ) S
                 ON t.ClassID = S.ClassID
                    AND t.ObjID = S.ObjID
-                   AND t.FileName = S.FileName
+                   AND t.FileObjectID = S.FileObjectID
                 WHEN NOT MATCHED THEN
                     INSERT
                     (
@@ -964,6 +1028,7 @@ end
                         t.FileCount = S.FileCount,
                         t.Created = GETDATE(),
                         t.FileObjectID = S.FileObjectID,
+				   t.FileChecksum = S.FileChecksum,
                         t.FileExtension = S.Extension,
                         t.FileSize = S.FileSize;
 
@@ -975,6 +1040,8 @@ end
                 BEGIN
                     RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @RC);
                 END;
+
+				end -- #files list is not null
 
                 SET @ProcedureStep = 'Update process_ID';
                 SET @vquery = N'Update  MFT  set Process_id = 0
@@ -1050,3 +1117,4 @@ end
     END CATCH;
 END;
 GO
+

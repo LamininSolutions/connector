@@ -4,7 +4,7 @@ PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
 GO
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',   @ObjectName = N'spMFGetContextMenu', -- nvarchar(100)
-    @Object_Release = '3.2.1.32', -- varchar(50)
+    @Object_Release = '4.10.30.75', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 
 GO
@@ -74,7 +74,7 @@ BEGIN
 			from 
 				MFContextMenu 
 			where 
-				ParentID=0 and ActionType not in (4,5)
+				ActionType in (1,2,3,4,5) and Action is not null
 			order by 
 				SortOrder
 

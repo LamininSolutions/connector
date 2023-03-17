@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFObjectTypeUpdateClassIndex',
-                                 @Object_Release = '4.9.29.74',
+                                 @Object_Release = '4.9.30.75',
                                  @UpdateFlag = 2;
 GO
 
@@ -79,6 +79,7 @@ Date        Author     Description
 2020-08-22  LC         update to take account of new deleted column
 2021-03-17  LC         Set updatestatus = 1 when not matched
 2022-04-12  LC         Add logging, remove updating MFclass, add error handling
+2023-02-17  LC         Resolve bug on not updating class
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -404,7 +405,7 @@ BEGIN
 
                 IF @Debug > 0
                     SELECT @TableName AS tablename,
-                           @outPutXML AS outPutXML;
+                           cast(@outPutXML as xml) AS outPutXML;
 
                 IF @outPutXML != '<form />'
                 BEGIN
@@ -483,7 +484,7 @@ BEGIN
                             UpdateFlag
                         )
                         VALUES
-                        (   GETUTCDATE(), s.ObjectType_ID, @Class_ID, s.objId, s.LatestCheckedInVersion,
+                        (   GETUTCDATE(), s.ObjectType_ID, @RowID, s.objId, s.LatestCheckedInVersion,
                             CASE
                                 WHEN s.Object_Deleted = 'true' THEN
                                     4

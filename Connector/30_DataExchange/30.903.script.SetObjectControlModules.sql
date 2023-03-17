@@ -59,7 +59,8 @@ SELECT N'spMFUpdateExplorerFileToMFiles' AS [name], N'2' AS [Module]  UNION ALL
 SELECT N'spMFRemoveAdditionalProperties' AS [name], N'2' AS [Module] UNION ALL
 SELECT N'spMFSendHTMLBodyEmail' AS [name], N'2' AS [Module] UNION ALL
 SELECT N'spMFPrepareTemplatedEmail' AS [name], N'2' AS [Module] UNION ALL
-SELECT N'spMFExportFiles' AS [name], N'2' AS [Module] UNION ALL
+SELECT N'spMFExportFiles' AS [name], N'2' AS [Module] UNION all
+SELECT N'spMFExportFilesMultiClasses' AS [name], N'2' AS [Module] UNION all
 SELECT N'spMFConvertTableToHtml' AS [name], N'2' AS [Module] UNION ALL
 SELECT N'spMFGetFilesDetails' AS [name], N'2' AS [Module] UNION ALL
 SELECT N'spMFDeleteObjectVersionList' AS [name], N'2' AS [Module] UNION ALL

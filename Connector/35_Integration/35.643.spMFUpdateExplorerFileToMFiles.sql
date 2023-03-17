@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateExplorerFileToMFiles',
     -- nvarchar(100)
-    @Object_Release = '4.10.30.74',
+    @Object_Release = '4.10.30.75',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -138,6 +138,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-01-23  lc         Fix bug setting single file to 1 when count > 1
+2022-12-07  LC         Improve logging messages
 2022-09-02  LC         Update to include RetainDeletions and DocumentCollections
 2021-08-03  LC         Fix truncate string bug
 2021-05-21  LC         improve handling of files on network drive
@@ -210,16 +212,17 @@ BEGIN
         SET @LogTypeDetail = N'Debug';
         SET @LogStatusDetail = N'In Progress';
 
+
         EXECUTE @RC = dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_id OUTPUT,
             @ProcessType = @ProcessType,
-            @LogType = @LogType,
+            @LogType = 'Info',
             @LogText = @LogText,
             @LogStatus = @LogStatus,
             @debug = 0;
 
         EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_id,
             @LogType = @LogTypeDetail,
-            @LogText = @LogTextDetail,
+            @LogText = @LogText,
             @LogStatus = @LogStatusDetail,
             @StartTime = @StartTime,
             @MFTableName = @MFTableName,
@@ -273,7 +276,7 @@ BEGIN
 
         IF EXISTS (SELECT TOP 1 * FROM dbo.MFClass WHERE TableName = @MFTableName)
         BEGIN
-            SET @LogTextDetail = @MFTableName + N' is valid MFClass table';
+            SET @LogTextDetail = @MFTableName + N' is valid table';
 
             EXECUTE @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_id,
                 @LogType = @LogTypeDetail,
@@ -706,6 +709,28 @@ EXEC dbo.spMFUpdateTable @MFTableName = @MFTablename,
                         @ErrorMsg         AS errormsg;
                 END;
 
+               
+                                           SET @LogTypeDetail = 'Status';
+                                           SET @LogStatusDetail = 'Imported';
+                                           SET @LogTextDetail = ' ' + ISNULL(@FileName,'No File') + '; '+ ISNULL(@FileLocation,'No location')+ '; '+ @ErrorMsg
+                                           SET @LogColumnName = 'Objid ';
+                                           SET @LogColumnValue = CAST(@objid AS VARCHAR(10));
+                
+                                           EXECUTE @return_value = [dbo].[spMFProcessBatchDetail_Insert]
+                                            @ProcessBatch_ID = @ProcessBatch_ID
+                                          , @LogType = @LogTypeDetail
+                                          , @LogText = @LogTextDetail
+                                          , @LogStatus = @LogStatusDetail
+                                          , @StartTime = @StartTime
+                                          , @MFTableName = @MFTableName
+                                          , @Validation_ID = @Validation_ID
+                                          , @ColumnName = @LogColumnName
+                                          , @ColumnValue = @LogColumnValue
+                                          , @Update_ID = @Update_ID
+                                          , @LogProcedureName = @ProcedureName
+                                          , @LogProcedureStep = @ProcedureStep
+                                          , @debug = @debug
+
                 -------------------------------------------------------------
                 -- Set error message
                 -------------------------------------------------------------
@@ -932,12 +957,13 @@ EXEC dbo.spMFUpdateTable @MFTableName = @MFTablename,
                     UPDATE mc
 SET mc.Single_File = 1, mc.Process_ID = 1
 FROM ' + QUOTENAME(@MFTablename) + ' AS mc
-WHERE mc.FileCount IS NOT NULL AND Single_File = 0 AND Update_ID = ' +CAST(ISNULL(@Update_IDOut,0) AS NVARCHAR)
+WHERE ISNULL(mc.FileCount,0) = 1 AND Single_File = 0 AND Update_ID = ' +CAST(ISNULL(@Update_IDOut,0) AS NVARCHAR)
 
 EXEC(@SQL);
 
 EXEC dbo.spMFUpdateTableinBatches @MFTableName = @MFTableName,
-    @UpdateMethod = 0
+    @UpdateMethod = 0,
+    @ProcessBatch_id= @ProcessBatch_ID
 
             END --SQLID is valid
             ELSE

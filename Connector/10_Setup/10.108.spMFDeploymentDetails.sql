@@ -215,10 +215,48 @@ FROM    MFSettings
 WHERE   Name = 'App_Database';
 
 
+	DECLARE @expres NVARCHAR(10) = '|'
+    DECLARE @patern NVARCHAR(20)
+	DECLARE @charlist AS TABLE (id INT IDENTITY, release varchar(20), C1 VARCHAR(20), c2 VARCHAR(20), c3 VARCHAR(20), c4 VARCHAR(20))
+	DECLARE @ID INT = 1
 
-SELECT @ConnectorVersion = MAX(Release) FROM setup.[MFSQLObjectsControl] AS [mco]
+    INSERT INTO @charlist
+    (
+        release
+    )
+    SELECT REPLACE(Release,'.',@expres) FROM setup.MFSQLObjectsControl AS moc
+    WHERE release IS NOT null
+    GROUP BY Release
+
+    WHILE @id IS not NULL
+    Begin
+
+  SELECT @patern = Release FROM @charlist AS c where id = @id
+ --  INSERT INTO @itemlist
+ ;WITH cte AS
+ (
+ SELECT @patern Release,  item FROM dbo.fnMFSplitstring(@patern,@expres) AS fmss
+ ), cte2 as
+ (SELECT cte.*, col = ROW_NUMBER() OVER (PARTITION BY Release ORDER BY release )
+ FROM cte)
+ UPDATE cl
+    SET c1 =  (SELECT item FROM CTE2 il WHERE col = 1 AND il.release = CTE2.Release)
+    , c2 = (SELECT item FROM CTE2 il WHERE col = 2 AND il.release = CTE2.Release)
+    , c3 = (SELECT item FROM CTE2 il WHERE col = 3 AND il.release = CTE2.Release)
+    , c4 = (SELECT item FROM CTE2 il WHERE col = 4 AND il.release = CTE2.Release)
+    FROM @Charlist cl
+    INNER JOIN cte2
+    ON cl.release = cte2.Release
+    WHERE cl.id = @id
+
+    SELECT @id = (SELECT MIN(id) FROM @charlist AS c where id > @id)
+    end
+
+    DECLARE @iC1 INT,@iC2 INT,@iC3 INT,@iC4 INT
+    SELECT @iC1 = MAX(CAST(C1 AS INT)),@iC2 = MAX(CAST(C2 AS INT)),@iC3 = MAX(CAST(C3 AS INT)),@iC4 = MAX(CAST(C4 AS INT)) FROM @charlist
 
 
+SELECT @ConnectorVersion = CAST(@iC1 AS VARCHAR(3))+'.'+CAST(@iC2 AS VARCHAR(3))+'.'+CAST(@iC3 AS VARCHAR(3))+'.'+CAST(@iC4 AS VARCHAR(3))
 
     BEGIN
         SET @msg = SPACE(5) + DB_NAME() + ': Update Version log';
