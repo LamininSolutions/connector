@@ -4,7 +4,7 @@ GO
 SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFInsertClassProperty', -- nvarchar(100)
-                                 @Object_Release = '4.10.30.74',           -- varchar(50)
+                                 @Object_Release = '4.10.30.75',           -- varchar(50)
                                  @UpdateFlag = 2;                          -- smallint
 GO
 
@@ -74,6 +74,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-03-21  LC         Enforce adding name_or_title to class, even if not required
 2022-12-01  LC         Improve debugging logging and handling of properties
 2022-09-07  LC         Introduce columns RetainIfNull and IsAdditional
 2020-12-23  LC         Add class as a property 100
@@ -276,7 +277,36 @@ DECLARE @DefaultDebugText AS NVARCHAR(256) = 'Proc: %s Step: %s'
     SET @DebugText = ''
 			Set @DebugText = @DefaultDebugText + @DebugText
 
-			
+            -------------------------------------------------------------
+            -- enforce property 0 - should always be present
+            -------------------------------------------------------------
+
+            declare @Name_or_title_id  int
+            select @Name_or_title_id = id from dbo.MFProperty as mp where mfid = 0
+
+            ;with cte as
+            (
+            select mcp.MFClass_ID from #ClassProperty mcp
+                    
+            group by mcp.MFClass_ID
+            except
+            select mcp.MFClass_ID from #ClassProperty mcp
+                    left join dbo.MFProperty as mp
+            on mp.ID = mcp.MFProperty_ID
+            where mp.mfid = 0
+            group by mcp.MFClass_ID
+            )
+            insert into #ClassProperty
+            (
+                MFClass_ID
+              , MFProperty_ID
+              , Required
+              , RetainIfNull
+              , IsAdditional
+            )
+            select MFClass_Id, @Name_or_title_id,0,1,1 from cte
+
+	
 			IF @debug > 0
 				BEGIN
                   SELECT '#classProperty',

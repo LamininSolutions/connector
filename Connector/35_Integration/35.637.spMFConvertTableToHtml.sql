@@ -234,7 +234,7 @@ BEGIN
             table.gridtable {
                 font-family: verdana,arial,sans-serif;
                 font-size:11px;
-                color:#333333;
+                color:#666666;
                 border-width: 1px;
                 border-color: #666666;
                 border-collapse: collapse;
@@ -245,7 +245,7 @@ BEGIN
                 padding: 8px;
                 border-style: solid;
                 border-color: #666666;
-                background-color: #dedede;
+                background-color: #666666;
             }
 
             table.gridtable td {

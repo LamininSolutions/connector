@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateObjectChangeHistory', -- nvarchar(100)
-    @Object_Release = '4.10.30.74',
+    @Object_Release = '4.10.30.75',
     @UpdateFlag = 2;
 GO
 
@@ -166,6 +166,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-03-21  LC         Remove debugging code
 2022-11-30  LC         resolve issue with updates by objid
 2021-12-22  LC         Update logging to monitor performance
 2021-12-22  LC         Set default for withtableupdate to 0
@@ -1252,10 +1253,10 @@ where process_ID = 5;';
                       AND htu.MFID > @classID
             );
 
-            SELECT MIN (lud.PropertyID)
-            FROM @LastUpdateDatetable  AS lud
-                INNER JOIN @UpdateList htu
-                    ON lud.ClassID = htu.MFID;
+            --SELECT MIN (lud.PropertyID)
+            --FROM @LastUpdateDatetable  AS lud
+            --    INNER JOIN @UpdateList htu
+            --        ON lud.ClassID = htu.MFID;
 
             SELECT @classID = htu.MFID
             FROM @UpdateList htu

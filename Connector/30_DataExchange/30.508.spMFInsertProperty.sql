@@ -256,7 +256,7 @@ BEGIN
 
             IF @Debug > 0
             BEGIN
-                RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
+                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
             END;
         END;
 
