@@ -1,17 +1,21 @@
 
-PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFDeploymentDetails]';
+PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFUsersByUsergroup]';
 GO
 SET NOCOUNT ON
 EXEC [setup].[spMFSQLObjectsControl]
 	@SchemaName = N'dbo'
-  , @ObjectName = N'spMFDeploymentDetails' -- nvarchar(100)
+  , @ObjectName = N'spMFUsersByUsergroup' -- nvarchar(100)
   , @Object_Release = '4.10.32.76'
   , @UpdateFlag = 2
 
 GO
+/*------------------------------------------------------------------------------------------------
+	Author: LSUSA\LeRouxC
+----------------------------------------------------------------------------------------------*/
+
 IF EXISTS (	  SELECT	1
 			  FROM		[INFORMATION_SCHEMA].[ROUTINES]
-			  WHERE		[ROUTINE_NAME] = 'spMFDeploymentDetails' --name of procedure
+			  WHERE		[ROUTINE_NAME] = 'spMFUsersByUsergroup' --name of procedure
 						AND [ROUTINE_TYPE] = 'PROCEDURE' --for a function --'FUNCTION'
 						AND [ROUTINE_SCHEMA] = 'dbo'
 		  )
@@ -23,7 +27,7 @@ ELSE PRINT SPACE(10) + '...Stored Procedure: create';
 GO
 
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE [dbo].[spMFDeploymentDetails]
+CREATE PROCEDURE [dbo].[spMFUsersByUsergroup]
 AS
 	SELECT	'created, but not implemented yet.';
 --just anything will do
@@ -32,29 +36,22 @@ GO
 -- the following section will be always executed
 SET NOEXEC OFF;
 GO
-ALTER PROCEDURE [dbo].[spMFDeploymentDetails]
-	(   @Type int  = 0
-	,	@ProcessBatch_ID INT	  = NULL OUTPUT
-	  , @Debug			 SMALLINT = 0
+ALTER PROCEDURE [dbo].[spMFUsersByUsergroup]
+	(
+	   @Debug			 smallint = 0
 	)
-AS
+as
 /*rST**************************************************************************
 
-=====================
-spMFDeploymentDetails
-=====================
+====================
+spMFUsersByUserGroup
+====================
 
 Return
   - 1 = Success
   - -1 = Error
-Parameters
-  @Int (optional)
-    used as input variable to set the type of update message
-     0 - default message
-     -1 - Failed
-  @ProcessBatch\_ID int (optional, output)
-    Referencing the ID of the ProcessBatch logging table
-  @Debug smallint (optional)
+
+  @Debug (optional)
     - Default = 0
     - 1 = Standard Debug Mode
     - 101 = Advanced Debug Mode
@@ -62,7 +59,17 @@ Parameters
 Purpose
 =======
 
-Print deployment details
+To produce a report listing the members of each user group.  The report will include users where the usergroup included another usergroup.
+
+Examples
+========
+
+.. code:: sql
+
+    Exec spMFUsersByUserGroup
+
+    select * from ##spMFUsersByUserGroup
+    
 
 Changelog
 =========
@@ -70,14 +77,14 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2023-06-26  Lc         Improve logging
-2021-09-11  LC         Add parameter to set type of update
-2019-08-30  JC         Added documentation
+
+2023-05-25  LC         Create procedure
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
 
-	BEGIN
+
+begin
 		SET NOCOUNT ON;
 
 		-------------------------------------------------------------
@@ -85,8 +92,9 @@ Date        Author     Description
 		-------------------------------------------------------------
 		DECLARE @MFTableName AS NVARCHAR(128) = ''
 		DECLARE @ProcessType AS NVARCHAR(50);
+        declare @ProcessBatch_id int = null
 
-		SET @ProcessType = ISNULL(@ProcessType, 'insert deployment details')
+		SET @ProcessType = ISNULL(@ProcessType, 'User Group Report')
 
 		-------------------------------------------------------------
 		-- CONSTATNS: MFSQL Global 
@@ -104,9 +112,7 @@ Date        Author     Description
 		-- VARIABLES: MFSQL Processing
 		-------------------------------------------------------------
 		DECLARE @Update_ID INT
-		DECLARE @Update_IDOut INT
 		DECLARE @MFLastModified DATETIME
-		DECLARE @MFLastUpdateDate Datetime
 		DECLARE @Validation_ID int
 	
 		-------------------------------------------------------------
@@ -119,7 +125,7 @@ Date        Author     Description
 		-------------------------------------------------------------
 		-- VARIABLES: DEBUGGING
 		-------------------------------------------------------------
-		DECLARE @ProcedureName AS NVARCHAR(128) = 'dbo.spMFDeploymentDetails';
+		DECLARE @ProcedureName AS NVARCHAR(128) = 'dbo.spMFUsersByUsergroup';
 		DECLARE @ProcedureStep AS NVARCHAR(128) = 'Start';
 		DECLARE @DefaultDebugText AS NVARCHAR(256) = 'Proc: %s Step: %s'
 		DECLARE @DebugText AS NVARCHAR(256) = ''
@@ -189,160 +195,114 @@ Date        Author     Description
 		  , @debug = 0
 
 
-		BEGIN TRY
+		begin try
 			-------------------------------------------------------------
 			-- BEGIN PROCESS
 			-------------------------------------------------------------
 			SET @DebugText = ''
 			Set @DebugText = @DefaultDebugText + @DebugText
-			Set @Procedurestep = 'prepare insert'
+			Set @Procedurestep = ''
 			
 			IF @debug > 0
 				Begin
 					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
 				END
 
-				
-BEGIN
 
-SET NOCOUNT ON;
-	
-DECLARE @rc INT ,
-    @DBName VARCHAR(100),
-	@ConnectorVersion varchar(50);
+                
 
-SELECT  @DBName = CAST(Value AS VARCHAR(100))
-FROM    MFSettings
-WHERE   Name = 'App_Database';
+declare @vaultsettings nvarchar(400) = dbo.FnMFVaultSettings()
+declare @returnVal nvarchar(max);
+exec dbo.spMFGetUserGroups @VaultSettings = @vaultsettings
+                            , @returnVal = @returnVal output
 
+--select cast(@returnval as xml)
 
-	DECLARE @expres NVARCHAR(10) = '|'
-    DECLARE @patern NVARCHAR(20)
-	DECLARE @charlist AS TABLE (id INT IDENTITY, release varchar(20), C1 VARCHAR(20), c2 VARCHAR(20), c3 VARCHAR(20), c4 VARCHAR(20))
-	DECLARE @ID INT = 1
+         -----------------------------------------------
+          --LOCAL VARIABLE DECLARATION
+          -----------------------------------------------
+            DECLARE @IDoc INT ,
+                @XML XML = @returnVal;
 
-    INSERT INTO @charlist
-    (
-        release
-    )
-    SELECT REPLACE(Release,'.',@expres) FROM setup.MFSQLObjectsControl AS moc
-    WHERE release IS NOT null
-    GROUP BY Release
+ --           SET @ProcedureStep = 'Creating #UserAccountTble';
+  
 
-    WHILE @id IS not NULL
-    Begin
+            --IF @Debug = 1
+            --    RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
 
-  SELECT @patern = Release FROM @charlist AS c where id = @id
- --  INSERT INTO @itemlist
- ;WITH cte AS
- (
- SELECT @patern Release,  item FROM dbo.fnMFSplitstring(@patern,@expres) AS fmss
- ), cte2 as
- (SELECT cte.*, col = ROW_NUMBER() OVER (PARTITION BY Release ORDER BY release )
- FROM cte)
- UPDATE cl
-    SET c1 =  (SELECT item FROM CTE2 il WHERE col = 1 AND il.release = CTE2.Release)
-    , c2 = (SELECT item FROM CTE2 il WHERE col = 2 AND il.release = CTE2.Release)
-    , c3 = (SELECT item FROM CTE2 il WHERE col = 3 AND il.release = CTE2.Release)
-    , c4 = (SELECT item FROM CTE2 il WHERE col = 4 AND il.release = CTE2.Release)
-    FROM @Charlist cl
-    INNER JOIN cte2
-    ON cl.release = cte2.Release
-    WHERE cl.id = @id
+            if (select object_id('tempdb..#UserGroupTble')) is not null
+            drop table #UserGroupTble;
 
-    SELECT @id = (SELECT MIN(id) FROM @charlist AS c where id > @id)
-    end
-
-    DECLARE @iC1 INT,@iC2 INT,@iC3 INT,@iC4 INT
-    SELECT @iC1 = MAX(CAST(C1 AS INT)),@iC2 = MAX(CAST(C2 AS INT)),@iC3 = MAX(CAST(C3 AS INT)),@iC4 = MAX(CAST(C4 AS INT)) FROM @charlist
-
-
-SELECT @ConnectorVersion = CAST(@iC1 AS VARCHAR(3))+'.'+CAST(@iC2 AS VARCHAR(3))+'.'+CAST(@iC3 AS VARCHAR(3))+'.'+CAST(@iC4 AS VARCHAR(3))
-
-    BEGIN
-        SET @msg = SPACE(5) + DB_NAME() + ': Update Version log';
-        RAISERROR('%s',10,1,@msg); 
-
-        BEGIN
-            SET NOCOUNT ON;
-
-            DECLARE @MFVersion VARCHAR(50);
-            SELECT  @MFVersion = CAST(Value AS VARCHAR(50))
-            FROM    dbo.MFSettings
-            WHERE   Name = 'MFVersion';
-
+            CREATE TABLE #UserGroupTble
+                (
                   
-            INSERT  INTO MFDeploymentDetail
-                    ( LSWrapperVersion ,
-                      MFilesAPIVersion ,
-                      DeployedBy ,
-                      DeployedOn
-				    )
-            VALUES  ( 
-            CASE WHEN @Type = 0 THEN ''
-            WHEN @Type = -1 THEN 'Failed '
-            END + 
-            'Wrapper ' + CAST(ASSEMBLYPROPERTY('LSConnectMFilesAPIWrapper',
-                                            'VersionMajor') AS NVARCHAR(3))
-                      + '.'
-                      + CAST(ASSEMBLYPROPERTY('LSConnectMFilesAPIWrapper',
-                                              'VersionMinor') AS NVARCHAR(3))
-                      + '.'
-                      + CAST(ASSEMBLYPROPERTY('LSConnectMFilesAPIWrapper',
-                                              'VersionBuild') AS NVARCHAR(3))
-                      + '.'
-                      + CAST(ASSEMBLYPROPERTY('LSConnectMFilesAPIWrapper',
-                                              'VersionRevision') AS NVARCHAR(3))
+                  [Memberid] INT NOT NULL ,
+                  [UserGroupID] INT 
+                );
 
-			+ ' / Procedures ' + @ConnectorVersion  ,
-                      CAST(ASSEMBLYPROPERTY('Interop.MFilesAPI',
-                                            'VersionMajor') AS NVARCHAR(3))
-                      + '.'
-                      + CAST(ASSEMBLYPROPERTY('Interop.MFilesAPI',
-                                              'VersionMinor') AS NVARCHAR(3))
-                      + '.'
-                      + CAST(ASSEMBLYPROPERTY('Interop.MFilesAPI',
-                                              'VersionBuild') AS NVARCHAR(3))
-                      + '.'
-                      + CAST(ASSEMBLYPROPERTY('Interop.MFilesAPI',
-                                              'VersionRevision') AS NVARCHAR(3))
-                      + ' :' + @MFVersion ,
-                      SYSTEM_USER ,
-                      GETDATE()
-                    );
+ --           SET @ProcedureStep = 'Insert values into #UserGroupTble';
 
-            PRINT 'Deployed version details :' + CHAR(13)
-                + 'Assembly Name : LSConnectMFilesAPIWrapper  Version :'
-                + CAST(ASSEMBLYPROPERTY('LSConnectMFilesAPIWrapper',
-                                        'VersionMajor') AS NVARCHAR(3)) + '.'
-                + CAST(ASSEMBLYPROPERTY('LSConnectMFilesAPIWrapper',
-                                        'VersionMinor') AS NVARCHAR(3)) + '.'
-                + CAST(ASSEMBLYPROPERTY('LSConnectMFilesAPIWrapper',
-                                        'VersionBuild') AS NVARCHAR(3)) + '.'
-                + CAST(ASSEMBLYPROPERTY('LSConnectMFilesAPIWrapper',
-                                        'VersionRevision') AS NVARCHAR(3))
-										+ ' / ' + 'MFSQLConnector ' + @ConnectorVersion + 
-                + CHAR(13) + 'Assembly Name : Interop.MFilesAPI  Version :'
-                + CAST(ASSEMBLYPROPERTY('Interop.MFilesAPI', 'VersionMajor') AS NVARCHAR(3))
-                + '.'
-                + CAST(ASSEMBLYPROPERTY('Interop.MFilesAPI', 'VersionMinor') AS NVARCHAR(3))
-                + '.'
-                + CAST(ASSEMBLYPROPERTY('Interop.MFilesAPI', 'VersionBuild') AS NVARCHAR(3))
-                + '.'
-                + CAST(ASSEMBLYPROPERTY('Interop.MFilesAPI', 'VersionRevision') AS NVARCHAR(3))
-                + ' :' + @MFVersion + CHAR(13) + 'Deployed by "' + SYSTEM_USER
-                + '" On ' + CAST(GETDATE() AS NVARCHAR(50));
-                                  
-                          
+          -----------------------------------------------
+          -- INSERT DAT FROM XML INTO TEMPORARY TABLE
+          -----------------------------------------------
+            INSERT  INTO #UserGroupTble
+                    ( MemberID ,
+                      UserGroupID 
+                      
+                    )
+                    SELECT  t.c.value('(@MemberID)[1]', 'INT') AS memberID ,
+                            t.c.value('(@MFID)[1]', 'INT') AS UserGroupID 
+                    FROM    @XML.nodes('/form/UserGroup') AS t ( c );
 
-            SET NOCOUNT OFF;
-        END;
+if (select object_id('tempdb..##spMFUsersByUserGroup')) is not null
+drop table ##spMFUsersByUserGroup;
+
+;with cte as
+(
+select uat.Memberid, uat.UserGroupID, mvli.name as UserGroup, Related_UserGroup = null
+from #UserGroupTble as uat
+left join MFvaluelistitems mvli
+on uat.UserGroupID = mvli.MFID
+left join mfValuelist mvl
+on mvl.id = mvli.MFValueListID
+where mvl.mfid = 16 and uat.memberid > 0
+)
+, cte2 as
+(
+select cte.Memberid, uat.UserGroupID, mvli.name as UserGroup, cte.UserGroup as Related_userGroup
+from #UserGroupTble as uat
+left join MFvaluelistitems mvli
+on uat.UserGroupID = mvli.MFID
+left join mfValuelist mvl
+on mvl.id = mvli.MFValueListID
+inner join cte
+on cte.UserGroupID = (uat.Memberid * -1)
+where mvl.mfid = 16 and uat.memberid < 0
+),cte3 as
+(select * from cte
+union all
+select * from cte2
+)
+select 
+cte3.UserGroup
+,cte3.userGroupID
+,cte3.Related_UserGroup
+,mla.mfid as UserID
+,mla.UserName
+,mla.FullName
+,mla.EmailAddress
+,mua.internalUser
+,mua.Enabled as VaultUser_Enabled
+,mla.Enabled as Login_Enabled
+,mua.vaultRoles
+into ##spMFUsersByUserGroup
+from cte3
+inner join dbo.MFLoginAccount as mla
+on cte3.Memberid = mla.mfid
+left join dbo.MFUserAccount as mua
+on mla.mfid = mua.UserID
 
 
-
-    END;
-
-	END
 
 			-------------------------------------------------------------
 			--END PROCESS
@@ -350,8 +310,6 @@ SELECT @ConnectorVersion = CAST(@iC1 AS VARCHAR(3))+'.'+CAST(@iC2 AS VARCHAR(3))
 			END_RUN:
 			SET @ProcedureStep = 'End'
 			Set @LogStatus = 'Completed'
-            set @LogTextDetail = 'MFilesVersion ' + @MFVersion  + ' MFSQLConnector ' + @ConnectorVersion 
-            set @LogText = @LogText + @LogTextDetail
 			-------------------------------------------------------------
 			-- Log End of Process
 			-------------------------------------------------------------   
@@ -369,7 +327,7 @@ SELECT @ConnectorVersion = CAST(@iC1 AS VARCHAR(3))+'.'+CAST(@iC2 AS VARCHAR(3))
 			EXEC [dbo].[spMFProcessBatchDetail_Insert]
 				@ProcessBatch_ID = @ProcessBatch_ID
 			  , @LogType = N'Debug'
-			  , @LogText = @LogTextDetail
+			  , @LogText = @ProcessType
 			  , @LogStatus = @LogStatus
 			  , @StartTime = @StartTime
 			  , @MFTableName = @MFTableName
@@ -381,8 +339,8 @@ SELECT @ConnectorVersion = CAST(@iC1 AS VARCHAR(3))+'.'+CAST(@iC2 AS VARCHAR(3))
 			  , @LogProcedureStep = @ProcedureStep
 			  , @debug = 0
 			RETURN 1
-		END TRY
-		BEGIN CATCH
+		end try
+		begin catch
 			SET @StartTime = GETUTCDATE()
 			SET @LogStatus = 'Failed w/SQL Error'
 			SET @LogTextDetail = ERROR_MESSAGE()
@@ -390,7 +348,7 @@ SELECT @ConnectorVersion = CAST(@iC1 AS VARCHAR(3))+'.'+CAST(@iC2 AS VARCHAR(3))
 			--------------------------------------------------
 			-- INSERTING ERROR DETAILS INTO LOG TABLE
 			--------------------------------------------------
-			INSERT INTO [dbo].[MFLog] ( [SPName]
+			insert into [dbo].[MFLog] ( [SPName]
 									  , [ErrorNumber]
 									  , [ErrorMessage]
 									  , [ErrorProcedure]
@@ -399,32 +357,32 @@ SELECT @ConnectorVersion = CAST(@iC1 AS VARCHAR(3))+'.'+CAST(@iC2 AS VARCHAR(3))
 									  , [ErrorLine]
 									  , [ProcedureStep]
 									  )
-			VALUES (
+			values (
 					   @ProcedureName
-					 , ERROR_NUMBER()
-					 , ERROR_MESSAGE()
-					 , ERROR_PROCEDURE()
-					 , ERROR_STATE()
-					 , ERROR_SEVERITY()
-					 , ERROR_LINE()
+					 , error_number()
+					 , error_message()
+					 , error_procedure()
+					 , error_state()
+					 , error_severity()
+					 , error_line()
 					 , @ProcedureStep
 				   );
 
-			SET @ProcedureStep = 'Catch Error'
+			set @ProcedureStep = 'Catch Error'
 			-------------------------------------------------------------
 			-- Log Error
 			-------------------------------------------------------------   
-			EXEC [dbo].[spMFProcessBatch_Upsert]
-				@ProcessBatch_ID = @ProcessBatch_ID OUTPUT
+			exec [dbo].[spMFProcessBatch_Upsert]
+				@ProcessBatch_ID = @ProcessBatch_ID output
 			  , @ProcessType = @ProcessType
 			  , @LogType = N'Error'
 			  , @LogText = @LogTextDetail
 			  , @LogStatus = @LogStatus
 			  , @debug = @Debug
 
-			SET @StartTime = GETUTCDATE()
+			set @StartTime = getutcdate()
 
-			EXEC [dbo].[spMFProcessBatchDetail_Insert]
+			exec [dbo].[spMFProcessBatchDetail_Insert]
 				@ProcessBatch_ID = @ProcessBatch_ID
 			  , @LogType = N'Error'
 			  , @LogText = @LogTextDetail
@@ -432,24 +390,16 @@ SELECT @ConnectorVersion = CAST(@iC1 AS VARCHAR(3))+'.'+CAST(@iC2 AS VARCHAR(3))
 			  , @StartTime = @StartTime
 			  , @MFTableName = @MFTableName
 			  , @Validation_ID = @Validation_ID
-			  , @ColumnName = NULL
-			  , @ColumnValue = NULL
+			  , @ColumnName = null
+			  , @ColumnValue = null
 			  , @Update_ID = @Update_ID
 			  , @LogProcedureName = @ProcedureName
 			  , @LogProcedureStep = @ProcedureStep
 			  , @debug = 0
 
-			RETURN -1
-		END CATCH
+			return -1
+		end catch
 
-	END
+	end
 
-GO
-
-
-
-
-    
-
-GO
-
+go

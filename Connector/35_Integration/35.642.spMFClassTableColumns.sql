@@ -1,7 +1,7 @@
 
-GO
+go
 
-PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].spMFClassTableColumns';
+print space(5) + quotename(@@servername) + '.' + quotename(db_name()) + '.[dbo].spMFClassTableColumns';
 GO
 
 SET NOCOUNT ON;
@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFClassTableColumns',
     -- nvarchar(100)
-    @Object_Release = '4.10.30.74',
+    @Object_Release = '4.10.30.75',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -166,6 +166,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-04-06  LC         resolve bug with creating new columns with wrong datatype
 2022-09-27  LC         update following change of additional property approach
 2021-10-08  LC         Fix missing table not identying if table deleted
 2021-09-30  LC         fix bug on multilookup data type change error 
@@ -248,7 +249,9 @@ SELECT columnname, 'MF Internal' FROM dbo.MFProperty AS mp WHERE mfid < 1000
         MFdataType_ID INT,
         MFDataType NVARCHAR(100),
         Column_DataType NVARCHAR(100),
-        Length INT,
+        ColumnLength INT,
+        TableDataType nvarchar(100),
+        TableDataLength int,
         ColumnDataTypeError SMALLINT,
         MissingColumn SMALLINT,
         MissingTable SMALLINT,
@@ -267,14 +270,16 @@ SELECT columnname, 'MF Internal' FROM dbo.MFProperty AS mp WHERE mfid < 1000
         IncludedInApp,
         Required,
         PredefinedOrAutomatic,
- --       MFdataType_ID,
         MFDataType,
         MFdataType_ID,
         Column_DataType,
+        ColumnLength,
+         TableDataType ,
+        TableDatalength,
         AdditionalProperty,
         LookupType
     )
-    SELECT mfms.Property,
+    select distinct mfms.Property,
           mfms.Property_MFID,
            mfms.ColumnName,
            mfms.Class,
@@ -286,7 +291,10 @@ SELECT columnname, 'MF Internal' FROM dbo.MFProperty AS mp WHERE mfid < 1000
            mfms.PredefinedOrAutomatic,
            mfms.MFDataType,
            mfms.MFTypeID,
-           mfms.SQLDataType,         
+           mfms.SQLDataType,
+           ColumnLength = case when mfms.SQLDataType = 'NVARCHAR(100)' THEN 100 when mfms.SQLDataType ='NVARCHAR(4000)' THEN 4000 when mfms.SQLDataType = 'NVARCHAR(MAX)' THEN -1 else NULL end,
+           c.DATA_TYPE,
+           c.CHARACTER_MAXIMUM_LENGTH,
            0,
              CASE
                                               WHEN mfms.IsObjectType = 1
@@ -303,6 +311,11 @@ SELECT columnname, 'MF Internal' FROM dbo.MFProperty AS mp WHERE mfid < 1000
                                           END
 --SELECT *
            FROM dbo.MFvwMetadataStructure AS mfms
+left JOIN INFORMATION_SCHEMA.Columns AS c
+ON mfms.ColumnName = c.COLUMN_NAME AND mfms.TableName = c.TABLE_NAME
+
+--if @debug > 0
+--select 'as per metadata',* from ##spMFClassTableColumns;
 
 UPDATE cts
 SET cts.ColumnType = CASE WHEN IncludedInApp = 1 THEN  'Metadata Card' ELSE 'Not Used' END
@@ -324,27 +337,21 @@ ON mp.id = mcp.MFProperty_ID AND mcp.MFClass_ID = mc.id
 LEFT JOIN @SpecialColumns sc
 ON mp.ColumnName = sc.NAME
 
-
-UPDATE cts
-SET cts.Length = c.CHARACTER_MAXIMUM_LENGTH
---SELECT * 
-FROM ##spMFClassTableColumns cts
-INNER JOIN INFORMATION_SCHEMA.Columns AS c
-ON cts.ColumnName = c.COLUMN_NAME AND cts.TableName = c.TABLE_NAME
-
+--
+/*
 ;
 WITH cte AS
 (
 SELECT ColumnType = NULL,
     class = mc.Name,
-    mc.TableName,
+    C.Table_Name,
     Property = mp.Name,
     Property_MFID = mp.MFID,
     ColumnName = c.COLUMN_NAME,
-    AdditionalProperty =1,
+    AdditionalProperty =NULL,
       cts.IsAdditional,
     cts.RetainIfNull,
-    IncludedInApp=1,
+    MC.IncludeInApp,
     Required = NULL,
     PredefinedOrAutomatic = NULL,
     LookupType = NULL,
@@ -353,7 +360,7 @@ SELECT ColumnType = NULL,
     Column_DataType= c.DATA_TYPE,
     Length = c.CHARACTER_MAXIMUM_LENGTH
 FROM INFORMATION_SCHEMA.COLUMNS       AS c
-    INNER JOIN dbo.MFClass            mc
+    LEFT JOIN dbo.MFClass            mc
         ON c.TABLE_NAME = mc.TableName
     LEFT JOIN dbo.MFProperty          mp
         ON c.COLUMN_NAME = mp.ColumnName
@@ -364,7 +371,8 @@ FROM INFORMATION_SCHEMA.COLUMNS       AS c
            AND cts.TableName = c.TABLE_NAME
 WHERE cts.id IS NULL
 )
-INSERT INTO ##spMFClassTableColumns
+INSERT INTO ##spMFClassTableColum
+ns
 (
     ColumnType,
     Class,
@@ -404,6 +412,9 @@ SELECT cte.ColumnType,
        cte.Length FROM cte;
 
            ;
+
+*/
+;
     WITH cte AS
     (
     SELECT DISTINCT cts.Property_MFID, Property, ColumnType,Columnname, LookupType, PredefinedOrAutomatic FROM ##spMFClasstablecolumns cts 
@@ -464,21 +475,29 @@ SELECT cte.ColumnType,
     SET ColumnDataTypeError = 1
     FROM ##spMFClassTableColumns AS pc
     WHERE pc.MFdataType_ID IN ( 1 )
-          AND pc.[length] <> 100
+          AND pc.[TableDatalength] <> 100
           AND pc.IncludedInApp = 1;
 
     UPDATE ##spMFClassTableColumns
     SET ColumnDataTypeError = 1
     FROM ##spMFClassTableColumns AS pc
+    WHERE 
+    (Column_DataType = 'INTEGER' and TableDataType <> 'int' and isnull(TableName,'') > '' and MFdataType_ID in (2,9) and isnull(IncludedInApp,0) > 0 )
+    or (substring(Column_DataType,1,8) <> TableDataType  and isnull(TableName,'') > '' and MFdataType_ID in (1,10,13) and isnull(IncludedInApp,0) > 0)
+
+
+    UPDATE ##spMFClassTableColumns
+    SET ColumnDataTypeError = 1
+    FROM ##spMFClassTableColumns AS pc
     WHERE pc.MFdataType_ID IN ( 10 )
-          AND pc.[length] <> 4000
+          AND pc.[TableDatalength] <> 4000
           AND pc.IncludedInApp IS NOT NULL;
 
     UPDATE ##spMFClassTableColumns
     SET ColumnDataTypeError = 1
     FROM ##spMFClassTableColumns AS pc
     WHERE pc.MFdataType_ID IN ( 13 )
-          AND pc.length <> -1
+          AND pc.TableDatalength <> -1
           AND pc.IncludedInApp IS NOT NULL;
 
     UPDATE ##spMFClassTableColumns
@@ -495,7 +514,7 @@ SELECT cte.ColumnType,
     -- SELECT *
     FROM ##spMFClassTableColumns AS pc
     WHERE pc.MFdataType_ID IN ( 10 )
-          AND pc.[length] IS null
+          AND pc.[TableDatalength] IS null
           AND pc.IncludedInApp IS NOT NULL
 
     IF @ErrorsOnly = 1
@@ -519,7 +538,7 @@ SELECT cte.ColumnType,
             pc.MFdataType_ID,
             pc.MFDataType,
             pc.column_DataType,
-            pc.length
+            pc.TableDatalength
         FROM ##spMFClassTableColumns AS pc
         WHERE
      --pc.TableName = @MFTableName
@@ -557,7 +576,7 @@ SELECT cte.ColumnType,
             pc.MFdataType_ID,
             pc.MFDataType,
             pc.column_DataType,
-            pc.length
+            pc.TableDatalength
 
         FROM ##spMFClassTableColumns AS pc
         WHERE pc.TableName = @MFTableName

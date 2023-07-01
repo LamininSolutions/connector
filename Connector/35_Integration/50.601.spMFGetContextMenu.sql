@@ -74,7 +74,8 @@ BEGIN
 			from 
 				MFContextMenu 
 			where 
-				ActionType in (1,2,3,4,5) and Action is not null
+            	ParentID=0 and ActionType not in (4,5)
+		--		ActionType in (1,2,3,4,5) and Action is not null
 			order by 
 				SortOrder
 

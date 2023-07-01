@@ -1,56 +1,56 @@
-PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFDropAndUpdateMetadata]';
-GO
+print space(5) + quotename(@@servername) + '.' + quotename(db_name()) + '.[dbo].[spMFDropAndUpdateMetadata]';
+go
 
-SET NOCOUNT ON;
+set nocount on;
 
-EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
-                                 @ObjectName = N'spMFDropAndUpdateMetadata', -- nvarchar(100)
-                                 @Object_Release = '4.10.30.74',              -- varchar(50)
-                                 @UpdateFlag = 2;
+exec setup.spMFSQLObjectsControl @SchemaName = N'dbo'
+                               , @ObjectName = N'spMFDropAndUpdateMetadata' -- nvarchar(100)
+                               , @Object_Release = '4.10.30.75'             -- varchar(50)
+                               , @UpdateFlag = 2;
 -- smallint
-GO
+go
 
 /*
 MODIFICATIONS
 */
-IF EXISTS
+if exists
 (
-    SELECT 1
-    FROM INFORMATION_SCHEMA.ROUTINES
-    WHERE ROUTINE_NAME = 'spMFDropAndUpdateMetadata' --name of procedure
-          AND ROUTINE_TYPE = 'PROCEDURE' --for a function --'FUNCTION'
-          AND ROUTINE_SCHEMA = 'dbo'
+    select 1
+    from INFORMATION_SCHEMA.ROUTINES
+    where ROUTINE_NAME = 'spMFDropAndUpdateMetadata' --name of procedure
+          and ROUTINE_TYPE = 'PROCEDURE' --for a function --'FUNCTION'
+          and ROUTINE_SCHEMA = 'dbo'
 )
-BEGIN
-    PRINT SPACE(10) + '...Stored Procedure: update';
+begin
+    print space(10) + '...Stored Procedure: update';
 
-    SET NOEXEC ON;
-END;
-ELSE
-    PRINT SPACE(10) + '...Stored Procedure: create';
-GO
+    set noexec on;
+end;
+else
+    print space(10) + '...Stored Procedure: create';
+go
 
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE dbo.spMFDropAndUpdateMetadata
-AS
-SELECT 'created, but not implemented yet.';
+create procedure dbo.spMFDropAndUpdateMetadata
+as
+select 'created, but not implemented yet.';
 --just anything will do
-GO
+go
 
 -- the following section will be always executed
-SET NOEXEC OFF;
-GO
+set noexec off;
+go
 
-ALTER PROCEDURE dbo.spMFDropAndUpdateMetadata
-    @IsResetAll SMALLINT = 0,
-    @WithClassTableReset SMALLINT = 0,
-    @WithColumnReset SMALLINT = 0,
-    @IsStructureOnly SMALLINT = 1,
-    @RetainDeletions BIT = 0,
-    @IsDocumentCollection BIT = 0,
-    @ProcessBatch_ID INT = NULL OUTPUT,
-    @Debug SMALLINT = 0
-AS
+alter procedure dbo.spMFDropAndUpdateMetadata
+    @IsResetAll smallint = 0
+  , @WithClassTableReset smallint = 0
+  , @WithColumnReset smallint = 0
+  , @IsStructureOnly smallint = 1
+  , @RetainDeletions bit = 0
+  , @IsDocumentCollection bit = 0
+  , @ProcessBatch_ID int = null output
+  , @Debug smallint = 0
+as
 /*rST**************************************************************************
 
 =========================
@@ -189,6 +189,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-04-19  LC         Improve with column reset functionality
 2021-09-30  LC         Update documentation regarding column fixes
 2020-09-08  LC         Add fixing column errors in datatype 9
 2019-08-30  JC         Added documentation
@@ -206,172 +207,177 @@ Date        Author     Description
 
 **rST*************************************************************************/
 
-SET NOCOUNT ON;
+set nocount on;
 
-DECLARE @ProcedureStep VARCHAR(100) = 'start',
-        @ProcedureName NVARCHAR(128) = N'spMFDropAndUpdateMetadata';
-DECLARE @RC INT;
-DECLARE @ProcessType NVARCHAR(50) = N'Metadata Sync';
-DECLARE @LogType NVARCHAR(50);
-DECLARE @LogText NVARCHAR(4000);
-DECLARE @LogStatus NVARCHAR(50);
-DECLARE @MFTableName NVARCHAR(128);
-DECLARE @Update_ID INT;
-DECLARE @LogProcedureName NVARCHAR(128);
-DECLARE @LogProcedureStep NVARCHAR(128);
-DECLARE @ProcessBatchDetail_IDOUT AS INT = NULL;
+declare @ProcedureStep varchar(100)  = 'start'
+      , @ProcedureName nvarchar(128) = N'spMFDropAndUpdateMetadata';
+declare @RC int;
+declare @ProcessType nvarchar(50) = N'Metadata Sync';
+declare @LogType nvarchar(50);
+declare @LogText nvarchar(4000);
+declare @LogStatus nvarchar(50);
+declare @MFTableName nvarchar(128);
+declare @Update_ID int;
+declare @LogProcedureName nvarchar(128);
+declare @LogProcedureStep nvarchar(128);
+declare @ProcessBatchDetail_IDOUT as int = null;
 
 -------------------------------------------------------------
 -- VARIABLES: DEBUGGING
 -------------------------------------------------------------
-DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s';
-DECLARE @DebugText AS NVARCHAR(256) = N'';
-DECLARE @Msg AS NVARCHAR(256) = N'';
-DECLARE @MsgSeverityInfo AS TINYINT = 10;
-DECLARE @MsgSeverityObjectDoesNotExist AS TINYINT = 11;
-DECLARE @MsgSeverityGeneralError AS TINYINT = 16;
+declare @DefaultDebugText as nvarchar(256) = N'Proc: %s Step: %s';
+declare @DebugText as nvarchar(256) = N'';
+declare @Msg as nvarchar(256) = N'';
+declare @MsgSeverityInfo as tinyint = 10;
+declare @MsgSeverityObjectDoesNotExist as tinyint = 11;
+declare @MsgSeverityGeneralError as tinyint = 16;
 
 ---------------------------------------------
 -- ACCESS CREDENTIALS FROM Setting TABLE
 ---------------------------------------------
 
 --used on MFProcessBatchDetail;
-DECLARE @LogTypeDetail AS NVARCHAR(50) = N'System';
-DECLARE @LogTextDetail AS NVARCHAR(4000) = N'';
-DECLARE @LogStatusDetail AS NVARCHAR(50) = N'In Progress';
-DECLARE @EndTime DATETIME;
-DECLARE @StartTime DATETIME;
-DECLARE @StartTime_Total DATETIME = GETUTCDATE();
-DECLARE @Validation_ID INT;
-DECLARE @LogColumnName NVARCHAR(128);
-DECLARE @LogColumnValue NVARCHAR(256);
-DECLARE @error AS INT = 0;
-DECLARE @rowcount AS INT = 0;
-DECLARE @return_value AS INT;
+declare @LogTypeDetail as nvarchar(50) = N'System';
+declare @LogTextDetail as nvarchar(4000) = N'';
+declare @LogStatusDetail as nvarchar(50) = N'In Progress';
+declare @EndTime datetime;
+declare @StartTime datetime;
+declare @StartTime_Total datetime = getutcdate();
+declare @Validation_ID int;
+declare @LogColumnName nvarchar(128);
+declare @LogColumnValue nvarchar(256);
+declare @error as int = 0;
+declare @rowcount as int = 0;
+declare @return_value as int;
 
 --Custom declarations
-DECLARE @Datatype INT;
-DECLARE @Property NVARCHAR(100);
-DECLARE @rownr INT;
-DECLARE @IsUpToDate BIT;
-DECLARE @Count INT;
-DECLARE @Length INT;
-DECLARE @SQLDataType NVARCHAR(100);
-DECLARE @MFDatatype_ID INT;
-DECLARE @SQL NVARCHAR(MAX);
-DECLARE @rowID INT;
-DECLARE @MaxID INT;
-DECLARE @ColumnName VARCHAR(100);
+declare @Datatype int;
+declare @Property nvarchar(100);
+declare @rownr int;
+declare @IsUpToDate bit;
+declare @Count int;
+declare @Length int;
+declare @ColumnLength nvarchar(100);
+declare @Labelname nvarchar(100);
+declare @SQLDataType nvarchar(100);
+declare @MFDatatype_ID int;
+declare @SQL nvarchar(max);
+declare @rowID int;
+declare @MaxID int;
+declare @ColumnName varchar(100);
+declare @delimiter nvarchar(10) = N'_ID'; -- Delimiter for MF Type ID 9 and 10
+declare @delimiterIndex int;
+declare @substring nvarchar(100)
 
-BEGIN TRY
+begin try
 
     -------------------------------------------------------------
     -- INTIALIZE PROCESS BATCH
     -------------------------------------------------------------
-    SET @ProcedureStep = 'Start Logging';
-    SET @LogText = N'Processing ';
+    set @ProcedureStep = 'Start Logging';
+    set @LogText = N'Processing ';
 
-    EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
-                                     @ProcessType = @ProcedureName,
-                                     @LogType = N'Status',
-                                     @LogText = @LogText,
-                                     @LogStatus = N'In Progress',
-                                     @debug = @Debug;
+    exec dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID output
+                                   , @ProcessType = @ProcedureName
+                                   , @LogType = N'Status'
+                                   , @LogText = @LogText
+                                   , @LogStatus = N'In Progress'
+                                   , @debug = @Debug;
 
-    EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-                                           @LogType = N'Debug',
-                                           @LogText = @ProcessType,
-                                           @LogStatus = N'Started',
-                                           @StartTime = @StartTime,
-                                           @MFTableName = @MFTableName,
-                                           @Validation_ID = @Validation_ID,
-                                           @ColumnName = NULL,
-                                           @ColumnValue = NULL,
-                                           @Update_ID = @Update_ID,
-                                           @LogProcedureName = @ProcedureName,
-                                           @LogProcedureStep = @ProcedureStep,
-                                           @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT;
+    exec dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                         , @LogType = N'Debug'
+                                         , @LogText = @ProcessType
+                                         , @LogStatus = N'Started'
+                                         , @StartTime = @StartTime
+                                         , @MFTableName = @MFTableName
+                                         , @Validation_ID = @Validation_ID
+                                         , @ColumnName = null
+                                         , @ColumnValue = null
+                                         , @Update_ID = @Update_ID
+                                         , @LogProcedureName = @ProcedureName
+                                         , @LogProcedureStep = @ProcedureStep
+                                         , @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT;
 
     -------------------------------------------------------------
     -- Validate license
     -------------------------------------------------------------
-    SET @DebugText = N'';
-    SET @DebugText = @DefaultDebugText + @DebugText;
-    SET @ProcedureStep = 'validate lisense';
+    set @DebugText = N'';
+    set @DebugText = @DefaultDebugText + @DebugText;
+    set @ProcedureStep = 'validate lisense';
 
-    IF @Debug > 0
-    BEGIN
-        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-    END;
+    if @Debug > 0
+    begin
+        raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+    end;
 
-    DECLARE @VaultSettings NVARCHAR(4000);
+    declare @VaultSettings nvarchar(4000);
 
-    SELECT @VaultSettings = dbo.FnMFVaultSettings();
+    select @VaultSettings = dbo.FnMFVaultSettings();
 
-    EXEC @return_value = dbo.spMFCheckLicenseStatus @InternalProcedureName = 'spMFGetClass', -- nvarchar(500)
-                                                    @ProcedureName = @ProcedureName,         -- nvarchar(500)
-                                                    @ProcedureStep = @ProcedureStep,
-                                                    @ProcessBatch_ID = @processbatch_ID;
+    exec @return_value = dbo.spMFCheckLicenseStatus @InternalProcedureName = 'spMFGetClass' -- nvarchar(500)
+                                                  , @ProcedureName = @ProcedureName         -- nvarchar(500)
+                                                  , @ProcedureStep = @ProcedureStep
+                                                  , @ProcessBatch_id = @ProcessBatch_ID;
 
-    SET @DebugText = N'License Return %s';
-    SET @DebugText = @DefaultDebugText + @DebugText;
-    SET @ProcedureStep = '';
+    set @DebugText = N'License Return %s';
+    set @DebugText = @DefaultDebugText + @DebugText;
+    set @ProcedureStep = '';
 
-    IF @Debug > 0
-    BEGIN
-        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @return_value);
-    END;
+    if @Debug > 0
+    begin
+        raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @return_value);
+    end;
 
     -------------------------------------------------------------
     -- Get up to date status
     -------------------------------------------------------------
-    SET @DebugText = N'';
-    SET @DebugText = @DefaultDebugText + @DebugText;
-    SET @ProcedureStep = 'Get Structure Version ID';
+    set @DebugText = N'';
+    set @DebugText = @DefaultDebugText + @DebugText;
+    set @ProcedureStep = 'Get Structure Version ID';
 
-    IF @Debug > 0
-    BEGIN
-        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-    END;
+    if @Debug > 0
+    begin
+        raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+    end;
 
-    EXEC dbo.spMFGetMetadataStructureVersionID @IsUpToDate OUTPUT;
+    exec dbo.spMFGetMetadataStructureVersionID @IsUpToDate output;
 
-    SELECT @IsUpToDate = CASE
-                             WHEN @IsResetAll = 1 THEN
+    select @IsUpToDate = case
+                             when @IsResetAll = 1 then
                                  0
-                             ELSE
+                             else
                                  @IsUpToDate
-                         END;
+                         end;
     -------------------------------------------------------------
     -- if Full refresh
     -------------------------------------------------------------
 
 
-    IF (
+    if (
            @IsUpToDate = 0
-           AND @IsStructureOnly = 0
+           and @IsStructureOnly = 0
        )
-       OR
+       or
        (
            @IsUpToDate = 1
-           AND @IsStructureOnly = 0
+           and @IsStructureOnly = 0
        )
-       OR
+       or
        (
            @IsUpToDate = 0
-           AND @IsStructureOnly = 1
+           and @IsStructureOnly = 1
        )
-       OR @IsResetAll = 1
-    BEGIN
+       or @IsResetAll = 1
+    begin
 
-        SET @DebugText = N' Full refresh';
-        SET @DebugText = @DefaultDebugText + @DebugText;
-        SET @ProcedureStep = 'Refresh started ';
+        set @DebugText = N' Full refresh';
+        set @DebugText = @DefaultDebugText + @DebugText;
+        set @ProcedureStep = 'Refresh started ';
 
-        IF @Debug > 0
-        BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-        END;
+        if @Debug > 0
+        begin
+            raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        end;
 
 
 
@@ -380,247 +386,247 @@ BEGIN TRY
         -------------------------------------------------------------			
         --    IF @return_value = 0 -- license validation returns 0 if correct
 
-        SELECT @ProcedureStep = 'setup temp tables';
+        select @ProcedureStep = 'setup temp tables';
 
         -------------------------------------------------------------
         -- setup temp tables
         -------------------------------------------------------------
-   
-   
-   IF EXISTS (SELECT * FROM sys.sysobjects WHERE name = '#MFClassTemp')
-        BEGIN
-            DROP TABLE #MFClassTemp;
-        END;
 
-        IF EXISTS (SELECT 1 FROM sys.sysobjects WHERE name = '#MFPropertyTemp')
-        BEGIN
-            DROP TABLE #MFPropertyTemp;
-        END;
 
-        IF EXISTS
+        if exists (select * from sys.sysobjects where name = '#MFClassTemp')
+        begin
+            drop table #MFClassTemp;
+        end;
+
+        if exists (select 1 from sys.sysobjects where name = '#MFPropertyTemp')
+        begin
+            drop table #MFPropertyTemp;
+        end;
+
+        if exists
         (
-            SELECT 1
-            FROM sys.sysobjects
-            WHERE name = '#MFValuelistItemsTemp'
+            select 1
+            from sys.sysobjects
+            where name = '#MFValuelistItemsTemp'
         )
-        BEGIN
-            DROP TABLE #MFValuelistItemsTemp;
-        END;
+        begin
+            drop table #MFValuelistItemsTemp;
+        end;
 
 
-        IF EXISTS
+        if exists
         (
-            SELECT *
-            FROM sys.sysobjects
-            WHERE name = '#MFWorkflowStateTemp'
+            select *
+            from sys.sysobjects
+            where name = '#MFWorkflowStateTemp'
         )
-        BEGIN
-            DROP TABLE #MFWorkflowStateTemp;
-        END;
+        begin
+            drop table #MFWorkflowStateTemp;
+        end;
 
-          SET @DebugText = N'';
-        SET @DebugText = @DefaultDebugText + @DebugText;
- 
-        IF @Debug > 0
-        BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-        END;
+        set @DebugText = N'';
+        set @DebugText = @DefaultDebugText + @DebugText;
+
+        if @Debug > 0
+        begin
+            raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        end;
 
 
 
         -------------------------------------------------------------
         -- Populate temp tables
         -------------------------------------------------------------
-        SET @ProcedureStep = 'Populate temp tables ';
+        set @ProcedureStep = 'Populate temp tables ';
 
         --Insert Current MFClass table data into temp table
-        SELECT *
-        INTO #MFClassTemp
-        FROM
-        (SELECT * FROM dbo.MFClass) AS cls;
+        select *
+        into #MFClassTemp
+        from
+        (select * from dbo.MFClass) as cls;
 
         --Insert current MFProperty table data into temp table
-        SELECT *
-        INTO #MFPropertyTemp
-        FROM
-        (SELECT * FROM dbo.MFProperty) AS ppt;
+        select *
+        into #MFPropertyTemp
+        from
+        (select * from dbo.MFProperty) as ppt;
 
         --Insert current MFProperty table data into temp table
-        SELECT *
-        INTO #MFValuelistItemsTemp
-        FROM
-        (SELECT * FROM dbo.MFValueListItems) AS ppt;
+        select *
+        into #MFValuelistItemsTemp
+        from
+        (select * from dbo.MFValueListItems) as ppt;
 
-        SELECT *
-        INTO #MFWorkflowStateTemp
-        FROM
-        (SELECT * FROM dbo.MFWorkflowState) AS WST;
+        select *
+        into #MFWorkflowStateTemp
+        from
+        (select * from dbo.MFWorkflowState) as WST;
 
-        SET @DebugText = N'';
-        SET @DebugText = @DefaultDebugText + @DebugText;
+        set @DebugText = N'';
+        set @DebugText = @DefaultDebugText + @DebugText;
 
-        IF @Debug > 0
-        BEGIN
-            SELECT *
-            FROM #MFClassTemp AS mct;
+        if @Debug > 0
+        begin
+            select *
+            from #MFClassTemp as mct;
 
-            SELECT *
-            FROM #MFPropertyTemp AS mpt;
+            select *
+            from #MFPropertyTemp as mpt;
 
-            SELECT *
-            FROM #MFValuelistItemsTemp AS mvit;
+            select *
+            from #MFValuelistItemsTemp as mvit;
 
-            SELECT *
-            FROM #MFWorkflowStateTemp AS mwst;
+            select *
+            from #MFWorkflowStateTemp as mwst;
 
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-        END;
+            raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        end;
 
         -------------------------------------------------------------
         -- delete data from main tables
         -------------------------------------------------------------
-        SET @ProcedureStep = 'Delete existing tables';
+        set @ProcedureStep = 'Delete existing tables';
 
-        IF
+        if
         (
-            SELECT COUNT(*) FROM #MFClassTemp AS mct
+            select count(*)from #MFClassTemp as mct
         ) > 0
-        BEGIN
-            DELETE FROM dbo.MFClassProperty
-            WHERE MFClass_ID > 0;
+        begin
+            delete from dbo.MFClassProperty
+            where MFClass_ID > 0;
 
-            DELETE FROM dbo.MFClass
-            WHERE ID > -99;
+            delete from dbo.MFClass
+            where ID > -99;
 
-            DELETE FROM dbo.MFProperty
-            WHERE ID > -99;
+            delete from dbo.MFProperty
+            where ID > -99;
 
-            DELETE FROM dbo.MFValueListItems
-            WHERE ID > -99;
+            delete from dbo.MFValueListItems
+            where ID > -99;
 
-            DELETE FROM dbo.MFValueList
-            WHERE ID > -99;
+            delete from dbo.MFValueList
+            where ID > -99;
 
-            DELETE FROM dbo.MFWorkflowState
-            WHERE ID > -99;
+            delete from dbo.MFWorkflowState
+            where ID > -99;
 
-            DELETE FROM dbo.MFWorkflow
-            WHERE ID > -99;
+            delete from dbo.MFWorkflow
+            where ID > -99;
 
-            DELETE FROM dbo.MFObjectType
-            WHERE ID > -99;
+            delete from dbo.MFObjectType
+            where ID > -99;
 
-            DELETE FROM dbo.MFLoginAccount
-            WHERE ID > -99;
+            delete from dbo.MFLoginAccount
+            where ID > -99;
 
-            DELETE FROM dbo.MFUserAccount
-            WHERE UserID > -99;
+            delete from dbo.MFUserAccount
+            where UserID > -99;
 
-            SET @DebugText = N'';
-            SET @DebugText = @DefaultDebugText + @DebugText;
+            set @DebugText = N'';
+            set @DebugText = @DefaultDebugText + @DebugText;
 
-            IF @Debug > 0
-            BEGIN
-                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-            END;
-        END;
+            if @Debug > 0
+            begin
+                raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            end;
+        end;
 
         --delete if count(*) #classTable > 0
         -------------------------------------------------------------
         -- get new data
         -------------------------------------------------------------
-        SET @ProcedureStep = 'Start new Synchronization';
-        SET @DebugText = N'';
-        SET @DebugText = @DefaultDebugText + @DebugText;
+        set @ProcedureStep = 'Start new Synchronization';
+        set @DebugText = N'';
+        set @DebugText = @DefaultDebugText + @DebugText;
 
-        IF @Debug > 0
-        BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-        END;
+        if @Debug > 0
+        begin
+            raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        end;
 
         --Synchronize metadata
-        EXEC @return_value = dbo.spMFSynchronizeMetadata @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
-                                                         @Debug = @Debug;
+        exec @return_value = dbo.spMFSynchronizeMetadata @ProcessBatch_ID = @ProcessBatch_ID output
+                                                       , @Debug = @Debug;
 
-        SET @ProcedureName = N'spMFDropAndUpdateMetadata';
+        set @ProcedureName = N'spMFDropAndUpdateMetadata';
 
-        IF @Debug > 0
-        BEGIN
-            SELECT *
-            FROM dbo.MFClass;
+        if @Debug > 0
+        begin
+            select *
+            from dbo.MFClass;
 
-            SELECT *
-            FROM dbo.MFProperty;
-        END;
+            select *
+            from dbo.MFProperty;
+        end;
 
-        SET @DebugText = N' Reset %i';
-        SET @DebugText = @DefaultDebugText + @DebugText;
+        set @DebugText = N' Reset %i';
+        set @DebugText = @DefaultDebugText + @DebugText;
 
-        IF @Debug > 0
-        BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @IsResetAll);
-        END;
+        if @Debug > 0
+        begin
+            raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @IsResetAll);
+        end;
 
         -------------------------------------------------------------
         -- update custom settings from previous data
         -------------------------------------------------------------
         --IF synchronize is success
-        IF (@return_value = 1 AND @IsResetAll = 0)
-        BEGIN
-            SET @ProcedureStep = 'Update with no reset';
+        if (@return_value = 1 and @IsResetAll = 0)
+        begin
+            set @ProcedureStep = 'Update with no reset';
 
-            UPDATE dbo.MFClass
-            SET TableName = #MFClassTemp.TableName,
-                IncludeInApp = #MFClassTemp.IncludeInApp,
-                FileExportFolder = #MFClassTemp.FileExportFolder,
-                SynchPrecedence = #MFClassTemp.SynchPrecedence
-            FROM dbo.MFClass
-                INNER JOIN #MFClassTemp
-                    ON MFClass.MFID = #MFClassTemp.MFID
-                       AND MFClass.Name = #MFClassTemp.Name;
+            update dbo.MFClass
+            set TableName = #MFClassTemp.TableName
+              , IncludeInApp = #MFClassTemp.IncludeInApp
+              , FileExportFolder = #MFClassTemp.FileExportFolder
+              , SynchPrecedence = #MFClassTemp.SynchPrecedence
+            from dbo.MFClass
+                inner join #MFClassTemp
+                    on MFClass.MFID = #MFClassTemp.MFID
+                       and MFClass.Name = #MFClassTemp.Name;
 
-            UPDATE dbo.MFProperty
-            SET ColumnName = tmp.ColumnName
-            FROM dbo.MFProperty AS mfp
-                INNER JOIN #MFPropertyTemp AS tmp
-                    ON mfp.MFID = tmp.MFID
-                       AND mfp.Name = tmp.Name;
+            update dbo.MFProperty
+            set ColumnName = tmp.ColumnName
+            from dbo.MFProperty            as mfp
+                inner join #MFPropertyTemp as tmp
+                    on mfp.MFID = tmp.MFID
+                       and mfp.Name = tmp.Name;
 
-            UPDATE dbo.MFValueListItems
-            SET AppRef = tmp.AppRef,
-                Owner_AppRef = tmp.Owner_AppRef
-            FROM dbo.MFValueListItems AS mfp
-                INNER JOIN #MFValuelistItemsTemp AS tmp
-                    ON mfp.MFID = tmp.MFID
-                       AND mfp.Name = tmp.Name;
+            update dbo.MFValueListItems
+            set AppRef = tmp.AppRef
+              , Owner_AppRef = tmp.Owner_AppRef
+            from dbo.MFValueListItems            as mfp
+                inner join #MFValuelistItemsTemp as tmp
+                    on mfp.MFID = tmp.MFID
+                       and mfp.Name = tmp.Name;
 
-            UPDATE dbo.MFWorkflowState
-            SET IsNameUpdate = 1
-            FROM dbo.MFWorkflowState AS mfws
-                INNER JOIN #MFWorkflowStateTemp AS tmp
-                    ON mfws.MFID = tmp.MFID
-                       AND mfws.Name != tmp.Name;
+            update dbo.MFWorkflowState
+            set IsNameUpdate = 1
+            from dbo.MFWorkflowState            as mfws
+                inner join #MFWorkflowStateTemp as tmp
+                    on mfws.MFID = tmp.MFID
+                       and mfws.Name != tmp.Name;
 
-            SET @DebugText = N'';
-            SET @DebugText = @DefaultDebugText + @DebugText;
+            set @DebugText = N'';
+            set @DebugText = @DefaultDebugText + @DebugText;
 
-            IF @Debug > 0
-            BEGIN
-                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-            END;
-        END;
+            if @Debug > 0
+            begin
+                raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            end;
+        end;
 
         -- update old data
         -------------------------------------------------------------
         -- Class table reset
         -------------------------------------------------------------	
-        IF @WithClassTableReset = 1
-        BEGIN
-            SET @ProcedureStep = 'Class table reset';
+        if @WithClassTableReset = 1
+        begin
+            set @ProcedureStep = 'Class table reset';
 
-            DECLARE @ErrMsg VARCHAR(200);
+            declare @ErrMsg varchar(200);
 
-            SET @ErrMsg = 'datatype of property has changed';
+            set @ErrMsg = 'datatype of property has changed';
 
             --RAISERROR(
             --             'Proc: %s Step: %s ErrorInfo %s '
@@ -630,310 +636,355 @@ BEGIN TRY
             --            ,'datatype of property has changed, tables or columns must be reset'
             --            ,@ErrMsg
             --         );
-            CREATE TABLE #TempTableName
+            create table #TempTableName
             (
-                ID INT IDENTITY(1, 1),
-                TableName VARCHAR(100)
+                ID int identity(1, 1)
+              , TableName varchar(100)
             );
 
-            INSERT INTO #TempTableName
-            SELECT DISTINCT
+            insert into #TempTableName
+            select distinct
                    TableName
-            FROM dbo.MFClass
-            WHERE IncludeInApp IS NOT NULL;
+            from dbo.MFClass
+            where IncludeInApp is not null;
 
-            DECLARE @TCounter INT,
-                    @TMaxID INT,
-                    @TableName VARCHAR(100);
+            declare @TCounter  int
+                  , @TMaxID    int
+                  , @TableName varchar(100);
 
-            SELECT @TMaxID = MAX(ID)
-            FROM #TempTableName;
+            select @TMaxID = max(ID)
+            from #TempTableName;
 
-            SET @TCounter = 1;
+            set @TCounter = 1;
 
-            WHILE @TCounter <= @TMaxID
-            BEGIN
-                DECLARE @ClassName VARCHAR(100);
+            while @TCounter <= @TMaxID
+            begin
+                declare @ClassName varchar(100);
 
-                SELECT @TableName = TableName
-                FROM #TempTableName
-                WHERE ID = @TCounter;
+                select @TableName = TableName
+                from #TempTableName
+                where ID = @TCounter;
 
-                SELECT @ClassName = Name
-                FROM dbo.MFClass
-                WHERE TableName = @TableName;
+                select @ClassName = Name
+                from dbo.MFClass
+                where TableName = @TableName;
 
-                IF EXISTS
+                if exists
                 (
-                    SELECT K_Table = FK.TABLE_NAME,
-                           FK_Column = CU.COLUMN_NAME,
-                           PK_Table = PK.TABLE_NAME,
-                           PK_Column = PT.COLUMN_NAME,
-                           Constraint_Name = C.CONSTRAINT_NAME
-                    FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS C
-                        INNER JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS FK
-                            ON C.CONSTRAINT_NAME = FK.CONSTRAINT_NAME
-                        INNER JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS PK
-                            ON C.UNIQUE_CONSTRAINT_NAME = PK.CONSTRAINT_NAME
-                        INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE CU
-                            ON C.CONSTRAINT_NAME = CU.CONSTRAINT_NAME
-                        INNER JOIN
+                    select K_Table         = FK.TABLE_NAME
+                         , FK_Column       = CU.COLUMN_NAME
+                         , PK_Table        = PK.TABLE_NAME
+                         , PK_Column       = PT.COLUMN_NAME
+                         , Constraint_Name = C.CONSTRAINT_NAME
+                    from INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS     C
+                        inner join INFORMATION_SCHEMA.TABLE_CONSTRAINTS FK
+                            on C.CONSTRAINT_NAME = FK.CONSTRAINT_NAME
+                        inner join INFORMATION_SCHEMA.TABLE_CONSTRAINTS PK
+                            on C.UNIQUE_CONSTRAINT_NAME = PK.CONSTRAINT_NAME
+                        inner join INFORMATION_SCHEMA.KEY_COLUMN_USAGE  CU
+                            on C.CONSTRAINT_NAME = CU.CONSTRAINT_NAME
+                        inner join
                         (
-                            SELECT i1.TABLE_NAME,
-                                   i2.COLUMN_NAME
-                            FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS i1
-                                INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE i2
-                                    ON i1.CONSTRAINT_NAME = i2.CONSTRAINT_NAME
-                            WHERE i1.CONSTRAINT_TYPE = 'PRIMARY KEY'
-                        ) PT
-                            ON PT.TABLE_NAME = PK.TABLE_NAME
-                    WHERE PK.TABLE_NAME = @TableName
+                            select i1.TABLE_NAME
+                                 , i2.COLUMN_NAME
+                            from INFORMATION_SCHEMA.TABLE_CONSTRAINTS          i1
+                                inner join INFORMATION_SCHEMA.KEY_COLUMN_USAGE i2
+                                    on i1.CONSTRAINT_NAME = i2.CONSTRAINT_NAME
+                            where i1.CONSTRAINT_TYPE = 'PRIMARY KEY'
+                        )                                               PT
+                            on PT.TABLE_NAME = PK.TABLE_NAME
+                    where PK.TABLE_NAME = @TableName
                 )
-                BEGIN
-                    SET @ErrMsg = 'Can not drop table ' + +'due to the foreign key';
+                begin
+                    set @ErrMsg = 'Can not drop table ' + +'due to the foreign key';
 
-                    RAISERROR(
-                                 'Proc: %s Step: %s ErrorInfo %s ',
-                                 16,
-                                 1,
-                                 'spMFDropAndUpdateMetadata',
-                                 'Foreign key reference',
-                                 @ErrMsg
+                    raiserror(
+                                 'Proc: %s Step: %s ErrorInfo %s '
+                               , 16
+                               , 1
+                               , 'spMFDropAndUpdateMetadata'
+                               , 'Foreign key reference'
+                               , @ErrMsg
                              );
-                END;
-                ELSE
-                BEGIN
+                end;
+                else
+                begin
 
-                    IF
+                    if
                     (
-                        SELECT OBJECT_ID(@TableName)
-                    ) IS NOT NULL
-                    BEGIN
-                        EXEC ('Drop table ' + @TableName);
+                        select object_id(@TableName)
+                    ) is not null
+                    begin
+                        exec ('Drop table ' + @TableName);
 
-                        PRINT 'Drop table ' + @TableName;
-                    END;
+                        print 'Drop table ' + @TableName;
+                    end;
 
-                    EXEC dbo.spMFCreateTable @ClassName;
+                    exec dbo.spMFCreateTable @ClassName;
 
-                    PRINT 'Created table' + @TableName;
-                    PRINT 'Synchronizing table ' + @TableName;
+                    print 'Created table' + @TableName;
+                    print 'Synchronizing table ' + @TableName;
 
-EXEC dbo.spMFUpdateTable @MFTableName = @Tablename,
-                         @UpdateMethod = 1,
-                         @ProcessBatch_ID = @ProcessBatch_ID,
-                         @RetainDeletions = @RetainDeletions,
-                         @IsDocumentCollection = @IsDocumentCollection,
-                         @Debug = @debug
+                    exec dbo.spMFUpdateTable @MFTableName = @TableName
+                                           , @UpdateMethod = 1
+                                           , @ProcessBatch_ID = @ProcessBatch_ID
+                                           , @RetainDeletions = @RetainDeletions
+                                           , @IsDocumentCollection = @IsDocumentCollection
+                                           , @Debug = @Debug;
 
 
 
-                END;
+                end;
 
-                SET @TCounter = @TCounter + 1;
-            END;
+                set @TCounter = @TCounter + 1;
+            end;
 
-            DROP TABLE #TempTableName;
+            drop table #TempTableName;
 
-            SET @DebugText = N'';
-            SET @DebugText = @DefaultDebugText + @DebugText;
+            set @DebugText = N'';
+            set @DebugText = @DefaultDebugText + @DebugText;
 
-            IF @Debug > 0
-            BEGIN
-                RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-            END;
-        END;
+            if @Debug > 0
+            begin
+                raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            end;
+        end;
 
         --class table reset
 
         -------------------------------------------------------------
         -- perform validations
         -------------------------------------------------------------
-        IF @WithColumnReset = 1
-        BEGIN
+        if @WithColumnReset = 1
+        begin
 
-            EXEC dbo.spMFClassTableColumns;
+            exec dbo.spMFClassTableColumns;
 
-            SELECT 
-            @Count =
-                 (SUM(ISNULL(ColumnDataTypeError, 0)) + SUM(ISNULL(missingColumn, 0)) + SUM(ISNULL(MissingTable, 0))
-                   + SUM(ISNULL(RedundantTable, 0))
+            select @Count
+                = (sum(isnull(ColumnDataTypeError, 0)) + sum(isnull(missingColumn, 0)) + sum(isnull(MissingTable, 0))
+                   + sum(isnull(RedundantTable, 0))
                   )
-            FROM ##spmfclasstablecolumns;
+            from ##spmfclasstablecolumns;
 
-            IF @Count > 0
-            BEGIN
-                SET @DebugText = N' Count of errors %i';
-                SET @DebugText = @DefaultDebugText + @DebugText;
-                SET @ProcedureStep = 'Perform validations';
+            if @Count > 0
+            begin
+                set @DebugText = N' Count of errors %i';
+                set @DebugText = @DefaultDebugText + @DebugText;
+                set @ProcedureStep = 'Perform validations';
 
-                IF @Debug > 0
-                BEGIN
-                    RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
-                END;
-
-                -------------------------------------------------------------
-                -- Data type errors
-                -------------------------------------------------------------
-                SET @Count = 0;
-
-                SELECT @Count = SUM(ISNULL(ColumnDataTypeError, 0))
-                FROM ##spmfclasstablecolumns;
-
-                IF @Count > 0
-                BEGIN
-                    SET @DebugText = N' %i';
-                    SET @DebugText = @DefaultDebugText + @DebugText;
-                    SET @ProcedureStep = 'Data Type Error ';
-
-                    IF @Debug > 0
-                    BEGIN
-                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
-                    END;
-                END;
-
-                BEGIN
-                    -------------------------------------------------------------
-                    -- Resolve Class table column errors
-                    -------------------------------------------------------------					;
-                    SET @rowID =
-                    (
-                        SELECT MIN(id) FROM ##spMFClassTableColumns WHERE ColumnDataTypeError = 1
-                    );
-
-                    WHILE @rowID IS NOT NULL
-                    BEGIN
-                        SELECT @TableName = TableName,
-                               @ColumnName = ColumnName,
-                               @MFDatatype_ID = MFDatatype_ID
-                        FROM ##spMFClassTableColumns
-                        WHERE id = @rowID;
-
-                        SELECT @SQLDataType = mdt.SQLDataType
-                        FROM dbo.MFDataType AS mdt
-                        WHERE mdt.MFTypeID = @MFDatatype_ID;
-
-                        --				SELECT * FROM dbo.MFDataType AS mdt
-
-                        SET @DebugText = N'';
-                        SET @DefaultDebugText = @DefaultDebugText + @DebugText;
-                        SET @ProcedureStep = 'Datatype error in 1,9,10,13 in column %s';
-
-                        IF @Debug > 0
-                        BEGIN
-                            RAISERROR(@DefaultDebugText, 10, 1, @ProcedureName, @ProcedureStep, @ColumnName);
-                        END;
-
-                        --	SELECT @TableName,@columnName,@SQLDataType
-                        IF @MFDatatype_ID IN ( 1, 9, 10, 13 )
-                        BEGIN TRY
-                            SET @SQL
-                                = N'ALTER TABLE ' + QUOTENAME(@TableName) + N' ALTER COLUMN ' + QUOTENAME(@ColumnName)
-                                  + N' ' + @SQLDataType + N';';
-                            IF @Debug = 0
-                                SELECT @SQL;
-
-                            EXEC (@SQL);
-
-                        END TRY
-                        BEGIN CATCH
-                            RAISERROR('Unable to change column %s in Table %s', 16, 1, @ColumnName, @TableName);
-                        END CATCH;
-
-                        SELECT @rowID =
-                        (
-                            SELECT MIN(id)
-                            FROM ##spMFClassTableColumns
-                            WHERE id > @rowID
-                                  AND ColumnDataTypeError = 1
-                        );
-                    END; --end loop column reset
-                END;
-
-                --end WithcolumnReset
-
+                if @Debug > 0
+                begin
+                    raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
+                end;
                 -------------------------------------------------------------
                 -- resolve missing column
                 -------------------------------------------------------------
-                SET @Count = 0;
+                set @Count = 0;
 
-                SELECT @Count = SUM(ISNULL(missingColumn, 0))
-                FROM ##spmfclasstablecolumns;
+                select @Count = sum(isnull(missingColumn, 0))
+                from ##spmfclasstablecolumns;
 
-                IF @Count > 0
-                BEGIN
-                    SET @DebugText = N' %i';
-                    SET @DebugText = @DefaultDebugText + @DebugText;
-                    SET @ProcedureStep = 'Missing Column Error ';
+                if @Count > 0
+                begin
+                    set @DebugText = N' %i';
+                    set @DebugText = @DefaultDebugText + @DebugText;
+                    set @ProcedureStep = 'Missing Column Error ';
 
-                    IF @Debug > 0
-                    BEGIN
-                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
-                    END;
+                    if @Debug > 0
+                    begin
+                        raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
+                    end;
 
                     /*
 check table before update and auto create any columns
 --check existence of table
 */
-                    SET @rownr =
+
+                    set @rownr =
                     (
-                        SELECT MIN(id) FROM ##spMFClassTableColumns WHERE MissingColumn = 1
+                        select min(id)from ##spMFClassTableColumns where MissingColumn = 1
                     );
 
-                    WHILE @rownr IS NOT NULL
-                    BEGIN
-                        SELECT @MFTableName = mc.Tablename,
-                               @SQLDataType = mdt.SQLDataType,
-                               @ColumnName = mc.ColumnName,
-                               @Datatype = mc.MFDatatype_ID,
-                               @Property = mc.Property
-                        FROM ##spMFclassTableColumns mc
-                            INNER JOIN dbo.MFDataType AS mdt
-                                ON mc.MFDatatype_ID = mdt.MFTypeID
-                        WHERE mc.ID = @rownr;
+                    while @rownr is not null
+                    begin
+                        select @MFTableName  = mc.Tablename
+                             , @SQLDataType  = mdt.SQLDataType
+                             , @ColumnName   = mc.ColumnName
+                             , @Labelname     = mc.Columnname
+                             , @ColumnLength = cast((coalesce(ColumnLength, '')) as varchar(100))
+                             , @Datatype     = mc.MFDatatype_ID
+                             , @Property     = mc.Property
+                        from ##spMFclassTableColumns  mc
+                            inner join dbo.MFDataType as mdt
+                                on mc.MFDatatype_ID = mdt.MFTypeID
+                        where mc.ID = @rownr;
 
-                        IF @Datatype = 9
-                        BEGIN
-                            SET @SQL
-                                = N'Alter table ' + QUOTENAME(@MFTableName) + N' Add ' + QUOTENAME(@ColumnName)
-                                  + N' Nvarchar(100);';
+                         if @MFDatatype_ID in ( 9, 10 )
+                        begin
+                            set @delimiterIndex = charindex(reverse(@delimiterIndex), reverse(@Labelname));
+                            if @delimiter > 0
+                            begin
+                                -- Extract the substring from the beginning of the input string up to the position of the delimiter minus 1                
 
-                            EXEC sys.sp_executesql @SQL;
+                              set   @substring   = left(@Labelname, len(@Labelname) - @delimiterIndex - len(@delimiter) + 1);
 
-                            PRINT '##### ' + @Property + ' property as column ' + QUOTENAME(@ColumnName)
-                                  + ' added for table ' + QUOTENAME(@MFTableName) + '';
-                        END;
-                        ELSE IF @Datatype = 10
-                        BEGIN
-                            SET @SQL
-                                = N'Alter table ' + QUOTENAME(@MFTableName) + N' Add ' + QUOTENAME(@ColumnName)
-                                  + N' Nvarchar(4000);';
+                                -- Replace the input string with the modified substring
+                                set @Labelname = @substring;
 
-                            EXEC sys.sp_executesql @SQL;
+                            end;
+                        end;
 
-                            PRINT '##### ' + @Property + ' property as column ' + QUOTENAME(@ColumnName)
-                                  + ' added for table ' + QUOTENAME(@MFTableName) + '';
-                        END;
-                        ELSE
-                        BEGIN
-                            SET @SQL
-                                = N'Alter table ' + QUOTENAME(@MFTableName) + N' Add ' + @ColumnName + N' '
-                                  + @SQLDataType + N';';
+                        select @SQLDataType = mdt.SQLDataType
+                        from dbo.MFDataType as mdt
+                        where mdt.MFTypeID = @MFDatatype_ID;
 
-                            EXEC sys.sp_executesql @SQL;
+                        begin
+                            set @SQL
+                                = case
+                                      when @Datatype = 9 then
+                                          N'Alter table ' + quotename(@MFTableName) + N' Add ' + quotename(@ColumnName)
+                                          + N' ' + @SQLDataType + ', ' + quotename(@Labelname) + N' nvarchar(100)'
+                                      when @Datatype = 10 then
+                                          N'Alter table ' + quotename(@MFTableName) + N' Add ' + quotename(@Labelname)
+                                          + N' Nvarchar(4000), ' + quotename(@ColumnName) + N' ' + @SQLDataType + ''
+                                      else
+                                          N'Alter table ' + quotename(@MFTableName) + N' Add ' + quotename(@ColumnName)
+                                          + N' ' + @SQLDataType + ''
+                                  end;
 
-                            PRINT '##### ' + @ColumnName + ' added for table ' + QUOTENAME(@MFTableName) + '';
-                        END;
+                            if @Debug > 0
+                                print @SQL;
 
-                        SELECT @rownr =
+                            exec sys.sp_executesql @SQL;
+
+                            print '##### ' + @Property + ' property as column ' + quotename(@ColumnName)
+                                  + ' added for table ' + quotename(@MFTableName) + '';
+                        end;
+
+
+                        select @rownr =
                         (
-                            SELECT MIN(mc.id)
-                            FROM ##spMFClassTableColumns mc
-                            WHERE MissingColumn = 1
-                                  AND mc.id > @rownr
+                            select min(mc.id)
+                            from ##spMFClassTableColumns mc
+                            where MissingColumn = 1
+                                  and mc.id > @rownr
                         );
-                    END; -- end of loop
-                END; -- End of mising columns
+                    end; -- end of loop
+                end; -- End of mising columns
+
+
+
+                -------------------------------------------------------------
+                -- Data type errors
+                -------------------------------------------------------------
+                set @Count = 0;
+
+                select @Count = sum(isnull(ColumnDataTypeError, 0))
+                from ##spmfclasstablecolumns;
+
+                if @Count > 0
+                begin
+                    set @DebugText = N' %i';
+                    set @DebugText = @DefaultDebugText + @DebugText;
+                    set @ProcedureStep = 'Data Type Error ';
+
+                    if @Debug > 0
+                    begin
+                        raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
+                    end;
+                end;
+
+                begin
+                    -------------------------------------------------------------
+                    -- Resolve Class table column errors
+                    -------------------------------------------------------------					;
+
+                    set @rowID =
+                    (
+                        select min(id)from ##spMFClassTableColumns where ColumnDataTypeError = 1
+                    );
+
+                    while @rowID is not null
+                    begin
+                        select @TableName     = TableName
+                             , @ColumnName    = ColumnName
+                             , @Labelname     = Columnname
+                             , @ColumnLength  = cast((coalesce(ColumnLength, '')) as varchar(100))
+                             , @MFDatatype_ID = MFDatatype_ID
+                        from ##spMFClassTableColumns
+                        where id = @rowID;
+
+                        --reset @labelName for lookups taking into account duplicate properties
+                        if @MFDatatype_ID in ( 9, 10 )
+                        begin
+                            set @delimiterIndex = charindex(reverse(@delimiterIndex), reverse(@Labelname));
+                            if @delimiter > 0
+                            begin
+                                -- Extract the substring from the beginning of the input string up to the position of the delimiter minus 1                
+                               
+                                 set   @substring   = left(@Labelname, len(@Labelname) - @delimiterIndex - len(@delimiter) + 1);
+
+                                -- Replace the input string with the modified substring
+                                set @Labelname = @substring;
+
+                            end;
+                        end;
+
+                        select @SQLDataType = mdt.SQLDataType
+                        from dbo.MFDataType as mdt
+                        where mdt.MFTypeID = @MFDatatype_ID;
+
+                        --				SELECT * FROM dbo.MFDataType AS mdt
+
+                        set @DebugText = N'';
+                        set @DefaultDebugText = @DefaultDebugText + @DebugText;
+                        set @ProcedureStep = 'Datatype error in 1,9,10,13 in column %s';
+
+                        if @Debug > 0
+                        begin
+                            raiserror(@DefaultDebugText, 10, 1, @ProcedureName, @ProcedureStep, @ColumnName);
+                        end;
+
+                        --	SELECT @TableName,@columnName,@SQLDataType
+                        if @MFDatatype_ID in ( 1, 9, 10, 13 )
+                        begin try
+
+
+
+                            set @SQL
+                                = case
+                                      when @MFDatatype_ID in ( 1, 13 ) then
+                                          N'ALTER TABLE ' + quotename(@TableName) + N' ALTER COLUMN '
+                                          + quotename(@Labelname) + N' ' + @SQLDataType + N'(' + @ColumnLength + ')'
+                                      when @MFDatatype_ID in ( 9, 10 ) then
+                                          N'ALTER TABLE ' + quotename(@TableName) + N' ALTER COLUMN '
+                                          + quotename(@ColumnName) + N' ' + @SQLDataType + N'(' + @ColumnLength + ');'
+                                      else
+                                          N'ALTER TABLE ' + quotename(@TableName) + N' ALTER COLUMN '
+                                          + quotename(@ColumnName) + N' ' + @SQLDataType + N'(' + @ColumnLength + ');'
+                                  end;
+
+                            if @Debug = 0
+                                select @SQL;
+
+                            exec (@SQL);
+
+                        end try
+                        begin catch
+                            raiserror('Unable to change column %s in Table %s', 16, 1, @ColumnName, @TableName);
+                        end catch;
+
+                        select @rowID =
+                        (
+                            select min(id)
+                            from ##spMFClassTableColumns
+                            where id > @rowID
+                                  and ColumnDataTypeError = 1
+                        );
+                    end; --end loop column reset
+                end;
+
+            --end WithcolumnReset
 
             -------------------------------------------------------------
             -- resolve missing table
@@ -946,144 +997,144 @@ check table before update and auto create any columns
 
             --check for any adhoc columns with no data, remove columns
             --check and update indexes and foreign keys
-            END; --Validations
-        END; -- column reset
+            end; --Validations
+        end; -- column reset
 
 
-        SET @DebugText = N' %i';
-        SET @DebugText = @DefaultDebugText + @DebugText;
-        SET @ProcedureStep = 'Drop temp tables ';
+        set @DebugText = N' %i';
+        set @DebugText = @DefaultDebugText + @DebugText;
+        set @ProcedureStep = 'Drop temp tables ';
 
-        IF @Debug > 0
-        BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
-        END;
+        if @Debug > 0
+        begin
+            raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Count);
+        end;
 
-        IF EXISTS (SELECT * FROM sys.sysobjects WHERE name = '#MFClassTemp')
-        BEGIN
-            DROP TABLE #MFClassTemp;
-        END;
+        if exists (select * from sys.sysobjects where name = '#MFClassTemp')
+        begin
+            drop table #MFClassTemp;
+        end;
 
-        IF EXISTS (SELECT * FROM sys.sysobjects WHERE name = '#MFPropertyTemp')
-        BEGIN
-            DROP TABLE #MFPropertyTemp;
-        END;
+        if exists (select * from sys.sysobjects where name = '#MFPropertyTemp')
+        begin
+            drop table #MFPropertyTemp;
+        end;
 
-        IF EXISTS
+        if exists
         (
-            SELECT *
-            FROM sys.sysobjects
-            WHERE name = '#MFValueListitemTemp'
+            select *
+            from sys.sysobjects
+            where name = '#MFValueListitemTemp'
         )
-        BEGIN
-            DROP TABLE #MFValueListitemTemp;
-        END;
+        begin
+            drop table #MFValueListitemTemp;
+        end;
 
- 
-        SET NOCOUNT OFF;
+
+        set nocount off;
 
         -------------------------------------------------------------
         -- Log End of Process
         -------------------------------------------------------------   
-        SET @LogStatus = N'Completed';
-        SET @DebugText = N'';
-        SET @DebugText = @DefaultDebugText + @DebugText;
-        SET @ProcedureStep = 'End of process';
+        set @LogStatus = N'Completed';
+        set @DebugText = N'';
+        set @DebugText = @DefaultDebugText + @DebugText;
+        set @ProcedureStep = 'End of process';
 
-        IF @Debug > 0
-        BEGIN
-            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
-        END;
+        if @Debug > 0
+        begin
+            raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        end;
 
-        EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID,
-                                         @ProcessType = @ProcedureName,
-                                         @LogType = N'Message',
-                                         @LogText = @LogText,
-                                         @LogStatus = @LogStatus,
-                                         @debug = @Debug;
+        exec dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID
+                                       , @ProcessType = @ProcedureName
+                                       , @LogType = N'Message'
+                                       , @LogText = @LogText
+                                       , @LogStatus = @LogStatus
+                                       , @debug = @Debug;
 
-        SET @StartTime = GETUTCDATE();
+        set @StartTime = getutcdate();
 
-        EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-                                               @LogType = N'Message',
-                                               @LogText = @ProcessType,
-                                               @LogStatus = @LogStatus,
-                                               @StartTime = @StartTime,
-                                               @MFTableName = @MFTableName,
-                                               @Validation_ID = @Validation_ID,
-                                               @ColumnName = '',
-                                               @ColumnValue = '',
-                                               @Update_ID = @Update_ID,
-                                               @LogProcedureName = @ProcedureName,
-                                               @LogProcedureStep = @ProcedureStep,
-                                               @debug = 0;
-
-
+        exec dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                             , @LogType = N'Message'
+                                             , @LogText = @ProcessType
+                                             , @LogStatus = @LogStatus
+                                             , @StartTime = @StartTime
+                                             , @MFTableName = @MFTableName
+                                             , @Validation_ID = @Validation_ID
+                                             , @ColumnName = ''
+                                             , @ColumnValue = ''
+                                             , @Update_ID = @Update_ID
+                                             , @LogProcedureName = @ProcedureName
+                                             , @LogProcedureStep = @ProcedureStep
+                                             , @debug = 0;
 
 
 
-    END; -- is updatetodate and istructure only
-    ELSE
-    BEGIN
-        PRINT '###############################';
-        PRINT 'Metadata structure is up to date';
-    END; --else: no processing, upto date
-    RETURN 1;
-END TRY
-BEGIN CATCH
-    IF @@TranCount > 0
-        ROLLBACK;
 
-    SET @StartTime = GETUTCDATE();
-    SET @LogStatus = N'Failed w/SQL Error';
-    SET @LogTextDetail = ERROR_MESSAGE();
+
+    end; -- is updatetodate and istructure only
+    else
+    begin
+        print '###############################';
+        print 'Metadata structure is up to date';
+    end; --else: no processing, upto date
+    return 1;
+end try
+begin catch
+    if @@trancount > 0
+        rollback;
+
+    set @StartTime = getutcdate();
+    set @LogStatus = N'Failed w/SQL Error';
+    set @LogTextDetail = error_message();
 
     --------------------------------------------------
     -- INSERTING ERROR DETAILS INTO LOG TABLE
     --------------------------------------------------
-    INSERT INTO dbo.MFLog
+    insert into dbo.MFLog
     (
-        SPName,
-        ErrorNumber,
-        ErrorMessage,
-        ErrorProcedure,
-        ErrorState,
-        ErrorSeverity,
-        ErrorLine,
-        ProcedureStep
+        SPName
+      , ErrorNumber
+      , ErrorMessage
+      , ErrorProcedure
+      , ErrorState
+      , ErrorSeverity
+      , ErrorLine
+      , ProcedureStep
     )
-    VALUES
-    (@ProcedureName, ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), ERROR_STATE(), ERROR_SEVERITY(), ERROR_LINE(),
-     @ProcedureStep);
+    values
+    (@ProcedureName, error_number(), error_message(), error_procedure(), error_state(), error_severity(), error_line()
+   , @ProcedureStep);
 
-    SET @ProcedureStep = 'Catch Error';
+    set @ProcedureStep = 'Catch Error';
 
     -------------------------------------------------------------
     -- Log Error
     -------------------------------------------------------------   
-    EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
-                                     @ProcessType = @ProcessType,
-                                     @LogType = N'Error',
-                                     @LogText = @LogTextDetail,
-                                     @LogStatus = @LogStatus,
-                                     @debug = @Debug;
+    exec dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID output
+                                   , @ProcessType = @ProcessType
+                                   , @LogType = N'Error'
+                                   , @LogText = @LogTextDetail
+                                   , @LogStatus = @LogStatus
+                                   , @debug = @Debug;
 
-    SET @StartTime = GETUTCDATE();
+    set @StartTime = getutcdate();
 
-    EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-                                           @LogType = N'Error',
-                                           @LogText = @LogTextDetail,
-                                           @LogStatus = @LogStatus,
-                                           @StartTime = @StartTime,
-                                           @MFTableName = @MFTableName,
-                                           @Validation_ID = @Validation_ID,
-                                           @ColumnName = NULL,
-                                           @ColumnValue = NULL,
-                                           @Update_ID = @Update_ID,
-                                           @LogProcedureName = @ProcedureName,
-                                           @LogProcedureStep = @ProcedureStep,
-                                           @debug = 0;
+    exec dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                         , @LogType = N'Error'
+                                         , @LogText = @LogTextDetail
+                                         , @LogStatus = @LogStatus
+                                         , @StartTime = @StartTime
+                                         , @MFTableName = @MFTableName
+                                         , @Validation_ID = @Validation_ID
+                                         , @ColumnName = null
+                                         , @ColumnValue = null
+                                         , @Update_ID = @Update_ID
+                                         , @LogProcedureName = @ProcedureName
+                                         , @LogProcedureStep = @ProcedureStep
+                                         , @debug = 0;
 
-    RETURN -1;
-END CATCH;
-GO
+    return -1;
+end catch;
+go

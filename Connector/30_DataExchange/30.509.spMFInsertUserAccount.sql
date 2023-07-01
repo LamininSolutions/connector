@@ -70,17 +70,6 @@ Purpose
 
 The purpose of this procedure is to insert user account details into MFUserAccount table.
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
 
 Changelog
 =========
@@ -88,6 +77,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-05-24  LC         Add vault roles
 2019-08-30  JC         Added documentation
 ==========  =========  ========================================================
 
@@ -97,6 +87,38 @@ Date        Author     Description
             BEGIN TRANSACTION;
 
             SET NOCOUNT ON;
+
+            -------------------------------------------------------------
+            -- Vault roles
+            -------------------------------------------------------------
+            if (Select object_id('..mfVaultRoles')) is not null
+drop table MFVaultRoles;
+
+create table MFVaultRoles (Role nvarchar(100), Enumerator int, Description nvarchar(100));
+
+insert into MFVaultRoles
+
+Values
+('MFUserAccountVaultRoleAnonymousUser',65536,'Anonymous user.'),
+('MFUserAccountVaultRoleCannotManagePrivateViews',32768,'Cannot manage private views and notification rules.'),
+('MFUserAccountVaultRoleChangeMetadataStructure',256,'Change metadata structure.'),
+('MFUserAccountVaultRoleChangeObjectSecurity',128,'Change permissions for all objects.'),
+('MFUserAccountVaultRoleCreateObjects',4,'Can create documents or other objects.'),
+('MFUserAccountVaultRoleDefaultRoles',3078,'The default vault roles for a normal user.'),
+('MFUserAccountVaultRoleDefineTemplates',4096,'Manage templates (obsolete).'),
+('MFUserAccountVaultRoleDestroyObjects',32,'Destroy objects.'),
+('MFUserAccountVaultRoleForceUndoCheckout',64,'Force undo checkout.'),
+('MFUserAccountVaultRoleFullControl',1,'Full control of vault.'),
+('MFUserAccountVaultRoleInternalUser',1024,'Internal user (as opposed to external user).'),
+('MFUserAccountVaultRoleLogIn',2,'Can log into the vault.'),
+('MFUserAccountVaultRoleManageCommonViews',8192,'Manage common views and notification rules.'),
+('MFUserAccountVaultRoleManageTraditionalFolders',2048,'Can create and modify traditional folders.'),
+('MFUserAccountVaultRoleManageUserAccounts',512,'Manage user accounts.'),
+('MFUserAccountVaultRoleManageWorkflows',16384,'Manage workflows.'),
+('MFUserAccountVaultRoleNone',0,'None.'),
+('MFUserAccountVaultRoleSeeAllObjects',8,'See and read all vault content (including deleted objects).'),
+('MFUserAccountVaultRoleUndeleteObjects',16,'See and undelete deleted objects.')
+;
 
           -----------------------------------------------
           --LOCAL VARIABLE DECLARATION
@@ -116,7 +138,9 @@ Date        Author     Description
                   [LoginName] VARCHAR(100) ,
                   [UserID] INT NOT NULL ,
                   [InternalUser] BIT ,
-                  [Enabled] BIT
+                  [Enabled] BIT,
+                  VaultRoles varchar(100)
+                    
                 );
 
             SET @ProcedureStep = 'Insert values into #UserAccountTble';
@@ -128,12 +152,14 @@ Date        Author     Description
                     ( LoginName ,
                       UserID ,
                       InternalUser ,
-                      [Enabled]
+                      [Enabled],
+                      VaultRoles
                     )
                     SELECT  t.c.value('(@LoginName)[1]', 'NVARCHAR(100)') AS LoginName ,
                             t.c.value('(@MFID)[1]', 'INT') AS UserID ,
                             t.c.value('(@InternalUser)[1]', 'BIT') AS InternalUser ,
-                            t.c.value('(@Enabled)[1]', 'BIT') AS [Enabled]
+                            t.c.value('(@Enabled)[1]', 'BIT') AS [Enabled],
+                             t.c.value('(@VaultRoles)[1]', 'NVARCHAR(100)') AS [VaultRoles]
                     FROM    @XML.nodes('/form/UserAccount') AS t ( c );
 
             IF @Debug = 1
@@ -144,7 +170,26 @@ Date        Author     Description
                     --FROM    #UserAccountTble;
                 END;
 
+-------------------------------------------------------------
+-- Update Vault roles
+-------------------------------------------------------------
+update uat
+set uat.VaultRoles = case when isnumeric(vaultRoles) = 1 and cast(vaultroles as int) % 2 = 1 then 'Full control'
+when isnumeric(vaultRoles) = 1 and cast(vaultroles as int) % 2 = 0 then 'Several Other Roles'
+else VaultRoles
+end
+from #UserAccountTble as uat
+
+
             SET @ProcedureStep = 'Insert values into #UserAccountTble';
+
+-------------------------------------------------------------
+-- Validate MFuser account table
+-------------------------------------------------------------
+
+if not exists(select 1 from INFORMATION_SCHEMA.COLUMNS as c where c.TABLE_NAME = 'MFUserAccount' and c.COLUMN_NAME = 'Vaultroles')
+alter table MFuserAccount
+add VaultRoles nvarchar(100);
 
           -----------------------------------------------------
           --Storing the difference into #tempNewUserAccountTble
@@ -154,13 +199,15 @@ Date        Author     Description
             FROM    ( SELECT    LoginName ,
                                 UserID ,
                                 InternalUser ,
-                                [Enabled]
+                                [Enabled],
+                                VaultRoles
                       FROM      #UserAccountTble
                       EXCEPT
                       SELECT    LoginName ,
                                 UserID ,
                                 InternalUser ,
-                                [Enabled]
+                                [Enabled],
+                                VaultRoles
                       FROM      MFUserAccount
                     ) tempTbl;
 
@@ -182,7 +229,8 @@ Date        Author     Description
                   [LoginName] VARCHAR(100) ,
                   [UserID] INT NOT NULL ,
                   [InternalUser] BIT ,
-                  [Enabled] BIT
+                  [Enabled] bit,
+                  VaultRoles nvarchar(100)
                 );
 
             SET @ProcedureStep = 'Inserting values into #NewUserAccount';
@@ -212,7 +260,8 @@ Date        Author     Description
                     SET     MFUserAccount.LoginName = #NewUserAccount.LoginName ,
                             MFUserAccount.UserID = #NewUserAccount.UserID ,
                             MFUserAccount.InternalUser = #NewUserAccount.InternalUser ,
-                            MFUserAccount.[Enabled] = #NewUserAccount.[Enabled]
+                            MFUserAccount.[Enabled] = #NewUserAccount.[Enabled],
+                            MFUserAccount.[VaultRoles] = #NewUserAccount.[vaultRoles]
                     FROM    MFUserAccount
                             INNER JOIN #NewUserAccount ON MFUserAccount.UserID = #NewUserAccount.UserID;
 
@@ -237,13 +286,15 @@ Date        Author     Description
             FROM    ( SELECT    LoginName ,
                                 UserID ,
                                 InternalUser ,
-                                [Enabled]
+                                [Enabled],
+                                VaultRoles
                       FROM      #UserAccountTble
                       EXCEPT
                       SELECT    LoginName ,
                                 UserID ,
                                 InternalUser ,
-                                [Enabled]
+                                [Enabled],
+                                VaultRoles
                       FROM      MFUserAccount
                     ) newPprty;
 
@@ -264,12 +315,14 @@ Date        Author     Description
                     ( LoginName ,
                       UserID ,
                       InternalUser ,
-                      [Enabled]
+                      [Enabled],
+                      VaultRoles
                     )
                     SELECT  LoginName ,
                             UserID ,
                             InternalUser ,
-                            [Enabled]
+                            [Enabled],
+                            VaultRoles
                     FROM    #temp;
 
             SET @Output = @Output + @@ROWCOUNT;
@@ -288,7 +341,7 @@ Date        Author     Description
                               EXCEPT
                               SELECT    UserID
                               FROM      #UserAccountTble
-                            ) #DeletedWorkFlowStates;
+                            ) #DeletedUserAccount;
 
                     IF @Debug = 1
                         BEGIN
@@ -315,6 +368,8 @@ Date        Author     Description
             DROP TABLE #UserAccountTble;
 
             DROP TABLE #NewUserAccount;
+
+            drop table #DeletedUserAccount
 
             SET NOCOUNT OFF;
 

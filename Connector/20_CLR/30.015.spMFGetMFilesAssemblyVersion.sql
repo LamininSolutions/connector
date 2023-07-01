@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC [Setup].[spMFSQLObjectsControl] @SchemaName = N'dbo'
                                     ,@ObjectName = N'spMFGetMFilesAssemblyVersion'
 -- nvarchar(100)
-                                    ,@Object_Release = '4.7.20.60'
+                                    ,@Object_Release = '4.10.32.76'
 -- varchar(50)
                                     ,@UpdateFlag = 2;
 -- smallint
@@ -43,11 +43,11 @@ GO
 SET NOEXEC OFF;
 GO
 
-ALTER PROCEDURE [dbo].[spMFGetMFilesAssemblyVersion]
-    @IsUpdateAssembly BIT = 0 OUTPUT
-   ,@MFilesVersion VARCHAR(100) OUTPUT
-   ,@Debug SMALLINT = 0
-AS
+alter procedure [dbo].[spMFGetMFilesAssemblyVersion]
+    @IsUpdateAssembly bit = 0 output
+   ,@MFilesVersion varchar(100) output
+   ,@Debug smallint = 0
+as
 /*rST**************************************************************************
 
 ============================
@@ -117,6 +117,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-06-28  LC         Fix return value to return new license
 2020-10-27  LC         Show error when CLR is not found
 2020-10-27  LC         Improve error messages
 2020-06-29  LC         Review logic to check and update MFVersion
@@ -193,7 +194,7 @@ Date        Author     Description
             END;
 
          SET @IsUpdateAssembly = 1;
-         SET @MFilesVersion = @DbMFileVersion;
+         SET @MFilesVersion = @LsMFilesVersion;
        
        UPDATE s
        SET value = @LsMFilesVersion

@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFCheckAndUpdateAssemblyVersion',
     -- nvarchar(100)
-    @Object_Release = '4.10.30.74',
+    @Object_Release = '4.10.32.76',
     -- varchar(50)
     @UpdateFlag = 2;
 -- smallint
@@ -44,7 +44,8 @@ SET NOEXEC OFF;
 GO
 
 ALTER PROCEDURE dbo.spMFCheckAndUpdateAssemblyVersion
-(@Debug INT = 0)
+(@processBatch_ID int = null
+,@Debug INT = 0)
 AS
 /*rST**************************************************************************
 
@@ -93,6 +94,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-06-28  LC         Fix bug with assembly version
+2023-05-30  LC         Add additional logging to track process results
 2022-11-03  LC         Include validation that assemblies are in place
 2021-12-16  LC         Fix bug to stop continious updates when no change took place
 2021-08-11  LC         Improve control when version could not be found
@@ -107,6 +110,14 @@ Date        Author     Description
 **rST*************************************************************************/
 BEGIN
     SET NOCOUNT ON;
+    	-------------------------------------------------------------
+		-- CONSTANTS: MFSQL Class Table Specific
+		-------------------------------------------------------------
+		DECLARE @MFTableName AS NVARCHAR(128) = null
+		DECLARE @ProcessType AS NVARCHAR(50);
+
+		SET @ProcessType = ISNULL(@ProcessType, 'Check and update assemblies')
+
 
     -------------------------------------------------------------
     -- VARIABLES: DEBUGGING
@@ -116,13 +127,89 @@ BEGIN
     DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s';
     DECLARE @DebugText AS NVARCHAR(256) = N'';
     DECLARE @Msg AS NVARCHAR(256) = N'';
+    -------------------------------------------------------------
+		-- VARIABLES: MFSQL Processing
+		-------------------------------------------------------------
+		DECLARE @Update_ID INT
+		DECLARE @MFLastModified DATETIME
+		DECLARE @Validation_ID int
+	
+    		-------------------------------------------------------------
+		-- VARIABLES: DEBUGGING
+		-------------------------------------------------------------
+		
+		DECLARE @MsgSeverityInfo AS TINYINT = 10
+		DECLARE @MsgSeverityObjectDoesNotExist AS TINYINT = 11
+		DECLARE @MsgSeverityGeneralError AS TINYINT = 16
+
+		-------------------------------------------------------------
+		-- VARIABLES: LOGGING
+		-------------------------------------------------------------
+		DECLARE @LogType AS NVARCHAR(50) = 'Status'
+		DECLARE @LogText AS NVARCHAR(4000) = @processType + ' Started';
+		DECLARE @LogStatus AS NVARCHAR(50) = 'Started'
+
+		DECLARE @LogTypeDetail AS NVARCHAR(50) = 'System'
+		DECLARE @LogTextDetail AS NVARCHAR(4000) = '';
+		DECLARE @LogStatusDetail AS NVARCHAR(50) = 'In Progress'
+		DECLARE @ProcessBatchDetail_IDOUT AS INT = NULL
+
+		DECLARE @LogColumnName AS NVARCHAR(128) = NULL
+		DECLARE @LogColumnValue AS NVARCHAR(256) = NULL
+
+		DECLARE @count INT = 0;
+		DECLARE @Now AS DATETIME = GETDATE();
+		DECLARE @StartTime AS DATETIME = GETUTCDATE();
+		DECLARE @StartTime_Total AS DATETIME = GETUTCDATE();
+		DECLARE @RunTime_Total AS DECIMAL(18, 4) = 0;
+
+		-------------------------------------------------------------
+		-- VARIABLES: DYNAMIC SQL
+		-------------------------------------------------------------
+		DECLARE @sql NVARCHAR(MAX) = N''
+		DECLARE @sqlParam NVARCHAR(MAX) = N''
+
+
+		-------------------------------------------------------------
+		-- INTIALIZE PROCESS BATCH
+		-------------------------------------------------------------
+		SET @ProcedureStep = 'Start Logging'
+
+		SET @LogText = 'Processing ' + @ProcedureName
+
+		EXEC [dbo].[spMFProcessBatch_Upsert]
+			@ProcessBatch_ID = @ProcessBatch_ID OUTPUT
+		  , @ProcessType = @ProcessType
+		  , @LogType = N'Status'
+		  , @LogText = @LogText
+		  , @LogStatus = N'In Progress'
+		  , @debug = @Debug
+
+
+		EXEC [dbo].[spMFProcessBatchDetail_Insert]
+			@ProcessBatch_ID = @ProcessBatch_ID
+		  , @LogType = N'Debug'
+		  , @LogText = @LogText
+		  , @LogStatus = N'Started'
+		  , @StartTime = @StartTime
+		  , @MFTableName = @MFTableName
+		  , @Validation_ID = @Validation_ID
+		  , @ColumnName = NULL
+		  , @ColumnValue = NULL
+		  , @Update_ID = @Update_ID
+		  , @LogProcedureName = @ProcedureName
+		  , @LogProcedureStep = @ProcedureStep
+		, @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT 
+		  , @debug = 0
+
+
+
  DECLARE  @LsMFilesVersion NVARCHAR(100)
     BEGIN TRY
         ---------------------------------------------
         DECLARE @IsVersionMisMatch BIT = 0,
             @MFilesVersion         VARCHAR(100),
             @MFilesOldVersion      VARCHAR(100),
-            @Update_ID             INT,
             @Username              NVARCHAR(2000),
             @RC                    INT,
             @VaultName             NVARCHAR(2000);
@@ -143,7 +230,6 @@ BEGIN
         SET @DebugText = @DefaultDebugText + @DebugText;
         SET @ProcedureStep = N'updater assembly for allowing to get MFversion ';
 
-
 EXEC (N'
 CREATE PROCEDURE [dbo].[spmfGetLocalMFilesVersionInternal]
     @Result NVARCHAR(MAX) OUTPUT
@@ -156,6 +242,29 @@ AS EXTERNAL NAME
         BEGIN
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END;
+
+        
+                                
+                                   SET @LogTypeDetail = 'Status';
+                                   SET @LogStatusDetail = '';
+                                   SET @LogTextDetail = @Debugtext
+                                   SET @LogColumnName = '';
+                                   SET @LogColumnValue = '';
+        
+                                   EXECUTE [dbo].[spMFProcessBatchDetail_Insert]
+                                    @ProcessBatch_ID = @ProcessBatch_ID
+                                  , @LogType = @LogTypeDetail
+                                  , @LogText = @LogTextDetail
+                                  , @LogStatus = @LogStatusDetail
+                                  , @StartTime = @StartTime
+                                  , @MFTableName = @MFTableName
+                                  , @Validation_ID = @Validation_ID
+                                  , @ColumnName = @LogColumnName
+                                  , @ColumnValue = @LogColumnValue
+                                  , @Update_ID = @Update_ID
+                                  , @LogProcedureName = @ProcedureName
+                                  , @LogProcedureStep = @ProcedureStep
+                                  , @debug = @debug
 
 END
 
@@ -190,6 +299,29 @@ END
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @Mismatch, @MFilesVersion,@MFilesOldVersion);
         END;
 
+        
+                                   SET @ProcedureStep = '';
+                                   SET @LogTypeDetail = 'Status';
+                                   SET @LogStatusDetail = '';
+                                   SET @LogTextDetail = 'Old version ' + @MFilesOldVersion + ' new Version ' + @MFilesVersion + ' is Mismatch ' + cast(@mismatch as varchar(10))
+                                   SET @LogColumnName = '';
+                                   SET @LogColumnValue = '';
+        
+                                   EXECUTE [dbo].[spMFProcessBatchDetail_Insert]
+                                    @ProcessBatch_ID = @ProcessBatch_ID
+                                  , @LogType = @LogTypeDetail
+                                  , @LogText = @LogTextDetail
+                                  , @LogStatus = @LogStatusDetail
+                                  , @StartTime = @StartTime
+                                  , @MFTableName = @MFTableName
+                                  , @Validation_ID = @Validation_ID
+                                  , @ColumnName = @LogColumnName
+                                  , @ColumnValue = @LogColumnValue
+                                  , @Update_ID = @Update_ID
+                                  , @LogProcedureName = @ProcedureName
+                                  , @LogProcedureStep = @ProcedureStep
+                                  , @debug = @debug
+
         IF NOT EXISTS ( SELECT  1
             FROM    INFORMATION_SCHEMA.ROUTINES
             WHERE   ROUTINE_NAME = 'spmfConnectionTestInternal'--name of procedure
@@ -197,7 +329,7 @@ END
                     AND ROUTINE_SCHEMA = 'dbo' ) AND @IsVersionMisMatch = 0
     BEGIN
 
-        SET @DebugText = N' no missmatch but missing assemblies';
+        SET @DebugText = N' no mismatch but missing assemblies';
         SET @DebugText = @DefaultDebugText + @DebugText;
         SET @ProcedureStep = N'Update Assemblies ';
 
@@ -206,6 +338,28 @@ END
             RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         END;
 
+        
+                                   SET @ProcedureStep = '';
+                                   SET @LogTypeDetail = 'Status';
+                                   SET @LogStatusDetail = '';
+                                   SET @LogTextDetail = @DebugText
+                                   SET @LogColumnName = '';
+                                   SET @LogColumnValue = '';
+        
+                                   EXECUTE [dbo].[spMFProcessBatchDetail_Insert]
+                                    @ProcessBatch_ID = @ProcessBatch_ID
+                                  , @LogType = @LogTypeDetail
+                                  , @LogText = @LogTextDetail
+                                  , @LogStatus = @LogStatusDetail
+                                  , @StartTime = @StartTime
+                                  , @MFTableName = @MFTableName
+                                  , @Validation_ID = @Validation_ID
+                                  , @ColumnName = @LogColumnName
+                                  , @ColumnValue = @LogColumnValue
+                                  , @Update_ID = @Update_ID
+                                  , @LogProcedureName = @ProcedureName
+                                  , @LogProcedureStep = @ProcedureStep
+                                  , @debug = @debug
 
          EXECUTE spmfGetLocalMFilesVersionInternal
                                               @LsMFilesVersion OUTPUT;
@@ -220,6 +374,9 @@ END
         END;
 
         EXEC dbo.spMFUpdateAssemblies @LsMFilesVersion;
+
+           set @Msg = ' Version changed from '+ ISNULL(@MFilesVersion,'No version found') + ' to ' + @LsMFilesVersion
+
 
 end
 
@@ -261,6 +418,29 @@ AS EXTERNAL NAME
 
         EXEC dbo.spMFUpdateAssemblies @LsMFilesVersion;
 
+       
+                                  SET @ProcedureStep = '';
+                                  SET @LogTypeDetail = 'Status';
+                                  SET @LogStatusDetail = '';
+                                  SET @LogTextDetail = ' Update Assemblies'
+                                  SET @LogColumnName = '';
+                                  SET @LogColumnValue = '';
+       
+                                  EXECUTE [dbo].[spMFProcessBatchDetail_Insert]
+                                   @ProcessBatch_ID = @ProcessBatch_ID
+                                 , @LogType = @LogTypeDetail
+                                 , @LogText = @LogTextDetail
+                                 , @LogStatus = @LogStatusDetail
+                                 , @StartTime = @StartTime
+                                 , @MFTableName = @MFTableName
+                                 , @Validation_ID = @Validation_ID
+                                 , @ColumnName = @LogColumnName
+                                 , @ColumnValue = @LogColumnValue
+                                 , @Update_ID = @Update_ID
+                                 , @LogProcedureName = @ProcedureName
+                                 , @LogProcedureStep = @ProcedureStep
+                                 , @debug = @debug
+
 END
 
   
@@ -278,7 +458,7 @@ END
             SELECT @Update_ID = @@Identity;
 
             --set @MFLocation= @MFLocation+'\CLPROC.Sql'
-            DECLARE @SQL      VARCHAR(MAX),
+            DECLARE 
                 @DBName       VARCHAR(250),
                 @DBServerName VARCHAR(250);
 
@@ -290,7 +470,47 @@ END
             --	Select @ScriptFilePath=cast(Value as varchar(250)) from MFSettings where Name='AssemblyInstallPath'
           IF ISNULL(@MFilesVersion,'No version found') <> 'No version found'
           EXEC dbo.spMFUpdateAssemblies @MFilesVersion;
+
+      set     @MSG = 'Assemblies updated'
         END;
+
+        	-------------------------------------------------------------
+			--END PROCESS
+			-------------------------------------------------------------
+			END_RUN:
+			SET @ProcedureStep = 'End'
+			Set @LogStatus = 'Completed'
+            set @LogText = isnull(@Msg, 'nochange')
+			-------------------------------------------------------------
+			-- Log End of Process
+			-------------------------------------------------------------   
+
+			EXEC [dbo].[spMFProcessBatch_Upsert]
+				@ProcessBatch_ID = @ProcessBatch_ID
+			  , @ProcessType = @ProcessType
+			  , @LogType = N'Message'
+			  , @LogText = @LogText
+			  , @LogStatus = @LogStatus
+			  , @debug = @Debug
+
+			SET @StartTime = GETUTCDATE()
+
+			EXEC [dbo].[spMFProcessBatchDetail_Insert]
+				@ProcessBatch_ID = @ProcessBatch_ID
+			  , @LogType = N'Debug'
+			  , @LogText = @logtext
+			  , @LogStatus = @LogStatus
+			  , @StartTime = @StartTime
+			  , @MFTableName = @MFTableName
+			  , @Validation_ID = @Validation_ID
+			  , @ColumnName = NULL
+			  , @ColumnValue = NULL
+			  , @Update_ID = @Update_ID
+			  , @LogProcedureName = @ProcedureName
+			  , @LogProcedureStep = @ProcedureStep
+			  , @debug = 0
+			RETURN 1
+
     END TRY
     BEGIN CATCH
         SET @ProcedureStep = N'Catch matching version error ';
@@ -326,6 +546,38 @@ END
         VALUES
         ('spMFCheckAndUpdateAssemblyVersion', ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), @ProcedureStep,
             ERROR_STATE(), ERROR_SEVERITY(), @Update_ID, ERROR_LINE());
+
+            		SET @ProcedureStep = 'Catch Error'
+			-------------------------------------------------------------
+			-- Log Error
+			-------------------------------------------------------------   
+			EXEC [dbo].[spMFProcessBatch_Upsert]
+				@ProcessBatch_ID = @ProcessBatch_ID OUTPUT
+			  , @ProcessType = @ProcessType
+			  , @LogType = N'Error'
+			  , @LogText = @LogTextDetail
+			  , @LogStatus = @LogStatus
+			  , @debug = @Debug
+
+			SET @StartTime = GETUTCDATE()
+
+			EXEC [dbo].[spMFProcessBatchDetail_Insert]
+				@ProcessBatch_ID = @ProcessBatch_ID
+			  , @LogType = N'Error'
+			  , @LogText = @LogTextDetail
+			  , @LogStatus = @LogStatus
+			  , @StartTime = @StartTime
+			  , @MFTableName = @MFTableName
+			  , @Validation_ID = @Validation_ID
+			  , @ColumnName = NULL
+			  , @ColumnValue = NULL
+			  , @Update_ID = @Update_ID
+			  , @LogProcedureName = @ProcedureName
+			  , @LogProcedureStep = @ProcedureStep
+			  , @debug = 0
+
+			RETURN -1
+
     END CATCH;
 END;
 GO

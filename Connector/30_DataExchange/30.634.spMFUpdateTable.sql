@@ -9,7 +9,7 @@ set nocount on;
 exec setup.spMFSQLObjectsControl @SchemaName = N'dbo'
                                , @ObjectName = N'spMFUpdateTable'
                                -- nvarchar(100)
-                               , @Object_Release = '4.10.30.75'
+                               , @Object_Release = '4.10.32.76'
                                -- varchar(50)
                                , @UpdateFlag = 2;
 -- smallint
@@ -236,6 +236,9 @@ Changelog
 ==========  =========  =========================================================================
 Date        Author     Description
 ----------  ---------  -------------------------------------------------------------------------
+2023-06-30  LC         All to change or select the last modified user
+2023-06-06  LC         fix bug when updating table for missing object in class table
+2023-04-20  LC         replacing get user id to using user account instead of login account
 2023-03-08  LC         rework filter processing to improve throughput and reduce locks
 2023-02-06  LC         Change create and modified date when new to UTC instead of local time
 2022-11-18  LC         Change formatting of float to take account of culture
@@ -592,6 +595,8 @@ begin try
     -- Column variables
     -------------------------------------------------------------
 
+    set @ProcedureStep = 'Column variables ';
+
     select @DeletedColumn = mp.ColumnName
     from dbo.MFProperty as mp
     where mp.MFID = 27;
@@ -628,7 +633,7 @@ begin try
 
     create table #ObjidTable
     (
-        objid int primary key
+        objid int
       , SQLid int
       , Type int
       , Process_ID int
@@ -637,6 +642,7 @@ begin try
       , GUID uniqueidentifier
       , name_or_title nvarchar(100)
     );
+
 
     /*
     Type 1 Unfiltered Update 
@@ -650,29 +656,49 @@ begin try
 
     select @Queryfilter
         = case
-              when @ObjIDs is not null then
+              when @ObjIDs is not null
+                   and @UpdateMethod = 0 then
                   N'
-    select fmpds.objid, t.id, 2 , isnull(t.Process_ID,0), isnull(' + quotename(@ClassPropName)
-                  + N',@Classid) ,isnull(t.MFVersion,-1), isnull(t.Guid,''{89CACFAE-E6B0-44EE-8F91-685A4A1D9E08}'')
+    select fmpds.objid, t.id, 2 , isnull(t.Process_ID,0),  case when ' + quotename(@ClassPropName)
+                  + N' = -1 then @classid else ' + quotename(@ClassPropName)
+                  + N' end ,isnull(t.MFVersion,-1), isnull(t.Guid,''{89CACFAE-E6B0-44EE-8F91-685A4A1D9E08}'')
     , isnull(t.' + quotename(@NameOrTitlename)
                   + ',''Auto'') 
     from  (select listitem as objid from dbo.fnMFParseDelimitedString(@objids,'',''))  fmpds    
     left join ' + quotename(@MFTableName)
                   + ' t
-    on fmpds.objid = t.objid and (t.MX_User_ID = @UserID or @userid is null)
+    on fmpds.objid = t.objid
+    where (process_id = @process_ID) and (t.MX_User_ID = @UserID or @userid is null)
+
+    '
+              when @ObjIDs is not null
+                   and @UpdateMethod = 1 then
+                  N'
+    select fmpds.objid, t.id, 2 , isnull(t.Process_ID,0),  case when ' + quotename(@ClassPropName)
+                  + N' = -1 then @classid else ' + quotename(@ClassPropName)
+                  + N' end ,isnull(t.MFVersion,-1), isnull(t.Guid,''{89CACFAE-E6B0-44EE-8F91-685A4A1D9E08}'')
+    , isnull(t.' + quotename(@NameOrTitlename)
+                  + ',''Auto'') 
+    from  (select listitem as objid from dbo.fnMFParseDelimitedString(@objids,'',''))  fmpds    
+    left join ' + quotename(@MFTableName)
+                  + ' t
+    on fmpds.objid = t.objid
+    where (process_id = @process_ID or process_id is null) and (t.MX_User_ID = @UserID or @userid is null)
+
     '
               when @ObjIDs is null
                    and @MFModifiedDate is null then
-                  N' select t.objid, t.id, 2 , isnull(t.Process_ID,0),isnull(' + quotename(@ClassPropName)
-                  + N',@Classid) ,isnull(t.MFVersion,-1)
+                  N' select t.objid, t.id, 2 , isnull(t.Process_ID,0), case when ' + quotename(@ClassPropName)
+                  + N' = -1 then @classid else ' + quotename(@ClassPropName)
+                  + N' end ,isnull(t.MFVersion,-1)
     , isnull(t.Guid,''{89CACFAE-E6B0-44EE-8F91-685A4A1D9E08}'')
     , isnull(t.'                  + quotename(@NameOrTitlename) + ',''Auto'') 
     from  '                       + quotename(@MFTableName)
                   + ' t
     where process_id = @process_ID  and (t.MX_User_ID = @UserID or @userid is null)'
               when @MFModifiedDate is not null then
-                  N' select objid, id, 3,t.Process_ID, isnull(' + quotename(@ClassPropName)
-                  + N',@Classid) ,t.MFVersion, t.Guid
+                  N' select objid, id, 3,t.Process_ID,  case when ' + quotename(@ClassPropName)
+                  + N' = -1 then @classid else ' + quotename(@ClassPropName) + N' end ,t.MFVersion, t.Guid
     , '                           + @NameOrTitlename + '
     from  '                       + quotename(@MFTableName) + ' t
     where process_id = @process_ID'
@@ -702,13 +728,19 @@ begin try
 
     select @ObjidCount = @@rowcount;
 
+    if @ObjidCount > 0
+    begin
+        create index IDX_ObjectTable_SQLID on #ObjidTable (SQLid);
+    end;
+
     set @DebugText = N'ObjectType %i Class %i update count %i';
     set @DebugText = @DefaultDebugText + @DebugText;
 
     if @Debug > 0
     begin
         raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @ObjectId, @ClassId, @ObjidCount);
-        select *
+        select '#ObjidTable'
+             , *
         from #ObjidTable as ot;
     end;
 
@@ -778,11 +810,11 @@ begin try
         end;
 
         set @LogTypeDetail = N'Debug';
-        set @LogTextDetail = N'Count filtered records ';
+        set @LogTextDetail = N'Count objid records ';
         set @LogStatusDetail = N'In Progress';
         set @Validation_ID = null;
         set @LogColumnName = N'process_ID';
-        set @LogColumnValue = cast(isnull(@Count, 0) as nvarchar(256));
+        set @LogColumnValue = cast(isnull(@ObjidCount, 0) as nvarchar(256));
 
         execute @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
                                                                 , @LogType = @LogTypeDetail
@@ -1033,13 +1065,6 @@ cross join (
 
             set @ProcedureStep = 'update #ColumnValuePair';
 
-            if @Debug > 100
-            begin
-                select 'ColumnValue pair query'
-                     , *
-                from #ColumnValuePair;
-            end;
-
             update #ColumnValuePair
             set MFID = mp.MFID
               , DataType = mp.MFDataType_ID
@@ -1047,6 +1072,11 @@ cross join (
                 inner join dbo.MFProperty mp
                     on cvp.ColumnName = mp.ColumnName;
 
+            update cvp
+            set cvp.ColumnValue = cast(@ClassId as nvarchar(10))
+            from #ColumnValuePair cvp
+            where cvp.MFID = 100
+                  and cvp.ColumnValue = -1;
 
             if @Debug > 0
                 select 'Required_is_null'
@@ -1059,9 +1089,7 @@ cross join (
                      , cvp.Required
                      , cvp.MFID
                      , cvp.DataType
-                from #ColumnValuePair as cvp
-                where cvp.Required = 1
-                      and cvp.ColumnValue is null;
+                from #ColumnValuePair as cvp;
 
             -------------------------------------------------------------
             -- Remove additional properties not required
@@ -1108,13 +1136,13 @@ cross join (
 
             declare @lastModifiedUser_ID int;
 
-            select @lastModifiedUser_ID = mla.MFID
-            from dbo.MFVaultSettings          as mvs
-                inner join dbo.MFLoginAccount as mla
-                    on mvs.Username = mla.UserName;
+            select @lastModifiedUser_ID = mla.UserID
+            from dbo.MFVaultSettings         as mvs
+                inner join dbo.MFUserAccount as mla
+                    on mvs.Username = mla.LoginName;
 
             update cvp
-            set cvp.ColumnValue = cast(@lastModifiedUser_ID as nvarchar(4000))
+            set cvp.ColumnValue = coalesce(cvp.ColumnValue,cast(@lastModifiedUser_ID as nvarchar(4000)))
             from #ColumnValuePair as cvp
             where cvp.MFID = 23; -- last modified
 
@@ -1142,11 +1170,12 @@ cross join (
 
             set @ProcedureStep = 'ColumnValue Pair ';
             set @LogTypeDetail = N'Debug';
-            set @LogTextDetail = N'Properties for update ';
+            set @LogTextDetail = N'ColumnValue pair properties for update ';
             set @LogStatusDetail = N'In Progress';
             set @Validation_ID = null;
             set @LogColumnName = N'Properties';
             set @LogColumnValue = cast(@Count as nvarchar(256));
+
             set @DebugText = N'Column Value Pair: %i';
             set @DebugText = @DefaultDebugText + @DebugText;
 
@@ -1581,7 +1610,7 @@ cross join (
     set @ProcedureStep = 'wrapper';
     set @ProcedureName = 'spMFCreateObjectInternal';
 
-    if @XML is not null
+    if (@XML <> '<form />')
     begin
         exec dbo.spMFCreateObjectInternal @VaultSettings = @VaultSettings            -- nvarchar(4000)
                                         , @XmlFile = @XML                            -- nvarchar(max)
@@ -2026,6 +2055,7 @@ cross join (
                     raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @OtherMFTableName, @RemoveClassObjids);
                 end;
 
+                if @RemoveClassObjids is not null
                 begin
                     exec dbo.spMFUpdateTable @MFTableName = @OtherMFTableName
                                            , @UpdateMethod = 1

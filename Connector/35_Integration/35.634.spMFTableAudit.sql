@@ -1,11 +1,11 @@
 PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFTableAudit]';
 GO
 
-SET NOCOUNT ON;
+set nocount on;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFTableAudit', -- nvarchar(100)
-                                 @Object_Release = '4.10.30.74',   -- varchar(50)
+                                 @Object_Release = '4.10.30.75',   -- varchar(50)
                                  @UpdateFlag = 2;                 -- smallint
 GO
 
@@ -134,6 +134,8 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-06-30  LC         allow for specifying date in UTC
+2023-04-05  LC         refine options for selecting default date
 2022-09-08  LC         simplify query for flag 5 to ellimate objects not in Audit table
 2022-01-28  LC         set objids datatype to max
 2022-01-08  LC         new code to deal with class changes
@@ -398,12 +400,16 @@ BEGIN TRY
         --Set default date
         -----------------------------------------------------
         SET @DefaultDate = CASE
-                               WHEN @ObjIDs IS NOT NULL THEN
+                               WHEN @MFModifiedDate is not null and @ObjIDs is null THEN
+                                    dateadd(day,0,@MFModifiedDate)
+                               WHEN @MFModifiedDate is not null and @ObjIDs is not null THEN
+                                    dateadd(day,0,@MFModifiedDate)
+                               when @MFModifiedDate is null and @ObjIDs IS NOT null THEN
                                    @DefaultDate
-                               WHEN @MFModifiedDate IS NULL THEN
-                                   @DefaultDate
+                               WHEN @MFModifiedDate IS null and @ObjIDs is null THEN
+                                   @DefaultDate                                
                                ELSE
-                                   @MFModifiedDate
+                                   @DefaultDate
                            END;
         --SET @DebugText = N' filter on date ' + CAST(@DefaultDate AS NVARCHAR(30));
         --SET @DebugText = @DefaultDebugText + @DebugText;

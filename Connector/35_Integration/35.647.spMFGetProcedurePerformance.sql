@@ -4,7 +4,7 @@ SET NOCOUNT ON
 EXEC [setup].[spMFSQLObjectsControl]
 	@SchemaName = N'dbo'
   , @ObjectName = N'spMFGetProcedurePerformance' -- nvarchar(100)
-  , @Object_Release = '4.9.27.72'
+  , @Object_Release = '4.10.30.75'
   , @UpdateFlag = 2
 
 GO
@@ -112,6 +112,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-03-24  LC         Resolve devide by zero bug
 2021-12-15  LC         Create new procedure
 ==========  =========  ========================================================
 
@@ -171,6 +172,15 @@ BEGIN
         @Debug = 0;
 END;
 
+			SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
+			Set @Procedurestep = '##spMFBatchProcess'
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				END
+
 IF
 (
     SELECT OBJECT_ID('tempdb..##spMFBatchProcess')
@@ -205,6 +215,15 @@ BEGIN
         *
     FROM ##spMFBatchProcess AS mbp;
 END;
+
+			SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
+			Set @Procedurestep = '##spMFBatchProcessDetail'
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				END
 
 IF
 (
@@ -268,6 +287,15 @@ FETCH NEXT FROM BPDCursor
 INTO @ProcessBatchDetail_ID,
     @NextUpdate_ID;
 
+SET @DebugText = ' Loop start'
+			Set @DebugText = @DefaultDebugText + @DebugText
+			Set @Procedurestep = '##spMFBatchProcessDetail'
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				end
+                
 WHILE @@Fetch_Status = 0
 BEGIN
     SET @ProcessTimeUnit = CASE
@@ -294,6 +322,17 @@ END;
 CLOSE BPDCursor;
 DEALLOCATE BPDCursor;
 
+
+SET @DebugText = ' Update performance'
+			Set @DebugText = @DefaultDebugText + @DebugText
+			Set @Procedurestep = '##spMFBatchProcessDetail'
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				end
+                
+;
 WITH cte
 AS (SELECT bd.ProcessBatch_ID,
         ProcessTimeUnit,
@@ -335,6 +374,15 @@ BEGIN
     FROM ##spMFBatchProcessDetail AS mbpd;
 END;
 
+SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
+			Set @Procedurestep = '##spMFUpdateHistory'
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				end
+                
 IF
 (
     SELECT OBJECT_ID('tempdb..##spMFUpdateHistory')
@@ -372,6 +420,16 @@ BEGIN
     FROM ##spMFUpdateHistory AS muh;
 END;
 
+SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
+			Set @Procedurestep = '##spMFUpdateHistoryShow'
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				end
+                
+
 IF
 (
     SELECT OBJECT_ID('tempdb..##spMFUpdateHistoryShow')
@@ -392,6 +450,15 @@ CREATE TABLE ##spMFUpdateHistoryShow
     TableName NVARCHAR(100)
 );
 
+SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
+			Set @Procedurestep = '##spMFObjlist'
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				end
+                
 IF
 (
     SELECT OBJECT_ID('tempdb..##spMFObjlist')
@@ -416,6 +483,16 @@ DECLARE @Idoc INT;
 SELECT @update_ID = MIN(muh.Update_ID)
 FROM ##spMFBatchProcessDetail AS muh
 WHERE muh.Update_ID IS NOT NULL AND Muh.ProcessBatch_ID <> muh.Update_ID;
+
+SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
+			Set @Procedurestep = '#Showresult'
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				end
+                
 
 WHILE @update_ID IS NOT NULL 
 BEGIN
@@ -548,6 +625,16 @@ BEGIN
     FROM ##spMFObjlist AS muhs;
 END;
 
+SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
+			Set @Procedurestep = '##spMFEventList'
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				end
+                
+
 IF
 (
     SELECT OBJECT_ID('tempdb..##spMFEventList')
@@ -650,6 +737,15 @@ SET mfEventDuration = cte.mfEventDuration, MFeventCount = cte.mfEventCount
 FROM ##spMFBatchProcessDetail bd
 INNER JOIN cte
 ON bd.ProcessBatchDetail_ID = CTE.ProcessBatchDetail_ID;
+
+SET @DebugText = ''
+			Set @DebugText = @DefaultDebugText + @DebugText
+			Set @Procedurestep = '##spMFProcessStats'
+			
+			IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				end               
 
 IF
 (
@@ -824,7 +920,7 @@ FROM ##spMFProcessStats AS ps
         ON ps.Update_ID = cte.Update_ID;
 
 UPDATE ps
-SET ps.PropertiesPerObject = CAST(NULLIF(ISNULL(ps.PropertyCount,0) / ISNULL(ps.ObjectCount, 1),0) AS DECIMAL(18,2))
+SET ps.PropertiesPerObject = case when ISNULL(ps.ObjectCount, 1) > 0 then cast(NULLIF(ISNULL(ps.PropertyCount,0) / ISNULL(ps.ObjectCount, 1),0) AS DECIMAL(18,2)) else null end
 ,ps.DurationPerObject = CASE
                                WHEN ISNULL(ps.ObjectCount, 0) = 0 THEN
                                    ps.SubProcessDuration_S
@@ -857,6 +953,8 @@ FROM ##spMFProcessStats AS ps
     INNER JOIN cte
         ON ps.ProcessBatch_ID = cte.ProcessBatch_ID;
 
+if @debug > 0
+Begin
 SELECT '##spMFProcessStats',
     *
 FROM ##spMFProcessStats AS ps
@@ -883,13 +981,15 @@ FROM ##spMFUpdateHistoryShow;
 SELECT '##spMFObjlist',
     *
 FROM ##spMFObjlist
-ORDER BY Update_ID,
+order by Update_ID,
     objid;
 
-SELECT '##spMFEventList',
+select '##spMFEventList',
     *
-FROM ##spMFEventList
-ORDER BY EventDate;
+from ##spMFEventList
+order by EventDate;
+end
+
 
 			-------------------------------------------------------------
 			--END PROCESS

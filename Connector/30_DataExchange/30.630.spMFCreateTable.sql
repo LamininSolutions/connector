@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFCreateTable', -- nvarchar(100)
-                                 @Object_Release = '4.10.30.74',   -- varchar(2506
+                                 @Object_Release = '4.10.32.76',   -- varchar(2506
                                  @UpdateFlag = 2;
 
 IF EXISTS
@@ -175,35 +175,37 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
-2015-05-23  DEV2       Default column ExternalID added
-2015-05-25  DEV2       Default column Update_ID added
-2016-06-27  LC         Automatically add includeInApp if null
-2016-08-18  LC         Add system columns with localized text names that is required for creating a new record
-2016-09-10  LC         Set process_ID default to 1 and deleted default to 0 on creating new record
-2016-10-02  LC         Update multi lookup columns to nvarchar(4000)
-2016-10-13  DEV2       Added Single_File Column in Class table
-2016-10-15  LC         Change Default of Single_file to 0
-2017-07-06  LC         Add new default column for FileCount
-2017-11-29  LC         Add error message of file does not exist or table already exist
-2018-04-17  LC         Add condition to only create trigger on table if includedinApp is set to 2 (for transaction based tables.)
-2018-10-30  LC         Add creating unique index on objid and externalid
-2019-09-20  LC         allow for ID at end of name of a lookup property
-2019-10-14  LC         Resolve multilookup table data type incorrectly set
-2019-12-01  LC         Resolve where duplicate columns exist and removal of ID
-2020-03-11  LC         Add check license
-2020-03-18  LC         Add non clustered unique index for objid
-2020-03-27  LC         Add MFSetting to allow optional create of indexes
-2020-04-22  LC         Improve naming of constraints
-2020-05-12  LC         Add index on Update_ID to improve performance
-2020-08-18  LC         replace deleted column flag with property 27 (deleted)
-2020-11-21  LC         Fix bug with unique index on objid
-2021-01-22  LC         set default schema to dbo
-2022-01-04  LC         update app detail logging to include assembly logging
-2022-09-07  LC         update after changes to classproperty table to add IsAdditional
-2022-09-07  LC         revamp and simplify procedure
-2022-09-07  LC         remove unique index on externalid
-2022-12-01  LC         improve debugging and logging
+2023-06-06  LC         resolve bug for excluding some columns on create
+2023-04-19  LC         improve handling of lookup columns to handle duplicate property names
 2022-12-01  LC         improve handling of mfsql properties and indexes
+2022-12-01  LC         improve debugging and logging
+2022-09-07  LC         remove unique index on externalid
+2022-09-07  LC         revamp and simplify procedure
+2022-09-07  LC         update after changes to classproperty table to add IsAdditional
+2022-01-04  LC         update app detail logging to include assembly logging
+2021-01-22  LC         set default schema to dbo
+2020-11-21  LC         Fix bug with unique index on objid
+2020-08-18  LC         replace deleted column flag with property 27 (deleted)
+2020-05-12  LC         Add index on Update_ID to improve performance
+2020-04-22  LC         Improve naming of constraints
+2020-03-27  LC         Add MFSetting to allow optional create of indexes
+2020-03-18  LC         Add non clustered unique index for objid
+2020-03-11  LC         Add check license
+2019-12-01  LC         Resolve where duplicate columns exist and removal of ID
+2019-10-14  LC         Resolve multilookup table data type incorrectly set
+2019-09-20  LC         allow for ID at end of name of a lookup property
+2018-10-30  LC         Add creating unique index on objid and externalid
+2018-04-17  LC         Add condition to only create trigger on table if includedinApp is set to 2 (for transaction based tables.)
+2017-11-29  LC         Add error message of file does not exist or table already exist
+2017-07-06  LC         Add new default column for FileCount
+2016-10-15  LC         Change Default of Single_file to 0
+2016-10-13  DEV2       Added Single_File Column in Class table
+2016-10-02  LC         Update multi lookup columns to nvarchar(4000)
+2016-09-10  LC         Set process_ID default to 1 and deleted default to 0 on creating new record
+2016-08-18  LC         Add system columns with localized text names that is required for creating a new record
+2016-06-27  LC         Automatically add includeInApp if null
+2015-05-25  DEV2       Default column Update_ID added
+2015-05-23  DEV2       Default column ExternalID added
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -232,6 +234,9 @@ BEGIN
 DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s'
 		DECLARE @DebugText AS NVARCHAR(256) = N''
 		DECLARE @Msg AS NVARCHAR(256) = N''
+        declare @delimiter nvarchar(10) = N'_ID'; -- Delimiter for MF Type ID 9 and 10
+        declare @delimiterIndex int;
+
         -------------------------------------------------------------
         --Check if the name exixsts in MFClass
         -------------------------------------------------------------
@@ -335,7 +340,7 @@ DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s'
                 INNER JOIN dbo.MFDataType AS mdt
                 ON mdt.id = mp.MFDataType_ID
                 WHERE mp.Deleted = 0
-                 AND ISNULL(mcp.IsAdditional,0) = 0
+     --            AND ISNULL(mcp.IsAdditional,0) = 0
                  AND mc.id = @Classid               
 
 	SET @DebugText = N'#Temp table count %i'
@@ -372,11 +377,11 @@ DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s'
                 FROM
                 (
                     SELECT CASE
-                               WHEN SUBSTRING(ColumnName, LEN(ColumnName) - 2, 3) = '_ID' THEN
+                               WHEN SUBSTRING(ColumnName, LEN(ColumnName) - 2, 3) = @delimiter THEN
                                    SUBSTRING(ColumnName, 1, LEN(ColumnName) - 3)
                                ELSE
                                    SUBSTRING(ColumnName, 1, LEN(ColumnName) - 5)
-                                   + REPLACE((SUBSTRING(ColumnName, (LEN(ColumnName) - 4), 5)), '_ID', '')
+                                   + REPLACE((SUBSTRING(ColumnName, (LEN(ColumnName) - 4), 5)), @delimiter, '')
                            END AS ColumnName,
                            @SQLDatatype_9_ID AS MFDataType_ID,
                             SQLDatatype =  @SQLDatatype_9 ,
@@ -392,11 +397,11 @@ DECLARE @DefaultDebugText AS NVARCHAR(256) = N'Proc: %s Step: %s'
                 FROM
                 (
                     SELECT CASE
-                               WHEN SUBSTRING(ColumnName, LEN(ColumnName) - 2, 3) = '_ID' THEN
+                               WHEN SUBSTRING(ColumnName, LEN(ColumnName) - 2, 3) = @delimiter THEN
                                    SUBSTRING(ColumnName, 1, LEN(ColumnName) - 3)
                                ELSE
                                    SUBSTRING(ColumnName, 1, LEN(ColumnName) - 5)
-                                   + REPLACE((SUBSTRING(ColumnName, (LEN(ColumnName) - 4), 5)), '_ID', '')
+                                   + REPLACE((SUBSTRING(ColumnName, (LEN(ColumnName) - 4), 5)), @delimiter, '')
                            END AS ColumnName,
                            @SQLDatatype_10_id AS MFDataType_ID,
                            SQLDatatype =  @SQLDatatype_10  ,

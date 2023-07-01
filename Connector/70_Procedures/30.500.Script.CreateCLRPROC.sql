@@ -2393,6 +2393,53 @@ AS EXTERNAL NAME
 ')
  
 
+   
+ 
+-- -------------------------------------------------------- 
+-- sp.spMFGetUserAccounts.sql 
+-- -------------------------------------------------------- 
+PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME())
+    + '.[dbo].[spMFGetUserAccounts]';
+
+
+SET NOCOUNT ON 
+EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFGetUserGroups', -- nvarchar(100)
+    @Object_Release = '4.10.32.76', -- varchar(50)
+    @UpdateFlag = 2 -- smallint
+
+
+/*------------------------------------------------------------------------------------------------
+  MODIFICATION HISTORY
+  ====================
+ 	DATE			NAME		DESCRIPTION
+	2023-05-24      LC          add new CLR procedure
+------------------------------------------------------------------------------------------------*/
+
+IF EXISTS ( SELECT  1
+            FROM    INFORMATION_SCHEMA.ROUTINES
+            WHERE   ROUTINE_NAME = 'spMFGetUserGroups'--name of procedure
+                    AND ROUTINE_TYPE = 'PROCEDURE'--for a function --'FUNCTION'
+                    AND ROUTINE_SCHEMA = 'dbo' )
+    BEGIN
+        PRINT SPACE(10) + '...Drop CLR Procedure';
+        DROP PROCEDURE [dbo].[spMFGetUserGroups];
+		
+    END;
+	
+    
+PRINT SPACE(10) + '...Stored Procedure: create';
+	 
+     
+EXEC (N'
+CREATE PROCEDURE [dbo].[spMFGetUserGroups]
+    @VaultSettings NVARCHAR(4000) ,
+    @returnVal NVARCHAR(MAX) OUTPUT
+AS EXTERNAL NAME
+    [LSConnectMFilesAPIWrapper].[MFilesWrapper].[GetUserGroups];
+');
+
+
+
 
 
 
