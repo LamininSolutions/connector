@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFObjectTypeUpdateClassIndex',
-                                 @Object_Release = '4.9.30.75',
+                                 @Object_Release = '4.10.32.77',
                                  @UpdateFlag = 2;
 GO
 
@@ -24,6 +24,9 @@ Parameters
     - When set to 1 it will get the object versions for all class tables
   @MFTableName
     - Class table name to perform the update for a single table
+  @isIncremental
+   - Default = 0 (No)
+   - when set to 1 the varsions will be updated from the last date that the MFauditHistory was updated for the class
   @ProcessBatch_ID
     - Process batch id to manage to logging process
   @Debug (optional)
@@ -80,6 +83,7 @@ Date        Author     Description
 2021-03-17  LC         Set updatestatus = 1 when not matched
 2022-04-12  LC         Add logging, remove updating MFclass, add error handling
 2023-02-17  LC         Resolve bug on not updating class
+2023-08-30  LC         Add is incremental as a parameter
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
@@ -115,6 +119,7 @@ GO
 ALTER PROC dbo.spMFObjectTypeUpdateClassIndex
     @IsAllTables BIT = 0,
     @MFTableName NVARCHAR(200) = NULL,
+	@IsIncremental bit = 0,
     @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug SMALLINT = 0
 AS
@@ -187,6 +192,7 @@ BEGIN
     -- VARIABLES: DYNAMIC SQL
     -------------------------------------------------------------
     DECLARE @sqlParam NVARCHAR(MAX) = N'';
+	DECLARE @LastTranDate datetime
 
     -------------------------------------------------------------
     -- INTIALIZE PROCESS BATCH
@@ -199,12 +205,14 @@ BEGIN
     DECLARE @Username NVARCHAR(2000);
     DECLARE @VaultName NVARCHAR(2000);
     DECLARE @updateMethod INT = 10;
+	DECLARE @VaultSettings NVARCHAR(400)
 
     SELECT TOP 1
            @Username = Username,
            @VaultName = VaultName
     FROM dbo.MFVaultSettings;
 
+	        SELECT @VaultSettings = dbo.FnMFVaultSettings();
 
 
     EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
@@ -296,6 +304,8 @@ BEGIN
         DECLARE @MaxObjid INT;
         DECLARE @Days INT;
         DECLARE @IncludeInApp INT;
+		DECLARE @outPutDeletedXML NVARCHAR(MAX);
+		DECLARE @ObjectDetails XML;
 
         SELECT @MFTableName_ID = ISNULL(mfid, 0)
         FROM #Indexclasstablelist
@@ -359,6 +369,8 @@ BEGIN
 
                 SET @ProcedureStep = N'Get object versions start';
 
+				SELECT @LastTranDate = CASE WHEN @IsIncremental = 1 THEN (SELECT MAX(ISNULL(Trandate,'2000-01-01')) from MFAuditHistory auh WHERE class = @RowID)
+				ELSE '2000-01-01' end
 
                 SET @StartTime = GETUTCDATE();
 
@@ -395,17 +407,26 @@ BEGIN
                                                        @debug = 0;
 
 
-                EXEC dbo.spMFGetObjectvers @TableName = @TableName,        
-                                           @dtModifiedDate = '2000-01-01', 
-                                           @MFIDs = NULL,                  
-                                           @outPutXML = @outPutXML OUTPUT,
-                                           @ProcessBatch_ID = @ProcessBatch_ID,
-                                           @debug = @debug; 
+                --EXEC dbo.spMFGetObjectvers @TableName = @TableName,        
+                --                           @dtModifiedDate = @LastTranDate, 
+                --                           @MFIDs = NULL,                  
+                --                           @outPutXML = @outPutXML OUTPUT,
+                --                           @ProcessBatch_ID = @ProcessBatch_ID,
+                --                           @debug = @debug; 
+
+
+
+  EXECUTE @return_value = dbo.spMFGetObjectVersInternal @VaultSettings = @VaultSettings,
+            @ClassId = @RowID,
+            @dtModifieDateTime = @LastTranDate ,
+            @MFIDs = null,
+            @ObjverXML = @outPutXML OUTPUT,
+            @DelObjverXML = @outPutDeletedXML OUTPUT;
 
 
                 IF @Debug > 0
                     SELECT @TableName AS tablename,
-                           cast(@outPutXML as xml) AS outPutXML;
+                           cast(@outPutXML as xml) AS outPutXML,cast(@outPutDeletedXML AS xml) AS outPutDeletedXML ;
 
                 IF @outPutXML != '<form />'
                 BEGIN
@@ -414,7 +435,7 @@ BEGIN
 
                     SET @StartTime = GETUTCDATE();
 
-                    DECLARE @ObjectDetails XML;
+
         
 
         SET @ObjectDetails =
@@ -470,7 +491,34 @@ BEGIN
                     ON t.ObjectType = s.ObjectType_ID
                        AND t.ObjID = s.objId
                        AND t.Class = @RowID
-                    WHEN NOT MATCHED  BY TARGET THEN
+                    WHEN MATCHED THEN
+					UPDATE SET
+					Trandate = s.Object_LastModifiedUtc
+					,MFversion = s.MFVersion
+					,t.StatusFlag = CASE
+                                WHEN s.Object_Deleted = 'true' THEN
+                                    4
+                                WHEN s.CheckedOutTo > 0 THEN
+                                    3
+                                ELSE
+                                    1
+                            END
+					,		t.StatusName = CASE
+                                     WHEN s.Object_Deleted = 'true' THEN
+                                         'Deleted in MF'
+                                     WHEN s.CheckedOutTo > 0 THEN
+                                         'Checked Out'
+                                     ELSE
+                                         'Not matched'
+                                 END
+								 , t.UpdateFlag =  CASE
+                                          WHEN s.Object_Deleted = 'true' THEN
+                                              0
+                                          ELSE
+                                              1
+                                      END
+					
+					WHEN NOT MATCHED  BY TARGET THEN
                   --  WHEN NOT MATCHED THEN
                         INSERT
                         (
@@ -484,7 +532,7 @@ BEGIN
                             UpdateFlag
                         )
                         VALUES
-                        (   GETUTCDATE(), s.ObjectType_ID, @RowID, s.objId, s.LatestCheckedInVersion,
+                        (   Object_LastModifiedUtc, s.ObjectType_ID, @RowID, s.objId, s.LatestCheckedInVersion,
                             CASE
                                 WHEN s.Object_Deleted = 'true' THEN
                                     4
@@ -514,7 +562,156 @@ BEGIN
 
                 END; -- return is not null
 
+--update deleted objects				
 
+				     IF @outPutDeletedXML != '<form />'
+                BEGIN
+
+
+
+                    SET @StartTime = GETUTCDATE();
+
+        SET @ObjectDetails =
+        (
+            SELECT @ObjectType AS [ObjectType/@ObjectTypeid],
+                   @RowId AS [ObjectType/@ClassID]
+            FOR XML PATH(''), ROOT('form')
+        );
+
+                    UPDATE dbo.MFUpdateHistory
+                    SET ObjectDetails = @ObjectDetails,
+                     NewOrUpdatedObjectVer = CAST(@outPutDeletedXML AS XML)
+                    WHERE Id = @Update_ID;
+
+                    EXEC sys.sp_xml_preparedocument @Idoc OUTPUT, @outPutDeletedXML;
+
+                    SET @DebugText = N' update Deleted history for table ' + @TableName;
+                    SET @DebugText = @DefaultDebugText + @DebugText;
+                    SET @ProcedureStep = N' Get Deleted ObjectVer';
+
+                    IF @Debug > 0
+                    BEGIN
+                        RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+                    END;
+
+                    BEGIN TRAN;
+                    MERGE INTO dbo.MFAuditHistory t
+                    USING
+                    (
+                        SELECT DISTINCT
+                               xmlfile.objId,
+                               xmlfile.MFVersion,
+                               xmlfile.GUID,
+                               xmlfile.ObjectType_ID,
+                               xmlfile.Object_Deleted,
+                               xmlfile.CheckedOutTo,
+                               xmlfile.Object_LastModifiedUtc,
+                               xmlfile.LatestCheckedInVersion
+                        FROM
+                            OPENXML(@Idoc, '/form/objVers', 1)
+                            WITH
+                            (
+                                objId INT './@objectID',
+                                MFVersion INT './@version',
+                                GUID NVARCHAR(100) './@objectGUID',
+                                ObjectType_ID INT './@objectType',
+                                Object_Deleted NVARCHAR(10) './@Deleted',
+                                CheckedOutTo INT './@CheckedOutTo',
+                                Object_LastModifiedUtc NVARCHAR(30) './@LastModifiedUtc',
+                                LatestCheckedInVersion INT './@LatestCheckedInVersion'
+                            ) xmlfile
+                    ) s
+                    ON t.ObjectType = s.ObjectType_ID
+                       AND t.ObjID = s.objId
+                       AND t.Class = @RowID
+                    WHEN MATCHED THEN
+					UPDATE SET
+					Trandate = s.Object_LastModifiedUtc
+					,MFversion = s.MFVersion
+					,t.StatusFlag = CASE
+                                WHEN s.Object_Deleted = 'true' THEN
+                                    4
+                                WHEN s.CheckedOutTo > 0 THEN
+                                    3
+                                ELSE
+                                    1
+                            END
+					,		t.StatusName = CASE
+                                     WHEN s.Object_Deleted = 'true' THEN
+                                         'Deleted in MF'
+                                     WHEN s.CheckedOutTo > 0 THEN
+                                         'Checked Out'
+                                     ELSE
+                                         'Not matched'
+                                 END
+								 , t.UpdateFlag =  CASE
+                                          WHEN s.Object_Deleted = 'true' THEN
+                                              0
+                                          ELSE
+                                              1
+                                      END
+					
+					WHEN NOT MATCHED  BY TARGET THEN
+                  --  WHEN NOT MATCHED THEN
+                        INSERT
+                        (
+                            TranDate,
+                            ObjectType,
+                            Class,
+                            ObjID,
+                            MFVersion,
+                            StatusFlag,
+                            StatusName,
+                            UpdateFlag
+                        )
+                        VALUES
+                        (   Object_LastModifiedUtc, s.ObjectType_ID, @RowID, s.objId, s.LatestCheckedInVersion,
+                            CASE
+                                WHEN s.Object_Deleted = 'true' THEN
+                                    4
+                                WHEN s.CheckedOutTo > 0 THEN
+                                    3
+                                ELSE
+                                    1
+                            END, CASE
+                                     WHEN s.Object_Deleted = 'true' THEN
+                                         'Deleted in MF'
+                                     WHEN s.CheckedOutTo > 0 THEN
+                                         'Checked Out'
+                                     ELSE
+                                         'Not matched'
+                                 END, CASE
+                                          WHEN s.Object_Deleted = 'true' THEN
+                                              0
+                                          ELSE
+                                              1
+                                      END);
+                COMMIT TRAN;
+
+                    IF @Idoc IS NOT NULL
+                        EXEC sys.sp_xml_removedocument @Idoc;
+
+    
+
+                END; -- return is not null
+
+				IF ISNULL(@IncludeInApp,0) > 0 AND @TableName IS NOT NULL
+				BEGIN
+
+				DECLARE @ClassColumn NVARCHAR(100)
+				SELECT @ClassColumn = columnname FROM dbo.MFProperty WHERE mfid = 100
+                
+				EXEC(N'
+				update  mah
+set mah.StatusFlag = 0, mah.StatusName = ''Identical''
+from dbo.MFAuditHistory mah
+left join '+ @TableName + ' as t
+on mah.Class = t.'+@ClassColumn + ' and mah.objid = t.objid 
+where mah.ObjectType <> 9
+and mah.MFVersion = t.MFVersion
+and mah.statusflag = 1;')
+
+end
 
                 SET @LogStatus = 'Completed';
                 UPDATE dbo.MFUpdateHistory

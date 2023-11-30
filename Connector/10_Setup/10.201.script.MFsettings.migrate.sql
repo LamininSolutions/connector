@@ -9,6 +9,7 @@ Last Modified:
 2019-1-9	lc	Exclude MFversion from begin overwritten from SQL, show message when installing manually
 2019-1-26	lc	fix futher bug on MFVersion not being updated when version changed.
 2021-4-7    lc  fix bug to not overright existing entries when package is installed
+2023-08-21  lc  add new setting DefaultLastModifiedBy
 */
 
 SET NOCOUNT ON;
@@ -42,7 +43,7 @@ BEGIN
 --IF (SELECT object_id('Tempdb..##Settings_temp'))IS NOT NULL
 --DROP TABLE ##Settings_temp;
 
-IF (SELECT object_id('Tempdb..##Settings_Default'))IS NOT NULL
+IF (SELECT OBJECT_ID('Tempdb..##Settings_Default'))IS NOT NULL
 DROP TABLE ##Settings_Default;
 
 CREATE TABLE ##Settings_Default
@@ -89,7 +90,8 @@ VALUES  ( N'Email', N'SupportEmailRecipient', N'Email account for recipient of a
 	    ,1
 		),
 ('MF_Default', 'LastMetadataStructureID', 'Latest Metadata structure ID', '1', 1),
-('MF_Default', 'MFUserMessagesEnabled', 'Enable Update of User Messages in M-Files', '0', 1)
+('MF_Default', 'MFUserMessagesEnabled', 'Enable Update of User Messages in M-Files', '0', 1),
+('App_Default', 'DefaultUser', 'Use vault access user as default for created and Last Modified by', '1', 1)
 
 --IF '{varMFVersion}' <> (SELECT CAST(VALUE AS NVARCHAR(100)) FROM MFSETTINGS WHERE Name = 'MFVersion')
 --BEGIN

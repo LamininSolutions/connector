@@ -58,6 +58,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-09-07  LC         Increase size of property_value to 4000
 2020-10-11  LC         Add column for process_id
 2019-09-07  JC         Added documentation
 2017-02-10  DevTeam2   Create Table
@@ -77,7 +78,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFObjectChangeHistory', -- nvarchar(100)
-    @Object_Release = '4.8.24.65', -- varchar(50)
+    @Object_Release = '4.11.33.77', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 GO
 
@@ -96,7 +97,7 @@ IF NOT EXISTS ( SELECT  name
 			[LastModifiedUtc] [datetime] NULL,
 			[MFLastModifiedBy_ID] [int] NULL,
 			[Property_ID] [int] NULL,
-			[Property_Value] [nvarchar](300) NULL,
+			[Property_Value] [nvarchar](4000) NULL,
 			[CreatedOn] [datetime] NULL,
             Process_id INT null
 		)
@@ -111,9 +112,15 @@ CREATE INDEX idx_ObjectChangeHistory_Class_Objid ON [MFObjectChangeHistory](Clas
         PRINT SPACE(10) + '... Table: created';
     END;
 
-    IF NOT EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.columns AS c WHERE c.TABLE_NAME = 'MFObjectChangeHistory' AND Column_Name = 'Process_id')
+IF NOT EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.columns AS c WHERE c.TABLE_NAME = 'MFObjectChangeHistory' AND Column_Name = 'Process_id')
 ALTER TABLE dbo.MFObjectChangeHistory
 ADD Process_id int;
+
+IF (SELECT c.CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.columns AS c WHERE c.TABLE_NAME = 'MFObjectChangeHistory' AND Column_Name = 'Property_Value') <> 4000
+Begin
+ALTER TABLE dbo.MFObjectChangeHistory
+ALTER column [Property_Value] [nvarchar](4000) NULL
+End
 
 ELSE
     PRINT SPACE(10) + '... Table: exists';

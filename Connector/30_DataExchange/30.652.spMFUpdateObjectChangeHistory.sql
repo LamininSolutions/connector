@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFUpdateObjectChangeHistory', -- nvarchar(100)
-    @Object_Release = '4.10.30.75',
+    @Object_Release = '4.11.33.77',
     @UpdateFlag = 2;
 GO
 
@@ -166,6 +166,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-09-07  LC         Increase size of property value column to 4000
 2023-03-21  LC         Remove debugging code
 2022-11-30  LC         resolve issue with updates by objid
 2021-12-22  LC         Update logging to monitor performance
@@ -817,7 +818,7 @@ where process_ID = 5;';
                             @FromObjid      fromobjid,
                             @ToObjid        Toobjid,
                             @MinBatchRow    AS nextBatchStart,
-                            @MaxBatchrow    AS LastBatcchRow
+                            @MaxBatchrow    AS LastBatchRow
 ;
                     WITH cte
                     AS (SELECT TOP (500)
@@ -1056,7 +1057,7 @@ where process_ID = 5;';
                                 -- LastModifiedUTC DATETIME,
                                 MFLastModifiedBy_ID INT,
                                 Property_ID INT,
-                                Property_Value NVARCHAR(300),
+                                Property_Value NVARCHAR(4000),
                                 CreatedOn DATETIME
                             );
 
@@ -1094,7 +1095,7 @@ where process_ID = 5;';
                                     --        LastModifiedUTC Datetime '../@CheckInTimeStamp',
                                     LastModifiedBy_ID INT '@LastModifiedBy_ID',
                                     Property_ID INT '@Property_ID',
-                                    Property_Value NVARCHAR (300) '@Property_Value'
+                                    Property_Value NVARCHAR (4000) '@Property_Value'
                                 )
                             WHERE '@Property_ID' IS NOT NULL;
 

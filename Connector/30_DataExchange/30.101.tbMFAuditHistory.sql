@@ -77,6 +77,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-07-12  LC         Increase size of mfversion column to int
 2020-09-02  LC         Add unique index objectype, class, objid
 2020-04-16  LC         Add index Class_StatusFlag
 2020-03-18  LC         Change name of index Class_Objid
@@ -96,7 +97,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFAuditHistory', -- nvarchar(100)
-    @Object_Release = '4.8.22.63', -- varchar(50)
+    @Object_Release = '4.10.32.77', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 go
 
@@ -117,7 +118,7 @@ TranDate DATETIME,
 ObjectType INT,
 Class INT,
 [ObjID] INT,
-MFVersion smallint,
+MFVersion int,
 StatusFlag SMALLINT,
 StatusName VARCHAR(100),
 UpdateFlag int
@@ -127,7 +128,6 @@ ALTER TABLE [dbo].[MFAuditHistory] ADD CONSTRAINT [PK__MFAuditHIstory_ID] PRIMAR
 
 
 END
-
 
 
 BEGIN
@@ -161,7 +161,13 @@ WHERE name='idx_AuditHistory_Class_StatusFlag'
 CREATE INDEX idx_AuditHistory_Class_StatusFlag ON MFAuditHistory(Class, StatusFlag);
 
 
-END
+if exists (select 1 from INFORMATION_SCHEMA.columns where COLUMN_NAME = 'MFversion' and TABLE_NAME = 'MFAuditHistory' and DATA_TYPE = 'smallint')
+alter table MFAuditHistory
+alter column MFVersion int;
+
+end
+
 
 GO
+
 

@@ -30,6 +30,11 @@ Additional Info
 
 The table include only user accounts that is related to the specific vault. 
 
+The vaultroles column show three different types of roles
+#. Full control of vault
+#. Default roles when no special roles are select
+#. Various roles when any special roles are selected. This column does not show the individual special roles of the user
+
 Use spMFSynchronizeSpecificMetadata to update the login account or user
 account tables after making changes in M-Files.
 
@@ -53,6 +58,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-06-30  LC         Add vaultroles column
 2019-09-07  JC         Added documentation
 ==========  =========  ========================================================
 
@@ -67,7 +73,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'MFUserAccount', -- nvarchar(100)
-    @Object_Release = '2.0.2.0', -- varchar(50)
+    @Object_Release = '4.10.32.76', -- varchar(50)
     @UpdateFlag = 2 -- smallint
 
 SET NOCOUNT ON; 
@@ -123,7 +129,8 @@ IF NOT EXISTS ( SELECT  name
               [LoginName] NVARCHAR(250) NULL ,
               [InternalUser] BIT NULL ,
               [Enabled] BIT NULL ,
-              [Deleted] BIT
+              [Deleted] bit,
+              VaultRoles nvarchar(100)
                 CONSTRAINT [DF_MFUserAccount_Deleted] DEFAULT ( (0) )
                 NULL ,
               CONSTRAINT [PK_MFUserAccount] PRIMARY KEY CLUSTERED

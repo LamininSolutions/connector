@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFGetLicense', -- nvarchar(100)
-    @Object_Release = '4.10.30.74', -- Should we change it with new version 4.10.30.74?
+    @Object_Release = '4.10.32.77', -- Should we change it with new version 4.10.30.74?
     @UpdateFlag = 2;
 GO
 
@@ -110,6 +110,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-09-04  LC         remove try catch block for validating expiry date
 2022-02-24  MA         Fix date delimiter bug to pass in fnMFTextToDate funtion 
 2021-04-08  LC         Add check to validate connection
 2021-01-06  LC         Fix bug with checking module 2 license
@@ -234,38 +235,31 @@ BEGIN
         -------------------------------------------------------------
                 SET @ProcedureStep = 'Validate date'
 
-   --     convert license expiry date to date format
-		 --Check if a license expiry text have some values then find the delimiter from it and use it in a function  
-		--IF LEN(@LicenseExpiryTXT) > 0
-		--Set @delimiter  = Case when @LicenseExpiryTXT like '%.%' then '.' 
-		--					   when @LicenseExpiryTXT like '%/%' then '/' 
-		--					   when @LicenseExpiryTXT like '%-%' then '-' 
-		--					   ELSE
-		--					   ' '
-		--					   END 
 
-  --      SELECT @ExpiryDate = CASE
-  --                               WHEN LEN(@LicenseExpiryTXT) > 0 THEN
-  --                                   dbo.fnMFTextToDate(@LicenseExpiryTXT, @delimiter)
-  --                               ELSE
-  --                                   NULL
-  --                           END;
-BEGIN try
-SELECT @ExpiryDate = CONVERT(DATETIME, @LicenseExpiryTXT,105)
-END TRY
-BEGIN CATCH
-SELECT @ExpiryDate= DATEFROMPARTS(DATEPART(year,@LicenseExpiryTXT),DATEPART(month,@LicenseExpiryTXT),DATEPART(DAY,@LicenseExpiryTXT))
-END CATCH
+SELECT @ExpiryDate = convert(DATETIME, @LicenseExpiryTXT)
+
+if @ExpiryDate is null AND @LicenseExpiryTXT IS NOT NULL
+SELECT @ExpiryDate= DATEFROMPARTS(DATEPART(year,@LicenseExpiryTXT),DATEPART(month,@LicenseExpiryTXT),DATEPART(DAY,@LicenseExpiryTXT));
 
 
-IF @ExpiryDate IS NULL AND @LicenseExpiryTXT IS NOT NULL 
+
+IF @ExpiryDate IS NULL AND @LicenseExpiryTXT IS NULL 
 BEGIN
 
  SET @DebugText = N' Unable to validate date:Expiry date: ' + CAST(ISNULL(@ExpiryDate,'') AS NVARCHAR(10)) + ' License date ' + @LicenseExpiryTXT ;
         SET @DebugText = @DefaultDebugText + @DebugText;
 
             RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
-END
+end
+
+        
+        SET @DebugText = N' after validate: ExpiryDate   ' + cast(@ExpiryDate as nvarchar(50));
+        SET @DebugText = @DefaultDebugText + @DebugText;
+
+        IF @Debug > 0
+        BEGIN
+            RAISERROR(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+        END;
 
 
         SET @CurrentDate = CONVERT(DATE, DATEADD(DAY, 1, GETDATE()));
@@ -307,7 +301,7 @@ END
                                       @CheckStatus
                               END;
 
-        SET @DebugText = N' CheckStatus %i  ';
+        SET @DebugText = N' module %i CheckStatus  %s  ';
         SET @DebugText = @DefaultDebugText + @DebugText;
 
         IF @Debug > 0

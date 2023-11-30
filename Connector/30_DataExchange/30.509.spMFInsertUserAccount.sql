@@ -6,7 +6,7 @@ go
 SET NOCOUNT ON; 
 EXEC Setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
     @ObjectName = N'spMFInsertUserAccount', -- nvarchar(100)
-    @Object_Release = '2.0.2.0', -- varchar(50)
+    @Object_Release = '4.11.33.77', -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
  
@@ -54,16 +54,15 @@ Return
   - -1 = Error
 Parameters
   @Doc nvarchar(max)
-    fixme description
+    listing of user accounts
   @isFullUpdate bit
-    fixme description
+    always 1
   @Output int (output)
-    fixme description
+    update result
   @Debug smallint (optional)
     - Default = 0
     - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
-
+   
 
 Purpose
 =======
@@ -77,6 +76,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-10-12  LC         Update to insert or update changes and set deleted flag for deleted items
 2023-05-24  LC         Add vault roles
 2019-08-30  JC         Added documentation
 ==========  =========  ========================================================
@@ -130,7 +130,7 @@ Values
             SET @ProcedureStep = 'Creating #UserAccountTble';
             DECLARE @procedureName NVARCHAR(128) = 'spMFInsertUserAccount';
 
-            IF @Debug = 1
+            IF @Debug > 0
                 RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
 
             CREATE TABLE #UserAccountTble
@@ -139,7 +139,8 @@ Values
                   [UserID] INT NOT NULL ,
                   [InternalUser] BIT ,
                   [Enabled] BIT,
-                  VaultRoles varchar(100)
+                  VaultRoles varchar(100),
+				  Status nvarchar(100)
                     
                 );
 
@@ -153,21 +154,24 @@ Values
                       UserID ,
                       InternalUser ,
                       [Enabled],
-                      VaultRoles
+                      VaultRoles,
+					  Status
                     )
                     SELECT  t.c.value('(@LoginName)[1]', 'NVARCHAR(100)') AS LoginName ,
                             t.c.value('(@MFID)[1]', 'INT') AS UserID ,
                             t.c.value('(@InternalUser)[1]', 'BIT') AS InternalUser ,
                             t.c.value('(@Enabled)[1]', 'BIT') AS [Enabled],
-                             t.c.value('(@VaultRoles)[1]', 'NVARCHAR(100)') AS [VaultRoles]
-                    FROM    @XML.nodes('/form/UserAccount') AS t ( c );
+                             t.c.value('(@VaultRoles)[1]', 'NVARCHAR(100)') AS [VaultRoles],
+							 case when ua.userid is null then 'New' Else 'Updated' end
+                    FROM    @XML.nodes('/form/UserAccount') AS t ( c )
+					left join MFUserAccount ua
+					on ua.userid = t.c.value('(@MFID)[1]', 'INT');
 
-            IF @Debug = 1
+            IF @Debug > 0
                 BEGIN
                     RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
-
-                    --SELECT  *
-                    --FROM    #UserAccountTble;
+                    SELECT  *
+                    FROM    #UserAccountTble;
                 END;
 
 -------------------------------------------------------------
@@ -181,7 +185,7 @@ end
 from #UserAccountTble as uat
 
 
-            SET @ProcedureStep = 'Insert values into #UserAccountTble';
+            SET @ProcedureStep = 'Insert deleted items into #UserAccountTble';
 
 -------------------------------------------------------------
 -- Validate MFuser account table
@@ -191,63 +195,98 @@ if not exists(select 1 from INFORMATION_SCHEMA.COLUMNS as c where c.TABLE_NAME =
 alter table MFuserAccount
 add VaultRoles nvarchar(100);
 
-          -----------------------------------------------------
-          --Storing the difference into #tempNewUserAccountTble
-          -----------------------------------------------------
-            SELECT  *
-            INTO    #UserAccount
-            FROM    ( SELECT    LoginName ,
-                                UserID ,
-                                InternalUser ,
-                                [Enabled],
-                                VaultRoles
-                      FROM      #UserAccountTble
-                      EXCEPT
-                      SELECT    LoginName ,
-                                UserID ,
-                                InternalUser ,
-                                [Enabled],
-                                VaultRoles
-                      FROM      MFUserAccount
-                    ) tempTbl;
+          
+            
+            insert INTO    #UserAccountTble
+			( LoginName ,
+                      UserID ,
+                      InternalUser ,
+                      [Enabled],
+                      VaultRoles,
+					  Status
+                    )
+             SELECT    ua.LoginName ,
+                                ua.UserID ,
+                                ua.InternalUser ,
+                                ua.[Enabled],
+                                ua.VaultRoles,
+								'Deleted'
+                      FROM      MFUserAccount ua
+                      left join #UserAccountTble temp
+					  on ua.UserID = temp.UserID
+					  where temp.UserID is null
 
-            IF @Debug = 1
+            IF @Debug > 0
                 BEGIN
                     RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
 
-                    --SELECT  *
-                    --FROM    #UserAccount;
                 END;
 
-            SET @ProcedureStep = 'Creating new table #NewUserAccount';
+          --  SET @ProcedureStep = 'Creating new table #NewUserAccount';
 
-          ------------------------------------------------------------
-          --Creating new table to store the updated ObjectType details 
-          ------------------------------------------------------------
-            CREATE TABLE #NewUserAccount
-                (
-                  [LoginName] VARCHAR(100) ,
-                  [UserID] INT NOT NULL ,
-                  [InternalUser] BIT ,
-                  [Enabled] bit,
-                  VaultRoles nvarchar(100)
-                );
+          --------------------------------------------------------------
+          ----Creating new table to store the updated ObjectType details 
+          --------------------------------------------------------------
+          --  CREATE TABLE #NewUserAccount
+          --      (
+          --        [LoginName] VARCHAR(100) ,
+          --        [UserID] INT NOT NULL ,
+          --        [InternalUser] BIT ,
+          --        [Enabled] bit,
+          --        VaultRoles nvarchar(100)
+          --      );
 
-            SET @ProcedureStep = 'Inserting values into #NewUserAccount';
+          --  SET @ProcedureStep = 'Inserting values into #NewUserAccount';
 
-          -----------------------------------------------
-          --Inserting the Difference 
-          -----------------------------------------------
-            INSERT  INTO #NewUserAccount
+          -------------------------------------------------
+          ----Inserting the Difference 
+          -------------------------------------------------
+          --  INSERT  INTO #NewUserAccount
+          --          SELECT  *
+          --          FROM    #UserAccount;
+
+          --  IF @Debug > 0
+          --      BEGIN
+          --          RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
+          --          --SELECT  *
+          --          --FROM    #NewUserAccount;
+          --      END;
+
+		              SELECT  @ProcedureStep = 'Set status in temp';
+
+          -----------------------------------------------------------------------
+          --Updating status in #UserAccountTble
+          -----------------------------------------------------------------------
+            Update  temp
+			set Status = case when ua.userID is null then  'New'
+			when ( ua.LoginName <> temp.LoginName or
+                                ua.InternalUser <> temp.InternalUser or
+                                ua.[Enabled] <> temp.[Enabled] or
+                                ua.VaultRoles <> temp.VaultRoles) 
+					   and ua.userID = temp.UserID then 'Changed'	
+			when  ua.LoginName = temp.LoginName and
+                                ua.InternalUser = temp.InternalUser and
+                                ua.[Enabled] = temp.[Enabled] and
+                                ua.VaultRoles = temp.VaultRoles and
+					    ua.userID = temp.UserID and
+						isnull(temp.status,'No Status') not in ('Deleted','Changed','New','No Status')
+						then 'Unchanged'					
+			else temp.Status end
+            FROM  #UserAccountTble temp 
+			full outer join mfUserAccount ua
+			on ua.userID = temp.UserID		
+			
+
+            IF @Debug > 0
+                BEGIN
+                    RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
                     SELECT  *
-                    FROM    #UserAccount;
-
-            IF @Debug = 1
-                BEGIN
-                    RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
-                    --SELECT  *
-                    --FROM    #NewUserAccount;
+                      FROM  #UserAccountTble temp 
+			full outer join  mfUserAccount lia
+			on lia.UserID = temp.UserID;
                 END;
+
+
 
             SET @ProcedureStep = 'Inserting values into MFUserAccount';
 
@@ -256,19 +295,21 @@ add VaultRoles nvarchar(100);
           -----------------------------------------------
             IF OBJECT_ID('tempdb..#NewUserAccount') IS NOT NULL
                 BEGIN
-                    UPDATE  MFUserAccount
-                    SET     MFUserAccount.LoginName = #NewUserAccount.LoginName ,
-                            MFUserAccount.UserID = #NewUserAccount.UserID ,
-                            MFUserAccount.InternalUser = #NewUserAccount.InternalUser ,
-                            MFUserAccount.[Enabled] = #NewUserAccount.[Enabled],
-                            MFUserAccount.[VaultRoles] = #NewUserAccount.[vaultRoles]
-                    FROM    MFUserAccount
-                            INNER JOIN #NewUserAccount ON MFUserAccount.UserID = #NewUserAccount.UserID;
+                    UPDATE  ua
+                    SET     ua.LoginName = temp.LoginName ,
+                            ua.UserID = temp.UserID ,
+                            ua.InternalUser = temp.InternalUser ,
+                            ua.[Enabled] = temp.[Enabled],
+                            ua.[VaultRoles] = temp.[vaultRoles],
+							ua.Deleted = case when temp.status = 'Deleted' then 1 else 0 end
+                    FROM    MFUserAccount ua
+                             INNER JOIN #UserAccountTble temp ON ua.userid  = temp.UserID
+							where temp.status in ('Changed','Deleted');
 
                     SET @Output = @@ROWCOUNT;
                 END;
 
-            IF @Debug = 1
+            IF @Debug > 0
                 BEGIN
                     RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
 
@@ -279,26 +320,26 @@ add VaultRoles nvarchar(100);
             SET @ProcedureStep = 'Inserting values into #temp';
 
           -----------------------------------------------
-          --Adding The new property 	
+          --Insert new users	
           -----------------------------------------------
-            SELECT  *
-            INTO    #temp
-            FROM    ( SELECT    LoginName ,
+          insert into MFUserAccount
+		  (LoginName ,
                                 UserID ,
                                 InternalUser ,
                                 [Enabled],
                                 VaultRoles
-                      FROM      #UserAccountTble
-                      EXCEPT
-                      SELECT    LoginName ,
+		  )
+           SELECT    LoginName ,
                                 UserID ,
                                 InternalUser ,
                                 [Enabled],
                                 VaultRoles
-                      FROM      MFUserAccount
-                    ) newPprty;
+                      FROM      #UserAccountTble temp
+					   where temp.status = 'New'
 
-            IF @Debug = 1
+            SET @Output = @Output + @@ROWCOUNT;                      
+
+            IF @Debug > 0
                 BEGIN
                     RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
 
@@ -306,71 +347,14 @@ add VaultRoles nvarchar(100);
                     --FROM    #temp;
                 END;
 
-            SET @ProcedureStep = 'Inserting values into MFUserAccount';
-
-          -----------------------------------------------
-          -- INSERT NEW OBJECT TYPE DETAILS
-          -----------------------------------------------
-            INSERT  INTO MFUserAccount
-                    ( LoginName ,
-                      UserID ,
-                      InternalUser ,
-                      [Enabled],
-                      VaultRoles
-                    )
-                    SELECT  LoginName ,
-                            UserID ,
-                            InternalUser ,
-                            [Enabled],
-                            VaultRoles
-                    FROM    #temp;
-
+     
             SET @Output = @Output + @@ROWCOUNT;
-
-            IF ( @isFullUpdate = 1 )
-                BEGIN
-                    SET @ProcedureStep = 'Full update';
-
-                -----------------------------------------------
-                -- Select UserID Which are deleted from M-Files 
-                -----------------------------------------------
-                    SELECT  UserID
-                    INTO    #DeletedUserAccount
-                    FROM    ( SELECT    UserID
-                              FROM      MFUserAccount
-                              EXCEPT
-                              SELECT    UserID
-                              FROM      #UserAccountTble
-                            ) #DeletedUserAccount;
-
-                    IF @Debug = 1
-                        BEGIN
-                            RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
-
-                            --SELECT  *
-                            --FROM    #DeletedUserAccount;
-                        END;
-
-                    SET @ProcedureStep = 'updating MFUserAccounts';
-
-                -----------------------------------------------------
-                --Deleting the ObjectTypes Thats deleted from M-Files
-                ------------------------------------------------------ 
-                    UPDATE  MFUserAccount
-                    SET     Deleted = 1
-                    WHERE   UserID IN ( SELECT  UserID
-                                        FROM    #DeletedUserAccount );
-                END;
-
+      
           -----------------------------------------------
           --Droping all temperory Table 
           -----------------------------------------------
             DROP TABLE #UserAccountTble;
-
-            DROP TABLE #NewUserAccount;
-
-            drop table #DeletedUserAccount
-
+        
             SET NOCOUNT OFF;
 
             COMMIT TRANSACTION;
@@ -381,7 +365,7 @@ add VaultRoles nvarchar(100);
 
             SET NOCOUNT ON;
 
-            IF @Debug = 1
+            IF @Debug > 0
                 BEGIN
                 --------------------------------------------------
                 -- INSERTING ERROR DETAILS INTO LOG TABLE

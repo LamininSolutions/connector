@@ -4,7 +4,7 @@ GO
 
 SET NOCOUNT ON 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo', @ObjectName = N'spMFSynchronizeLoginAccount', -- nvarchar(100)
-    @Object_Release = '3.1.5.41', -- varchar(50)
+    @Object_Release = '4.11.33.77', -- varchar(50)
     @UpdateFlag = 2 -- smallint
  
 GO
@@ -35,45 +35,46 @@ Alter PROCEDURE [dbo].[spMFSynchronizeLoginAccount] (@VaultSettings  [NVARCHAR](
                                                     ,@Debug          [SMALLINT] = 0
                                                     ,@Out            [NVARCHAR](max) OUTPUT)
 AS
-  /*******************************************************************************
-  ** Desc:  The purpose of this procedure is to synchronize M-File Login Account details  
-  **  
-  ** Version: 1.0.0.6
-  **
-  ** Processing Steps:
-  **					1.) Call CRL procedure to get Login Account details from M-files
-  **					2.) Call spMFInsertLoginAccount to insert Login Account details into Table 
-  **
-  ** Parameters and acceptable values: 
-  **					@VaultSettings       [NVARCHAR](4000)
-  **					@Debug          SMALLINT = 0
-  **			         	
-  ** Restart:
-  **					Restart at the beginning.  No code modifications required.
-  ** 
-  ** Tables Used:                 					  
-  **					
-  **
-  ** Return values:		
-  **					@Out            [NVARCHAR](max)		
-  **
-  ** Called By:			spMFSynchronizeMetadata
-  **
-  ** Calls:           
-  **					spMFGetLoginAccounts
-  **					spMFInsertLoginAccount									
-  **
-  ** Author:			Thejus T V
-  ** Date:				27-03-2015
-  ********************************************************************************
-  ** Change History
-  ********************************************************************************
-  ** Date        Author     Description
-  ** ----------  ---------  -----------------------------------------------------
-  ** 2016-09-26  DevTeam2   Removed vault settings parameters and pass them as 
-                            comma separated string in @VaultSettings parameter.
-     2017-04-03  DEVTeam2   Added License module validation code.
-  ******************************************************************************/
+
+/*rST**************************************************************************
+
+===========================
+spMFSynchronizeLoginAccount
+===========================
+
+Return
+  - 1 = Success
+  - -1 = Error
+Parameters
+  @VaultSettings nvarchar(4000)
+    pass in @fnmfvaultsettings
+  @Debug smallint (optional)
+    - Default = 0
+    - 1 = Standard Debug Mode
+    - 101 = Advanced Debug Mode
+  @Out nvarchar(max) (output)
+    listing of login accounts from MF for the vault
+
+Purpose
+=======
+
+Procedure is used in other procedures
+
+Changelog
+=========
+
+==========  =========  ========================================================
+Date        Author     Description
+----------  ---------  --------------------------------------------------------
+2023-10-12  LC         Change to update insert of rows and consolidate procedures
+2016-09-26  DevTeam2   Removed vault settings parameters and pass them as comma separated string in @VaultSettings parameter.
+2017-04-03  DEVTeam2   Added License module validation code.
+==========  =========  ========================================================
+
+**rST*************************************************************************/
+
+ 
+
   BEGIN
       SET NOCOUNT ON
 
@@ -85,7 +86,7 @@ AS
 			  ,@ProcedureStep nVARCHAR(128) = 'Wrapper - GetLoginAccounts'
 			  ,@ProcedureName nVARCHAR(128) = 'spMFSynchronizeLoginAccount'
 			 ;
-IF @debug  = 1
+IF @debug  >0
             RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
 
 	 -------------------------------------------------------------------
@@ -101,8 +102,11 @@ IF @debug  = 1
 
 		  SET @ProcedureStep  = 'GetLoginAccounts Returned from wrapper'
 
-IF @debug  = 1
+IF @debug  > 0
             RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
+
+			IF @debug  > 0
+            Select cast(@Xml as xml);
       -------------------------------------------------------------------------
       -- CALL 'spMFInsertLoginAccount' TO INSERT THE Login Account DETAILS INTO MFLoginAccount TABLE
       -------------------------------------------------------------------------
@@ -117,7 +121,7 @@ IF @debug  = 1
         , @Output OUTPUT
         ,@Debug;
 
-IF @debug  = 1
+IF @debug  > 0
             RAISERROR('%s : Step %s Returned: %i : Output: %i ',10,1,@ProcedureName, @ProcedureStep, @return_Value, @Output);
 
 		END TRY

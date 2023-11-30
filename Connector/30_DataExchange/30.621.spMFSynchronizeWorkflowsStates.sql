@@ -1,56 +1,53 @@
-PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFSynchronizeWorkflowsStates]';
-GO
+print space(5) + quotename(@@servername) + '.' + quotename(db_name()) + '.[dbo].[spMFSynchronizeWorkflowsStates]';
+go
 
 
-SET NOCOUNT ON;
-EXEC [Setup].[spMFSQLObjectsControl]
-    @SchemaName = N'dbo',
-    @ObjectName = N'spMFSynchronizeWorkflowsStates', -- nvarchar(100)
-    @Object_Release = '4.2.7.46',                    -- varchar(50)
-    @UpdateFlag = 2;                                 -- smallint
+set nocount on;
+exec setup.spMFSQLObjectsControl @SchemaName = N'dbo'
+                               , @ObjectName = N'spMFSynchronizeWorkflowsStates' -- nvarchar(100)
+                               , @Object_Release = '4.10.32.77'                  -- varchar(50)
+                               , @UpdateFlag = 2;                                -- smallint
 -- smallint
 
-GO
+go
 
-IF EXISTS
-    (
-        SELECT
-            1
-        FROM
-            [INFORMATION_SCHEMA].[ROUTINES]
-        WHERE
-            [ROUTINE_NAME] = 'spMFSynchronizeWorkflowsStates' --name of procedure
-            AND [ROUTINE_TYPE] = 'PROCEDURE' --for a function --'FUNCTION'
-            AND [ROUTINE_SCHEMA] = 'dbo'
-    )
-    BEGIN
-        PRINT SPACE(10) + '...Stored Procedure: update';
-        SET NOEXEC ON;
-    END;
-ELSE
-    PRINT SPACE(10) + '...Stored Procedure: create';
-GO
+if exists
+(
+    select 1
+    from INFORMATION_SCHEMA.ROUTINES
+    where ROUTINE_NAME = 'spMFSynchronizeWorkflowsStates' --name of procedure
+          and ROUTINE_TYPE = 'PROCEDURE' --for a function --'FUNCTION'
+          and ROUTINE_SCHEMA = 'dbo'
+)
+begin
+    print space(10) + '...Stored Procedure: update';
+    set noexec on;
+end;
+else
+    print space(10) + '...Stored Procedure: create';
+go
 
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE [dbo].[spMFSynchronizeWorkflowsStates]
-AS
-    SELECT
-        'created, but not implemented yet.';
+create procedure dbo.spMFSynchronizeWorkflowsStates
+as
+select 'created, but not implemented yet.';
 --just anything will do
 
-GO
+go
 -- the following section will be always executed
-SET NOEXEC OFF;
-GO
+set noexec off;
+go
 
-ALTER PROCEDURE [dbo].[spMFSynchronizeWorkflowsStates]
-    (
-        @VaultSettings [NVARCHAR](4000),
-        @Debug         SMALLINT,
-        @Out           [NVARCHAR](MAX) OUTPUT,
-        @IsUpdate      SMALLINT        = 0
-    )
-AS
+alter procedure dbo.spMFSynchronizeWorkflowsStates
+(
+    @VaultSettings nvarchar(4000)
+  , @Out nvarchar(max) output
+  , @itemname nvarchar(100) = null
+  , @IsUpdate smallint = 0
+  , @Debug smallint
+  , @ProcessBatch_ID int = null output
+)
+as
 /*rST**************************************************************************
 
 ==============================
@@ -76,17 +73,8 @@ Parameters
 Purpose
 =======
 
-Additional Info
-===============
+Called by other procedures to sync workflow states
 
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
 
 Changelog
 =========
@@ -94,386 +82,659 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-07-29  LC         Improve logging and productivity
 2019-08-30  JC         Added documentation
+2018-04-04  DevTeam2   Added License module validation code 
+2016-09-26  DevTeam2   Update @VaultSettings parmeter.
+2018-11-15	LC         remove logging
+2015-03-15  DEV        Create Procedure
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
 
-    /*******************************************************************************
-** Desc:  The purpose of this procedure is to synchronize M-File WORKFLOW STATE details  
-**  
-** Date:				27-03-2015
-********************************************************************************
-** Change History
-********************************************************************************
-** Date        Author     Description
-** ----------  ---------  -----------------------------------------------------
-** 2016-09-26  DevTeam2   Removed vault settings parameters and pass them as 
-                          Comma separated string in @VaultSettings parmeter.
-   2018-04-04  DevTeam2   Added License module validation code 
-   2018-11-15	LC			remove logging 
-******************************************************************************/
-    -- ==============================================
-    
-	BEGIN
-        SET NOCOUNT ON;
 
-		-------------------------------------------------------------
-		-- CONSTANTS: MFSQL Class Table Specific
-		-------------------------------------------------------------
-		DECLARE @MFTableName AS NVARCHAR(128) = 'ClassTable'
-		DECLARE @ProcessType AS NVARCHAR(50);
+begin
+    set nocount on;
 
-		SET @ProcessType = ISNULL(@ProcessType, 'Sync Workflow States')
+    -------------------------------------------------------------
+    -- CONSTANTS: MFSQL Class Table Specific
+    -------------------------------------------------------------
+    declare @MFTableName as nvarchar(128) = N'MFWorkflowState';
+    declare @ProcessType as nvarchar(50);
 
-		-------------------------------------------------------------
-		-- CONSTATNS: MFSQL Global 
-		-------------------------------------------------------------
-		DECLARE @UpdateMethod_1_MFilesToMFSQL TINYINT = 1
-		DECLARE @UpdateMethod_0_MFSQLToMFiles TINYINT = 0
-		DECLARE @Process_ID_1_Update TINYINT = 1
-		DECLARE @Process_ID_6_ObjIDs TINYINT = 6 --marks records for refresh from M-Files by objID vs. in bulk
-		DECLARE @Process_ID_9_BatchUpdate TINYINT = 9 --marks records previously set as 1 to 9 and update in batches of 250
-		DECLARE @Process_ID_Delete_ObjIDs INT = -1 --marks records for deletion
-		DECLARE @Process_ID_2_SyncError TINYINT = 2
-		DECLARE @ProcessBatchSize INT = 250
-
-		-------------------------------------------------------------
-		-- VARIABLES: MFSQL Processing
-		-------------------------------------------------------------
-		DECLARE @Update_ID INT
-		DECLARE @MFLastModified DATETIME
-		DECLARE @Validation_ID int
-		DECLARE @ProcessBatch_ID int
-
-		-------------------------------------------------------------
-		-- VARIABLES: T-SQL Processing
-		-------------------------------------------------------------
-		DECLARE @rowcount AS INT = 0;
-		DECLARE @return_value AS INT = 0;
-		DECLARE @error AS INT = 0;
-
-		-------------------------------------------------------------
-		-- VARIABLES: DEBUGGING
-		-------------------------------------------------------------
-		DECLARE @ProcedureName AS NVARCHAR(128) = 'dbo.spMFSynchronizeWorkflowsStates';
-		DECLARE @ProcedureStep AS NVARCHAR(128) = 'Start';
-		DECLARE @DefaultDebugText AS NVARCHAR(256) = 'Proc: %s Step: %s'
-		DECLARE @DebugText AS NVARCHAR(256) = ''
-		DECLARE @Msg AS NVARCHAR(256) = ''
-		DECLARE @MsgSeverityInfo AS TINYINT = 10
-		DECLARE @MsgSeverityObjectDoesNotExist AS TINYINT = 11
-		DECLARE @MsgSeverityGeneralError AS TINYINT = 16
-
-		-------------------------------------------------------------
-		-- VARIABLES: LOGGING
-		-------------------------------------------------------------
-		DECLARE @LogType AS NVARCHAR(50) = 'Status'
-		DECLARE @LogText AS NVARCHAR(4000) = '';
-		DECLARE @LogStatus AS NVARCHAR(50) = 'Started'
-
-		DECLARE @LogTypeDetail AS NVARCHAR(50) = 'System'
-		DECLARE @LogTextDetail AS NVARCHAR(4000) = '';
-		DECLARE @LogStatusDetail AS NVARCHAR(50) = 'In Progress'
-		DECLARE @ProcessBatchDetail_IDOUT AS INT = NULL
-
-		DECLARE @LogColumnName AS NVARCHAR(128) = NULL
-		DECLARE @LogColumnValue AS NVARCHAR(256) = NULL
-
-		DECLARE @count INT = 0;
-		DECLARE @Now AS DATETIME = GETDATE();
-		DECLARE @StartTime AS DATETIME = GETUTCDATE();
-		DECLARE @StartTime_Total AS DATETIME = GETUTCDATE();
-		DECLARE @RunTime_Total AS DECIMAL(18, 4) = 0;
-
-		-------------------------------------------------------------
-		-- VARIABLES: DYNAMIC SQL
-		-------------------------------------------------------------
-		DECLARE @sql NVARCHAR(MAX) = N''
-		DECLARE @sqlParam NVARCHAR(MAX) = N''
+    set @ProcessType = isnull(@ProcessType, 'Sync Workflow States');
 
 
-	
-        DECLARE
-            @Xml           [NVARCHAR](MAX),
-            @Output        INT
+    -------------------------------------------------------------
+    -- VARIABLES: MFSQL Processing
+    -------------------------------------------------------------
+    declare @Update_ID int;
+    declare @MFLastModified datetime;
+    declare @Validation_ID int;
 
-        IF @Debug = 1
-            RAISERROR('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
-  
-  BEGIN TRY
-       
-	   CREATE TABLE #TempMFWorkflowState
-	   (ID INT, Name NVARCHAR(100), Alias NVARCHAR(100), MFID INT, MFWorkflowID INT)
-        ---------------------------------------------------
-        --  LOCAL VARIABLE DECLARATION
-        ---------------------------------------------------
-        --  if( @IsUpdate =1)
-        -- Begin
-        INSERT INTO [#TempMFWorkflowState]
-            (
-                [ID],
-                [Name],
-                [Alias],
-                [MFID],
-                [MFWorkflowID]
-            )
-       
-		SELECT
-            [MFWFS].[ID],
-            [MFWFS].[Name],
-            [MFWFS].[Alias],
-            [MFWFS].[MFID],
-            [MFWF].[MFID] AS [MFWorkflowID]
-       
-        FROM
-            [MFWorkflowState] AS [MFWFS]
-            INNER JOIN
-                [MFWorkflow]  AS [MFWF]
-                    ON [MFWFS].[MFWorkflowID] = [MFWF].[ID]
-        WHERE
-            [MFWF].[Deleted] = 0;
+    -------------------------------------------------------------
+    -- VARIABLES: T-SQL Processing
+    -------------------------------------------------------------
+    declare @rowcount as int = 0;
+    declare @return_value as int = 0;
+    declare @error as int = 0;
 
-	    --	 End
-    DECLARE @WorkflowID INT;
+    -------------------------------------------------------------
+    -- VARIABLES: DEBUGGING
+    -------------------------------------------------------------
+    declare @ProcedureName as nvarchar(128) = N'dbo.spMFSynchronizeWorkflowsStates';
+    declare @ProcedureStep as nvarchar(128) = N'Start';
+    declare @DefaultDebugText as nvarchar(256) = N'Proc: %s Step: %s';
+    declare @DebugText as nvarchar(256) = N'';
+    declare @Msg as nvarchar(256) = N'';
+    declare @MsgSeverityInfo as tinyint = 10;
+    declare @MsgSeverityObjectDoesNotExist as tinyint = 11;
+    declare @MsgSeverityGeneralError as tinyint = 16;
 
-        
+    -------------------------------------------------------------
+    -- VARIABLES: LOGGING
+    -------------------------------------------------------------
+    declare @LogType as nvarchar(50) = N'Status';
+    declare @LogText as nvarchar(4000) = N'';
+    declare @LogStatus as nvarchar(50) = N'Started';
 
-		-----------------------------------------------------------------
-	    -- Checking module access for CLR procdure  spMFGetWorkFlowState
-        ------------------------------------------------------------------
-        EXEC [dbo].[spMFCheckLicenseStatus] 
-		                                    'spMFGetWorkFlowState'
-											,@ProcedureName
-											,@ProcedureStep
+    declare @LogTypeDetail as nvarchar(50) = N'System';
+    declare @LogTextDetail as nvarchar(4000) = N'';
+    declare @LogStatusDetail as nvarchar(50) = N'In Progress';
+    declare @ProcessBatchDetail_IDOUT as int = null;
+
+    declare @LogColumnName as nvarchar(128) = null;
+    declare @LogColumnValue as nvarchar(256) = null;
+
+    declare @count int = 0;
+    declare @Now as datetime = getdate();
+    declare @StartTime as datetime = getutcdate();
+    declare @StartTime_Total as datetime = getutcdate();
+    declare @RunTime_Total as decimal(18, 4) = 0;
+
+    -------------------------------------------------------------
+    -- VARIABLES: DYNAMIC SQL
+    -------------------------------------------------------------
+    declare @sql nvarchar(max) = N'';
+    declare @sqlParam nvarchar(max) = N'';
 
 
 
-        DECLARE [InsertWorkflowsStatesCursor] CURSOR LOCAL FOR
-            -----------------------------------------------------
-            --Select WorkflowID From WorkflowsToInclude  Table
-            -----------------------------------------------------
-            SELECT
-                [MFID]
-            FROM
-                [MFWorkflow];
+    declare @Xml    nvarchar(max)
+          , @Output int;
+           declare @XMLReturn xml
+
+    -------------------------------------------------------------
+    -- BEGIN PROCESS
+    -------------------------------------------------------------
+    set @DebugText = N'';
+    set @DebugText = @DefaultDebugText + @DebugText;
+    set @ProcedureStep = N'Backup workflow states';
+
+    if @Debug > 0
+    begin
+        raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+    end;
+
+    exec dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID output
+                                   , @ProcessType = @ProcessType
+                                   , @LogType = N'Status'
+                                   , @LogText = @LogText
+                                   , @LogStatus = N'In Progress'
+                                   , @debug = @Debug;
 
 
-        OPEN [InsertWorkflowsStatesCursor];
-        SET @ProcedureStep = 'Open cursor update 0';
-        
+    exec dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                         , @LogType = N'Debug'
+                                         , @LogText = @ProcessType
+                                         , @LogStatus = N'Started'
+                                         , @StartTime = @StartTime
+                                         , @MFTableName = @MFTableName
+                                         , @Validation_ID = @Validation_ID
+                                         , @ColumnName = null
+                                         , @ColumnValue = null
+                                         , @Update_ID = @Update_ID
+                                         , @LogProcedureName = @ProcedureName
+                                         , @LogProcedureStep = @ProcedureStep
+                                         , @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT
+                                         , @debug = 0;
+
+
+    begin try
+
+    if (select object_id('Tempdb..#TempMFWorkflowState')) is not null
+    drop table #TempMFWorkflowState;
+
+        create table #TempMFWorkflowState
+        (
+            TempT_id int identity primary key
+          ,  ID int  
+          , Name nvarchar(100)
+          ,NewName nvarchar(100)
+          , Alias nvarchar(100)
+          ,NewAlias nvarchar(100)
+          , MFID int
+          , MFWorkflowID int
+          , WorkflowMFID int
+          ,Status nvarchar(10)
+          ,IsUpdate bit
+          ,Deleted bit
+        );
+
+
+        insert into #TempMFWorkflowState
+        (
+            ID
+          , Name
+          , Alias
+          , MFID
+          , MFWorkflowID
+          ,WorkflowMFID
+          ,Status
+          ,IsUpdate
+          ,Deleted
+        )
+        select MFWFS.ID
+             , MFWFS.Name
+             , MFWFS.Alias
+             , MFWFS.MFID
+             , MFWF.ID
+             , MFWF.MFID 
+             ,'LastUpdate'
+             ,mfwfs.IsNameUpdate
+             ,mfwfs.Deleted
+        from dbo.MFWorkflowState      as MFWFS
+            inner join dbo.MFWorkflow as MFWF
+                on MFWFS.MFWorkflowID = MFWF.ID
+        where MFWFS.MFID != 0 and (mfwf.Name = @itemname or @itemname is null);
+
+        --	 End
+        declare @WorkflowID int;
+
+        select @WorkflowID = min(wf.MFID)
+        from dbo.MFWorkflow wf where (wf.name = @itemname or @itemname is null);
+
+                 -----------------------------------------------------
+          --CREATING TEMPORERY TABLE TO STORE DATA FROM XML
+          -----------------------------------------------------     
+
+        while @WorkflowID is not null
+        begin
+
+            set @StartTime = getutcdate();
+
+            set @ProcedureStep = N'Workfow %i ';
+            set @DebugText = N'';
+            set @DebugText = @DefaultDebugText + @DebugText;
+
+            if @Debug > 0
+            begin
+                raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @workflowID);
+            end;
+
+            ------------------------------------------------------------------------------------
+            --Execute 'GetMFWorkFlowState' to get the all WorkflowsStates details in xml format
+            ------------------------------------------------------------------------------------
+            if @Debug > 0
+                select mw.ID
+                     , mw.MFID
+                from dbo.MFWorkflow as mw
+                where mw.MFID = @WorkflowID
+                      and mw.Deleted = 0;
+
+
+            exec @return_value = dbo.spMFGetWorkFlowState @VaultSettings
+                                                        , @WorkflowID
+                                                        , @Xml output;
+
+set @XMLReturn = cast(@xml as xml)
            
-	    SET @ProcedureStep = 'Workfow start ';
-		SET @DebugText = @DefaultDebugText + 'Workflow :%d ' 
-
-        IF @Debug = 1
-            RAISERROR(@Debugtext, 10, 1, @ProcedureName, @ProcedureStep,@WorkflowID);
+           if isnull(@return_value, -1) <> 0
+            begin
 
 
-        ------------------------------------------------------------
-        --Select The WorkflowID into declared variable '@WorkflowID'
-        ------------------------------------------------------------
-        FETCH NEXT FROM [InsertWorkflowsStatesCursor]
-        INTO
-            @WorkflowID;
+                set @DebugText = N' get states failed %s';
+                set @DebugText = @DefaultDebugText + @DebugText;
+
+                raiserror(@DebugText, 16, 1, @ProcedureName, @ProcedureStep, @Output);
 
 
-        WHILE @@FETCH_STATUS = 0
-            BEGIN
-                -------------------------------------------------------------------
-                --Declare new variable to store the outPut of 'GetMFValueListItems'
-                -------------------------------------------------------------------
+            end;
 
-                ------------------------------------------------------------------------------------
-                --Execute 'GetMFWorkFlowState' to get the all WorkflowsStates details in xml format
-                ------------------------------------------------------------------------------------
-				IF @debug = 1
-				SELECT ID,mfid FROM [dbo].[MFWorkflow] AS [mw] WHERE MFID = @WorkflowID AND [mw].[Deleted] = 0;
+            set @ProcedureStep = N'GetWorkflowStates Returned from wrapper';
 
-                EXEC [spMFGetWorkFlowState]
-                    @VaultSettings,
-                    @WorkflowID,
-                    @Xml OUTPUT;
+            if @Debug > 0
+            begin
+                select @XMLReturn;
+            end;
 
-					
-                SET @ProcedureStep = 'GetWorkflowStates Returned from wrapper';
+            select @Msg = N' Get states ' + Name
+            from dbo.MFWorkflow
+            where MFID = @WorkflowID;
 
-                IF @Debug = 1
-				begin
-				SELECT CAST(@Xml AS XML)
-					
-                    RAISERROR('%s : Step %s for Workflow_ID: %i', 10, 1, @ProcedureName, @ProcedureStep, @WorkflowID);
+            set @DebugText = N' returnvalue %i workflowid %i %s';
+            set @DebugText = @DefaultDebugText + @DebugText;
 
+            if @Debug > 0
+            begin
+                raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep, @return_value, @WorkflowID, @Msg);
+            end;
+
+
+
+            set @LogTypeDetail = N'Status';
+            set @LogStatusDetail = N'';
+            set @LogTextDetail = @Msg;
+
+            set @LogColumnName = N'';
+            set @LogColumnValue = N'';
+
+            execute @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                                                    , @LogType = @LogTypeDetail
+                                                                    , @LogText = @LogTextDetail
+                                                                    , @LogStatus = @LogStatusDetail
+                                                                    , @StartTime = @StartTime
+                                                                    , @MFTableName = @MFTableName
+                                                                    , @Validation_ID = @Validation_ID
+                                                                    , @ColumnName = @LogColumnName
+                                                                    , @ColumnValue = @LogColumnValue
+                                                                    , @Update_ID = @Update_ID
+                                                                    , @LogProcedureName = @ProcedureName
+                                                                    , @LogProcedureStep = @ProcedureStep
+                                                                    , @debug = @Debug;
+
+               
+            IF @debug > 0
+				Begin
+					RAISERROR(@DebugText,10,1,@ProcedureName,@ProcedureStep );
 				END
+ 
+
+ 
+          ----------------------------------------------------------------------
+          --INSERT DATA FROM XML INTO TEPORARY TABLE
+          ----------------------------------------------------------------------
+            SELECT  @ProcedureStep = 'Inserting CLR values into #WorkFlowStates';
+
+
+           insert  INTO #TempMFWorkflowState
+                    (   NewName
+          , NewAlias
+          , MFID
+          , WorkflowMFID
+          ,Status
+                    )
+                    select
+                            t.c.value('(@Name)[1]', 'NVARCHAR(100)') AS NAME ,
+                            t.c.value('(@Alias)[1]', 'NVARCHAR(100)') AS Alias,
+                            t.c.value('(@MFID)[1]', 'INT') AS MFID ,
+                    t.c.value('(@MFWorkflowID)[1]', 'INT') AS WorkflowMFID ,
+                    'New'
+
+                    FROM    @XMLReturn.nodes('/form/WorkflowState') AS t ( c )
+                    left join #TempMFWorkflowState as tmws
+                    on tmws.MFID =  t.c.value('(@MFID)[1]', 'INT') 
+                    where tmws.mfid is null;
+
+                    update temp
+                    set 
+                    temp.newname = t.c.value('(@Name)[1]', 'NVARCHAR(100)')  ,
+                     newalias =  t.c.value('(@Alias)[1]', 'NVARCHAR(100)') ,
+                    status = 'Updated'
+
+                    from #TempMFWorkflowState temp
+                    left join  @XMLReturn.nodes('/form/WorkflowState') AS t ( c )
+                    on temp.MFID =  t.c.value('(@MFID)[1]', 'INT') 
+                     where temp.MFID =  t.c.value('(@MFID)[1]', 'INT') 
+                     and Status <> 'New'
+
+
+					         update temp
+                    set 
+                    temp.newname = t.c.value('(@Name)[1]', 'NVARCHAR(100)')  ,
+                     newalias =  t.c.value('(@Alias)[1]', 'NVARCHAR(100)') ,
+                    status = 'Changed'
+
+                    from #TempMFWorkflowState temp
+                    left join  @XMLReturn.nodes('/form/WorkflowState') AS t ( c )
+                    on temp.MFID =  t.c.value('(@MFID)[1]', 'INT') 
+                     where temp.MFID =  t.c.value('(@MFID)[1]', 'INT') 
+                     and Status = 'Updated'
+					 and (temp.name <> t.c.value('(@Name)[1]', 'NVARCHAR(100)')  or
+                     alias <>  t.c.value('(@Alias)[1]', 'NVARCHAR(100)'))
+
+update tmws
+set Status = 'Deleted'
+from #TempMFWorkflowState as tmws
+where tmws.NewName is null and tmws.Name is not null 
+
+
+         select @WorkflowID =
+            (
+                select min(MFID)from dbo.MFWorkflow where MFID > @WorkflowID and ( name = @itemname or @itemname is null)
+            );
+
+
+        end; --end loop          
+            
+              set @DebugText = N' end of loop';
+            set @DebugText = @DefaultDebugText + @DebugText;
+
+            if @Debug > 0
+            begin
+                raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            end;
+
+            if @debug > 10
+            begin
+                select 'before update',*
+                from   #TempMFWorkflowState temp
+                left join dbo.MFWorkflowState as mws
+                on temp.mfid = mws.mfid
+                end;
+                
+          -----------------------------------------------------
+          --UPDATE MFID WITH PKID
+          -----------------------------------------------------
+  set @ProcedureStep = 'Update workflow id for PKID'
+  update  temp
+            SET     MFWorkflowID = wf.id
+            from  #TempMFWorkFlowState temp
+            inner join MFWorkflow wf
+            on wf.MFID = WorkflowMFID
+            where WorkflowMFID = wf.mfid 
+
+                set @DebugText = N' ';
+            set @DebugText = @DefaultDebugText + @DebugText;
+
+            if @Debug > 0
+            begin
+                raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            end;
+
+              
+        
+          -----------------------------------------------------
+          --Updating MFworkflowstate
+          -----------------------------------------------------
+declare @InsertRow int, @UpdateRow int, @DeleteRow int
+
+           select  @ProcedureStep = 'New workflow states';
+
+  insert  into MFWorkflowState
+                    ( MFWorkflowID ,
+                      MFID ,
+                      Name ,
+                      Alias ,
+                      Deleted,
+					  CreatedOn  
+                    )
+                    select  tmws.MFWorkflowID ,
+                            tmws.MFID ,
+                            tmws.newName ,
+                            tmws.newAlias ,
+                            0 ,
+							getdate() -- Added for task 568
+                    from    #TempMFWorkflowState as tmws                    
+                    where tmws.status = 'New';
+
+            SELECT  @InsertRow = @@ROWCOUNT;
+
+            set @DebugText = N' count %i';
+            set @DebugText = @DefaultDebugText + @DebugText;
+
+            if @Debug > 0
+            begin
+                raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep,@InsertRow);
+            end;
+
+           SELECT  @ProcedureStep = 'Update workflow states';
+
+				    UPDATE  wfs
+                    SET  wfs.IsNameUpdate = 0 
+                    ,wfs.Name = NewName
+                    ,wfs.Alias = NewAlias
+                    ,wfs.MFWorkflowID = wfs.MFWorkflowID
+                    ,wfs.ModifiedOn = getdate()
+                    ,wfs.Deleted = 0
+                    FROM    MFWorkflowState wfs
+                            INNER JOIN #TempMFWorkflowState as tmws
+                            on  wfs.MFID = tmws.MFID 
+							
+                            where isnull(@IsUpdate,0) = 0 and isnull(tmws.IsUpdate,0) = 0 and tmws.status = 'Changed';
+
+                    SELECT  @Updaterow = @@ROWCOUNT;
+                
+ 
+              set @DebugText = N' count %s';
+            set @DebugText = @DefaultDebugText + @DebugText;
+
+            if @Debug > 0
+            begin
+                raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep,@MSg);
+            end;
+
+          --------------------------------------------------------
+          -- Process deletes states
+          -----------------------------------------------------  
+ set @ProcedureStep = 'Delete workflow states'
+ 
+ ;with cte as
+   (
+            select  MFID
+           
+            FROM   #TempMFWorkflowState as tmws
+            where status = 'Deleted' 
+)
+update wfs
+set wfs.Deleted = 1, wfs.ModifiedOn = getdate()
+from dbo.MFWorkflowState wfs
+where mfid in (select mfid from cte)
+
+                 SELECT  @DeleteRow = @@ROWCOUNT;
+                
+
+              set @DebugText = N' count %i';
+            set @DebugText = @DefaultDebugText + @DebugText;
+
+            if @Debug > 0
+            begin
+                raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep,@DeleteRow);
+            end;
+       
+
+     set @ProcedureStep = ' workflow states updated'
+
+     set @msg = ' New ' + cast(isnull(@InsertRow,0) as varchar(10)) + ' Updated ' + cast(isnull(@UpdateRow,0) as varchar(10)) + ' Deleted ' + cast(isnull(@DeleteRow,0) as varchar(10)) + ''
+  
+                set @DebugText = N' %s';
+            set @DebugText = @DefaultDebugText + @DebugText;
+
+            if @Debug > 0
+            begin
+                raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep,@msg);
+            end;
+
+
+                set @LogTypeDetail = N'Status';
+                set @LogStatusDetail = N'';
+                set @LogTextDetail = @msg;
+
+                set @LogColumnName = N'';
+                set @LogColumnValue = N'';
+
+                execute @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                                                        , @LogType = @LogTypeDetail
+                                                                        , @LogText = @LogTextDetail
+                                                                        , @LogStatus = @LogStatusDetail
+                                                                        , @StartTime = @StartTime
+                                                                        , @MFTableName = @MFTableName
+                                                                        , @Validation_ID = @Validation_ID
+                                                                        , @ColumnName = @LogColumnName
+                                                                        , @ColumnValue = @LogColumnValue
+                                                                        , @Update_ID = @Update_ID
+                                                                        , @LogProcedureName = @ProcedureName
+                                                                        , @LogProcedureStep = @ProcedureStep
+                                                                        , @debug = @Debug;
+ 
+
+        if (@IsUpdate = 1)
+        begin
+            set @ProcedureStep = N'Update workflow and states';
+
+              set @DebugText = N' %s';
+            set @DebugText = @DefaultDebugText + @DebugText;
+
+
+            declare @WorkFlowStateXML nvarchar(max);
+            set @WorkFlowStateXML =
+            (
+                select isnull(TMFWFS.ID, 0)           as [WorkFlowStateDetails/@ID]
+                     , isnull(TMFWFS.Name, '')        as [WorkFlowStateDetails/@Name]
+                     , isnull(TMFWFS.Alias, '')       as [WorkFlowStateDetails/@Alias]
+                     , isnull(TMFWFS.MFID, 0)         as [WorkFlowStateDetails/@MFID]
+                     , isnull(TMFWFS.WorkflowMFID, 0) as [WorkFlowStateDetails/@MFWorkflowID]
+                from dbo.MFWorkflowState            as MFWFS
+                    inner join #TempMFWorkflowState as TMFWFS
+                        on MFWFS.MFID = TMFWFS.MFID
+                        and TMFWFS.IsUpdate = 1                                                   
+                for xml path(''), root('WorkFlowState')
+            );
+
+            if @debug > 0
+        select cast(@WorkFlowStateXML as xml) as 'Workflowstates for update to MF';
+
+            if @WorkFlowStateXML is not null
+            Begin
+            declare @Outpout1 nvarchar(max);
+            exec dbo.spMFUpdateWorkFlowState @VaultSettings
+                                           , @WorkFlowStateXML
+                                           , @Outpout1 out;
+
+            set @ProcedureStep = N'Update MFWorkflowstate with results';
+
+
+              set @msg = ' New ' + cast(isnull(@InsertRow,0) as varchar(10)) + ' Updated ' + cast(isnull(@UpdateRow,0) as varchar(10)) + ' Deleted ' + cast(isnull(@DeleteRow,0) as varchar(10)) + ' Include Updates to MF'
+
+            if @Debug > 0
+            begin
+                raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
+            end;
+       
+       end
+           
+        end;
+
+            if @debug > 10
+            begin
+                SELECT 'After update',*
+                FROM   #TempMFWorkflowState temp
+                left join dbo.MFWorkflowState as mws
+                on temp.mfid = mws.mfid
+                END;
+
+        drop table #TempMFWorkflowState;
+
+        set @out = @msg
 
 
 
-                ----------------------------------------------------------------------------------------------------------
-                --Execute 'InsertMFWorkFlowState' to insert all property Details into 'MFValueListItems' Table
-                ----------------------------------------------------------------------------------------------------------
+        -------------------------------------------------------------
+        -- Log End of Process
+        -------------------------------------------------------------   
+        set @ProcedureStep = N'End';
+        set @LogStatus = N'Completed';
 
-                EXEC [spMFInsertWorkflowState]
-                    @Xml,
-                    @Output OUTPUT,
-                    @Debug;
+        exec dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID
+                                       , @ProcessType = @ProcessType
+                                       , @LogType = N'Message'
+                                       , @LogText = @msg
+                                       , @LogStatus = @LogStatus
+                                       , @debug = @Debug;
 
-
-                SET @ProcedureStep = 'Exec spMFInsertWorkflowStates';
-
-                IF @Debug = 1
-                    RAISERROR('%s : Step %s Output: %i ', 10, 1, @ProcedureName, @ProcedureStep, @Output);
-                ------------------------------------------------------------------
-                --      Select The Next WorkflowID into declared variable '@WorkflowID'
-                ------------------------------------------------------------------
-                FETCH NEXT FROM [InsertWorkflowsStatesCursor]
-                INTO
-                    @WorkflowID;
-            END;
-
-        -----------------------------------------------------
-        --Close the Cursor
-        -----------------------------------------------------
-        CLOSE [InsertWorkflowsStatesCursor];
-
-        -----------------------------------------------------
-        --Deallocate the Cursor
-        -----------------------------------------------------
-        DEALLOCATE [InsertWorkflowsStatesCursor];
-        IF (@IsUpdate = 1)
-            BEGIN
-                SET @ProcedureStep = 'Update workflow and states';
-                IF @Debug = 1
-                    RAISERROR('%s : Step %s workflow id: %i ', 10, 1, @ProcedureName, @ProcedureStep, @Output);
-
-                DECLARE @WorkFlowStateXML NVARCHAR(MAX);
-                SET @WorkFlowStateXML =
-                    (
-                        SELECT
-                            ISNULL([TMFWFS].[ID], 0)           AS [WorkFlowStateDetails/@ID],
-                            ISNULL([TMFWFS].[Name], '')        AS [WorkFlowStateDetails/@Name],
-                            ISNULL([TMFWFS].[Alias], '')       AS [WorkFlowStateDetails/@Alias],
-                            ISNULL([TMFWFS].[MFID], 0)         AS [WorkFlowStateDetails/@MFID],
-                            ISNULL([TMFWFS].[MFWorkflowID], 0) AS [WorkFlowStateDetails/@MFWorkflowID]
-                        FROM
-                            [MFWorkflowState]          AS [MFWFS]
-                            INNER JOIN
-                                [#TempMFWorkflowState] AS [TMFWFS]
-                                    ON [MFWFS].[MFID] = [TMFWFS].[MFID]
-                                       AND
-                                           (
-                                               [MFWFS].[Name] != [TMFWFS].[Name]
-                                               OR [MFWFS].[Alias] != [TMFWFS].[Alias]
-                                           )
-                        FOR XML PATH(''), ROOT('WorkFlowState')
-                    );
+        set @StartTime = getutcdate();
 
 
-                -----------------------------------------------------------------
-	              -- Checking module access for CLR procdure  spMFUpdateWorkFlowState
-                ------------------------------------------------------------------
-                 EXEC [dbo].[spMFCheckLicenseStatus] 
-		                                    'spMFUpdateWorkFlowState'
-											,@ProcedureName
-											,@ProcedureStep
+        set @LogTypeDetail = N'Status';
+        set @LogStatusDetail = N'Completed';
+        set @LogTextDetail = @msg;
+        set @LogColumnName = N'';
+        set @LogColumnValue = N'';
 
-                DECLARE @Outpout1 NVARCHAR(MAX);
-                EXEC [spMFUpdateWorkFlowState]
-                    @VaultSettings,
-                    @WorkFlowStateXML,
-                    @Outpout1 OUT;
-                SET @ProcedureStep = 'Update MFWorkflowstate with results';
-                IF @Debug = 1
-                    RAISERROR('%s : Step %s Output: %i ', 10, 1, @ProcedureName, @ProcedureStep, @Output);
-
-                UPDATE
-                    [MFWFS]
-                SET
-                    [MFWFS].[Name] = [TMFWFS].[Name],
-                    [MFWFS].[Alias] = [TMFWFS].[Alias]
-                FROM
-                    [MFWorkflowState]          AS [MFWFS]
-                    INNER JOIN
-                        [#TempMFWorkflowState] AS [TMFWFS]
-                            ON [MFWFS].[MFID] = [TMFWFS].[MFID];
-
-                DROP TABLE [#TempMFWorkflowState];
-            END;
-
-        IF (@Output > 0)
-            SET @Out = 'All WorkFlowState are Updated';
-        ELSE
-            SET @Out = 'All WorkFlowState are upto date';
-
-        SET NOCOUNT OFF;
-    
-		
-
-	RETURN 1
-	END try
-BEGIN CATCH
-
-				SET @StartTime = GETUTCDATE()
-			SET @LogStatus = 'Failed w/SQL Error'
-			SET @LogTextDetail = ERROR_MESSAGE()
-
-			--------------------------------------------------
-			-- INSERTING ERROR DETAILS INTO LOG TABLE
-			--------------------------------------------------
-			INSERT INTO [dbo].[MFLog] ( [SPName]
-									  , [ErrorNumber]
-									  , [ErrorMessage]
-									  , [ErrorProcedure]
-									  , [ErrorState]
-									  , [ErrorSeverity]
-									  , [ErrorLine]
-									  , [ProcedureStep]
-									  )
-			VALUES (
-					   @ProcedureName
-					 , ERROR_NUMBER()
-					 , ERROR_MESSAGE()
-					 , ERROR_PROCEDURE()
-					 , ERROR_STATE()
-					 , ERROR_SEVERITY()
-					 , ERROR_LINE()
-					 , @ProcedureStep
-				   );
-
-			SET @ProcedureStep = 'Catch Error'
-			-------------------------------------------------------------
-			-- Log Error
-			-------------------------------------------------------------   
-			EXEC [dbo].[spMFProcessBatch_Upsert]
-				@ProcessBatch_ID = @ProcessBatch_ID OUTPUT
-			  , @ProcessType = @ProcessType
-			  , @LogType = N'Error'
-			  , @LogText = @LogTextDetail
-			  , @LogStatus = @LogStatus
-			  , @debug = @Debug
-
-			SET @StartTime = GETUTCDATE()
-
-			EXEC [dbo].[spMFProcessBatchDetail_Insert]
-				@ProcessBatch_ID = @ProcessBatch_ID
-			  , @LogType = N'Error'
-			  , @LogText = @LogTextDetail
-			  , @LogStatus = @LogStatus
-			  , @StartTime = @StartTime
-			  , @MFTableName = @MFTableName
-			  , @Validation_ID = @Validation_ID
-			  , @ColumnName = NULL
-			  , @ColumnValue = NULL
-			  , @Update_ID = @Update_ID
-			  , @LogProcedureName = @ProcedureName
-			  , @LogProcedureStep = @ProcedureStep
-			  , @debug = 0
-
-			RETURN -1
-		END CATCH
+        execute @return_value = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                                                , @LogType = @LogTypeDetail
+                                                                , @LogText = @LogTextDetail
+                                                                , @LogStatus = @LogStatusDetail
+                                                                , @StartTime = @StartTime
+                                                                , @MFTableName = @MFTableName
+                                                                , @Validation_ID = @Validation_ID
+                                                                , @ColumnName = @LogColumnName
+                                                                , @ColumnValue = @LogColumnValue
+                                                                , @Update_ID = @Update_ID
+                                                                , @LogProcedureName = @ProcedureName
+                                                                , @LogProcedureStep = @ProcedureStep
+                                                                , @debug = @Debug;
 
 
-END
 
-GO
+        return 1;
+    end try
+    begin catch
 
-    
+        set @StartTime = getutcdate();
+        set @LogStatus = N'Failed w/SQL Error';
+        set @LogTextDetail = error_message();
+
+        --------------------------------------------------
+        -- INSERTING ERROR DETAILS INTO LOG TABLE
+        --------------------------------------------------
+        insert into dbo.MFLog
+        (
+            SPName
+          , ErrorNumber
+          , ErrorMessage
+          , ErrorProcedure
+          , ErrorState
+          , ErrorSeverity
+          , ErrorLine
+          , ProcedureStep
+        )
+        values
+        (@ProcedureName, error_number(), error_message(), error_procedure(), error_state(), error_severity()
+       , error_line(), @ProcedureStep);
+
+        set @ProcedureStep = N'Catch Error';
+        -------------------------------------------------------------
+        -- Log Error
+        -------------------------------------------------------------   
+        exec dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID output
+                                       , @ProcessType = @ProcessType
+                                       , @LogType = N'Error'
+                                       , @LogText = @LogTextDetail
+                                       , @LogStatus = @LogStatus
+                                       , @debug = @Debug;
+
+        set @StartTime = getutcdate();
+
+        exec dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                             , @LogType = N'Error'
+                                             , @LogText = @LogTextDetail
+                                             , @LogStatus = @LogStatus
+                                             , @StartTime = @StartTime
+                                             , @MFTableName = @MFTableName
+                                             , @Validation_ID = @Validation_ID
+                                             , @ColumnName = null
+                                             , @ColumnValue = null
+                                             , @Update_ID = @Update_ID
+                                             , @LogProcedureName = @ProcedureName
+                                             , @LogProcedureStep = @ProcedureStep
+                                             , @debug = 0;
+
+        return -1;
+    end catch;
+
+
+end;
+
+go
+

@@ -6,7 +6,7 @@ go
 SET NOCOUNT ON; 
 EXEC Setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
     @ObjectName = N'spMFInsertWorkflowState', -- nvarchar(100)
-    @Object_Release = '4.2.9.48', -- varchar(50)
+    @Object_Release = '4.10.32.77', -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
 go
@@ -25,23 +25,24 @@ ELSE
 go
 	
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE [dbo].[spMFInsertWorkflowState]
-AS
-    SELECT  'created, but not implemented yet.';
+create procedure [dbo].[spMFInsertWorkflowState]
+as
+    select  'created, but not implemented yet.';
 --just anything will do
 
 go
 -- the following section will be always executed
-SET NOEXEC OFF;
+set noexec off;
 go
 
-ALTER PROCEDURE [dbo].[spMFInsertWorkflowState]
+alter procedure [dbo].[spMFInsertWorkflowState]
     (
-      @Doc NVARCHAR(MAX) ,
-      @Output INT OUTPUT ,
-      @Debug SMALLINT = 0
+      @Doc nvarchar(max) ,
+      @Output int output ,
+      @ProcessBatch_ID int	  = null output,
+      @Debug smallint = 0
     )
-AS
+as
 /*rST**************************************************************************
 
 =======================
@@ -67,17 +68,7 @@ Purpose
 
 To insert Workflow State details into MFWorkflowState table.
 
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
+This procedure is called by other procedures
 
 Changelog
 =========
@@ -85,41 +76,130 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-07-29  LC         Improve logging and productivity
 2019-08-30  JC         Added documentation
 2019-03-08  DEV2       Add insert updatecolumn
 2017-07-02  LC         Change aliase datatype to varchar(100); Edit TRANS loop
 ==========  =========  ========================================================
 
 **rST*************************************************************************/
-    BEGIN
-        BEGIN TRY
+    begin
+        begin try
       --      BEGIN TRANSACTION;
 
-            SET NOCOUNT ON;
+            set nocount on;
+
+        DECLARE @MFTableName AS NVARCHAR(128) = 'MFWorkflowState'
+        declare @ProcessType AS NVARCHAR(50);
+
+		SET @ProcessType = ISNULL(@ProcessType, 'Sync Metadata Structure')
+        declare @Validation_ID int
+        declare @Update_ID int
+            -------------------------------------------------------------
+		-- VARIABLES: DEBUGGING
+		-------------------------------------------------------------
+		DECLARE @ProcedureName AS NVARCHAR(128) = 'spMFInsertWorkflowState';
+		DECLARE @ProcedureStep AS NVARCHAR(128) = 'Start';
+		DECLARE @DefaultDebugText AS NVARCHAR(256) = 'Proc: %s Step: %s'
+		DECLARE @DebugText AS NVARCHAR(256) = ''
+		DECLARE @Msg AS NVARCHAR(256) = ''
+		DECLARE @MsgSeverityInfo AS TINYINT = 10
+		DECLARE @MsgSeverityObjectDoesNotExist AS TINYINT = 11
+		DECLARE @MsgSeverityGeneralError AS TINYINT = 16
+
+		-------------------------------------------------------------
+		-- VARIABLES: LOGGING
+		-------------------------------------------------------------
+		DECLARE @LogType AS NVARCHAR(50) = 'Status'
+		DECLARE @LogText AS NVARCHAR(4000) = '';
+		DECLARE @LogStatus AS NVARCHAR(50) = 'Started'
+
+		DECLARE @LogTypeDetail AS NVARCHAR(50) = 'System'
+		DECLARE @LogTextDetail AS NVARCHAR(4000) = '';
+		DECLARE @LogStatusDetail AS NVARCHAR(50) = 'In Progress'
+		DECLARE @ProcessBatchDetail_IDOUT AS INT = NULL
+
+		DECLARE @LogColumnName AS NVARCHAR(128) = NULL
+		DECLARE @LogColumnValue AS NVARCHAR(256) = NULL
+
+		DECLARE @count INT = 0;
+		DECLARE @Now AS DATETIME = GETDATE();
+		DECLARE @StartTime AS DATETIME = GETUTCDATE();
+		DECLARE @StartTime_Total AS DATETIME = GETUTCDATE();
+		DECLARE @RunTime_Total AS DECIMAL(18, 4) = 0;
+
+        	-------------------------------------------------------------
+		-- INTIALIZE PROCESS BATCH
+		-------------------------------------------------------------
+		SET @ProcedureStep = 'Start Logging'
+
+		SET @LogText = 'Processing ' + @ProcedureName
+
+		EXEC [dbo].[spMFProcessBatch_Upsert]
+			@ProcessBatch_ID = @ProcessBatch_ID OUTPUT
+		  , @ProcessType = @ProcessType
+		  , @LogType = N'Status'
+		  , @LogText = @LogText
+		  , @LogStatus = N'In Progress'
+		  , @debug = @Debug
+
+
+		EXEC [dbo].[spMFProcessBatchDetail_Insert]
+			@ProcessBatch_ID = @ProcessBatch_ID
+		  , @LogType = N'Debug'
+		  , @LogText = @ProcessType
+		  , @LogStatus = N'Started'
+		  , @StartTime = @StartTime
+		  , @MFTableName = @MFTableName
+		  , @Validation_ID = @Validation_ID
+		  , @ColumnName = NULL
+		  , @ColumnValue = NULL
+		  , @Update_ID = @Update_ID
+		  , @LogProcedureName = @ProcedureName
+		  , @LogProcedureStep = @ProcedureStep
+		, @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT 
+		  , @debug = 0
+
+
+		
+			-------------------------------------------------------------
+			-- BEGIN PROCESS
+			-------------------------------------------------------------
+			set @DebugText = ''
+			set @DebugText = @DefaultDebugText + @DebugText
+			set @Procedurestep = 'Get temp table'
+			
+			if @debug > 0
+				begin
+					raiserror(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				END
+
 
           -----------------------------------------------------
           --DECLARE LOCAL VARIABLE
           -----------------------------------------------------
-            DECLARE @IDoc INT ,
-                @RowUpdated INT ,
-                @RowAdded INT ,
-                @WorkflowMFID INT ,
-                @ProcedureStep sysname = 'Start' ,
-                @XML XML = @Doc;
-            DECLARE @procedureName NVARCHAR(128) = 'spMFInsertWorkflowState';
+            declare @IDoc int ,
+                @RowUpdated int ,
+                @RowAdded int ,
+                @WorkflowMFID int ,
+               
+                @XML xml = @Doc;
+            
 
-            IF @Debug = 1
-                RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
+            if @debug > 0
+				begin
+					raiserror(@DebugText,10,1,@ProcedureName,@ProcedureStep );
+				end
           -----------------------------------------------------
           --CREATING TEMPORERY TABLE TO STORE DATA FROM XML
           -----------------------------------------------------
-            CREATE TABLE #WorkFlowState
+            create table #WorkFlowState
                 (
-                  [MFWorkflowID] INT ,
-                  [MFID] INT NOT NULL ,
-                  [Name] VARCHAR(100)--COLLATE Latin1_General_CI_AS NOT NULL
+                  [MFWorkflowID] int ,
+                  [MFID] int not null primary key ,
+                  [Name] varchar(100)--COLLATE Latin1_General_CI_AS NOT NULL
                   ,
-                  [Alias] NVARCHAR(100)--COLLATE Latin1_General_CI_AS
+                  [Alias] nvarchar(100)--COLLATE Latin1_General_CI_AS
                 );
 
           ----------------------------------------------------------------------

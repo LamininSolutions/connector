@@ -227,7 +227,9 @@ IF @debug > 0
 		
 										 '+ @FilterCondition +' FOR XML PATH(''''),Root(''PSLink'')  )'
 
-          --print @Query
+          IF @debug > 0
+		  PRINT @Query;
+
 		  EXEC [sys].[sp_executesql]
                      @Query
                     , N'@Xml nvarchar(max) OUTPUT'

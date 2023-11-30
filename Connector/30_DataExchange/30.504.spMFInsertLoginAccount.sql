@@ -6,7 +6,7 @@ go
 SET NOCOUNT ON; 
 EXEC setup.[spMFSQLObjectsControl] @SchemaName = N'dbo',
     @ObjectName = N'spMFInsertLoginAccount', -- nvarchar(100)
-    @Object_Release = '3.1.2.38', -- varchar(50)
+    @Object_Release = '4.11.33.77', -- varchar(50)
     @UpdateFlag = 2;
  -- smallint
 go
@@ -54,32 +54,19 @@ Return
   - -1 = Error
 Parameters
   @Doc nvarchar(max)
-    fixme description
+    listing of user accounts
   @isFullUpdate bit
-    fixme description
+    always 1
   @Output int (output)
-    fixme description
+    update result
   @Debug smallint (optional)
     - Default = 0
-    - 1 = Standard Debug Mode
-    - 101 = Advanced Debug Mode
+    - 1 = Standard Debug Mode  
 
 Purpose
 =======
 
 The purpose of this procedure is to insert Login Account details into MFLoginAccount table.
-
-Additional Info
-===============
-
-Prerequisites
-=============
-
-Warnings
-========
-
-Examples
-========
 
 Changelog
 =========
@@ -87,6 +74,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-10-12  LC         Update to insert or update changes and set deleted flag for deleted items
 2019-08-30  JC         Added documentation
 2017-08-22  LC         Add insert/update of userID as MFID column
 ==========  =========  ========================================================
@@ -103,7 +91,7 @@ Date        Author     Description
                 @XML XML = @Doc;
             DECLARE @procedureName NVARCHAR(128) = 'spMFInsertLoginAccount';
 
-            IF @Debug = 1
+            IF @Debug > 0
                 RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
 
             CREATE TABLE #LoginAccountTble
@@ -116,7 +104,8 @@ Date        Author     Description
                   [DomainName] VARCHAR(250) ,
                   [LicenseType] VARCHAR(250) ,
                   [Enabled] BIT,
-				  [UserID] int 
+				  [UserID] int ,
+				  Status nvarchar(100)
 
                 );
 
@@ -134,7 +123,8 @@ Date        Author     Description
                       DomainName ,
                       LicenseType ,
                       [Enabled],
-					  UserID
+					  UserID,
+					  Status 
                     )
                     SELECT  t.c.value('(@UserName)[1]', 'NVARCHAR(250)') AS UserName ,
                             t.c.value('(@AccountName)[1]', 'NVARCHAR(250)') AS AccountName ,
@@ -144,112 +134,120 @@ Date        Author     Description
                             t.c.value('(@DomainName)[1]', 'NVARCHAR(250)') AS DomainName ,
                             t.c.value('(@LicenseType)[1]', 'NVARCHAR(250)') AS LicenseType ,
                             t.c.value('(@Enabled)[1]', 'BIT') AS [Enabled],
-							t.c.value('(@UserID)[1]', 'int') AS [UserID]
-                    FROM    @XML.nodes('/form/loginAccount') AS t ( c );
+							t.c.value('(@UserID)[1]', 'int') AS [UserID],
+							case when lia.mfid is null then 'New' Else 'Updated' end
+                    FROM    @XML.nodes('/form/loginAccount') AS t ( c )
+					left join MFLoginAccount lia
+					on lia.MFID = t.c.value('(@UserID)[1]', 'int');
 
-            IF @Debug = 1
+INSERT  INTO #LoginAccountTble
+                    ( UserName ,
+                      AccountName ,
+                      FullName ,
+                      AccountType ,
+                      EmailAddress ,
+                      DomainName ,
+                      LicenseType ,
+                      [Enabled],
+					  UserID,
+					  Status
+                    )
+					Select 
+					lia.UserName ,
+                      lia.AccountName ,
+                       lia.FullName ,
+                       lia.AccountType ,
+                       lia.EmailAddress ,
+                       lia.DomainName ,
+                       lia.LicenseType ,
+                       lia.[Enabled],
+					  MFID,
+					  'Deleted'
+					from mfloginaccount lia
+					left join #LoginAccountTble temp
+					on lia.mfid = temp.UserID
+					where isnull(temp.UserID,0) = 0 
+
+            IF @Debug > 0
                 BEGIN
                     RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
-                    --SELECT  *
-                    --FROM    #LoginAccountTble;
+                    SELECT  *
+                    from mfloginaccount lia
+					left join #LoginAccountTble temp
+					on lia.mfid = temp.UserID
+		--			where isnull(temp.UserID,0) = 0 
                 END;
 
          
-            SELECT  @ProcedureStep = 'Insert values into #DifferenceTable';
+            SELECT  @ProcedureStep = 'Set status in temp';
 
           -----------------------------------------------------------------------
-          --Storing the difference into #DifferenceTable 
+          --Updating status in #DifferenceTable 
           -----------------------------------------------------------------------
-            SELECT  *
-            INTO    #DifferenceTable
-            FROM    ( SELECT    UserName ,
-                                AccountName ,
-                                FullName ,
-                                AccountType ,
-                                EmailAddress ,
-                                DomainName ,
-                                LicenseType ,
-                                [Enabled],
-								UserID
-                      FROM      #LoginAccountTble
-                      EXCEPT
-                      SELECT    UserName COLLATE DATABASE_DEFAULT ,
-                                AccountName COLLATE DATABASE_DEFAULT ,
-                                FullName COLLATE DATABASE_DEFAULT,
-                                AccountType COLLATE DATABASE_DEFAULT,
-                                EmailAddress COLLATE DATABASE_DEFAULT,
-                                DomainName COLLATE DATABASE_DEFAULT,
-                                LicenseType COLLATE DATABASE_DEFAULT,
-                                [Enabled] ,
-								MFID
-                      FROM      MFLoginAccount
-                    ) tempTbl;
+            Update  temp
+			set Status = case when lia.MFID is null then  'New'
+			when (lia.UserName <> temp.userName or
+                      lia.AccountName <> temp.Accountname or
+                       lia.FullName <> temp.Fullname or
+                       lia.AccountType <> temp.AccountType or
+                       lia.EmailAddress <> temp.EmailAddress or
+                       lia.DomainName <> temp.DomainName or 
+                       lia.LicenseType <> temp.licenseType or
+                       lia.[Enabled] <> temp.Enabled) 
+					   and lia.MFID = temp.UserID then 'Changed'	
+			when lia.UserName = temp.userName and
+                      lia.AccountName = temp.Accountname and
+                       lia.FullName = temp.Fullname and
+                       lia.AccountType = temp.AccountType and
+                       lia.EmailAddress = temp.EmailAddress and
+                       lia.DomainName = temp.DomainName and 
+                       lia.LicenseType = temp.licenseType and
+                       lia.[Enabled] = temp.Enabled and
+					    lia.MFID = temp.UserID and
+						isnull(temp.status,'No Status') not in ('Deleted','Changed','New','No Status')
+						then 'Unchanged'					
+			else temp.Status end
+            FROM  #LoginAccountTble temp 
+			full outer join mfloginAccount lia
+			on lia.MFID = temp.UserID		
+			
 
-            IF @Debug = 1
+            IF @Debug > 0
                 BEGIN
                     RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
-                    --SELECT  *
-                    --FROM    #DifferenceTable;
-                END;
-
-            SELECT  @ProcedureStep = 'Creating #NewLoginAccountTble';
-
-          -----------------------------------------------------------------------
-          --Creatting new table to store the updated property details 
-          -----------------------------------------------------------------------
-            CREATE TABLE #NewLoginAccountTble
-                (
-                  [UserName] VARCHAR(250) NOT NULL ,
-                  [AccountName] VARCHAR(250) ,
-                  [FullName] VARCHAR(250) ,
-                  [AccountType] VARCHAR(250) ,
-                  [EmailAddress] VARCHAR(250) ,
-                  [DomainName] VARCHAR(250) ,
-                  [LicenseType] VARCHAR(250) ,
-                  [Enabled] BIT,
-				  UserID int
-                );
-
-            SELECT  @ProcedureStep = 'Insert values into #NewLoginAccountTble';
-
-          -----------------------------------------------------------------------
-          --Inserting the Difference 
-          -----------------------------------------------------------------------
-            INSERT  INTO #NewLoginAccountTble
                     SELECT  *
-                    FROM    #DifferenceTable;
-
-            IF @Debug = 1
-                BEGIN
-                    RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
-
-                    --SELECT  *
-                    --FROM    #NewLoginAccountTble;
+                      FROM  #LoginAccountTble temp 
+			full outer join mfloginAccount lia
+			on lia.MFID = temp.UserID;
                 END;
+
+  
 
             SELECT  @ProcedureStep = 'Update MFLoginAccount';
 
           -----------------------------------------------------------------------
-          --Updating the MFProperties 
+          --Updating the login accounts
           -----------------------------------------------------------------------
-            IF OBJECT_ID('tempdb.dbo.#NewLoginAccountTble') IS NOT NULL
+            IF OBJECT_ID('tempdb.dbo.#LoginAccountTble') IS NOT NULL
                 BEGIN
                     UPDATE  MFLoginAccount
-                    SET     MFLoginAccount.FullName = #NewLoginAccountTble.FullName ,
-                            MFLoginAccount.AccountName = #NewLoginAccountTble.AccountName ,
-                            MFLoginAccount.AccountType = #NewLoginAccountTble.AccountType ,
-                            MFLoginAccount.DomainName = #NewLoginAccountTble.DomainName ,
-                            MFLoginAccount.EmailAddress = #NewLoginAccountTble.EmailAddress ,
-                            MFLoginAccount.LicenseType = #NewLoginAccountTble.LicenseType ,
-                            MFLoginAccount.[Enabled] = #NewLoginAccountTble.[Enabled],
-							 MFLoginAccount.[MFID] = #NewLoginAccountTble.[UserID]
+                    SET     MFLoginAccount.FullName = temp.FullName ,
+                            MFLoginAccount.AccountName = temp.AccountName ,
+                            MFLoginAccount.AccountType = temp.AccountType ,
+                            MFLoginAccount.DomainName = temp.DomainName ,
+                            MFLoginAccount.EmailAddress = temp.EmailAddress ,
+                            MFLoginAccount.LicenseType = temp.LicenseType ,
+                            MFLoginAccount.[Enabled] = temp.[Enabled],
+							 MFLoginAccount.[MFID] = temp.[UserID],
+							 MFLoginAccount.Deleted = case when temp.status = 'Deleted' then 1 else 0 end
                     FROM    MFLoginAccount
-                            INNER JOIN #NewLoginAccountTble ON MFLoginAccount.UserName COLLATE DATABASE_DEFAULT = #NewLoginAccountTble.UserName;
+                            INNER JOIN #LoginAccountTble temp ON MFLoginAccount.mfid  = temp.UserID
+							where temp.status in ('Changed','Deleted');
 
                     SELECT  @Output = @@ROWCOUNT;
                 END;
 
-            IF @Debug = 1
+            IF @Debug > 0
                 BEGIN
                     RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
 
@@ -257,58 +255,6 @@ Date        Author     Description
                     --FROM    MFLoginAccount;
                 END;
 
-            SELECT  @ProcedureStep = 'Create #MFLoginAccount Table';
-
-            CREATE TABLE #MFLoginAccount
-                (
-                  [UserName] VARCHAR(250) NOT NULL ,
-                  [AccountName] VARCHAR(250) ,
-                  [FullName] VARCHAR(250) ,
-                  [AccountType] VARCHAR(250) ,
-                  [EmailAddress] VARCHAR(250) ,
-                  [DomainName] VARCHAR(250) ,
-                  [LicenseType] VARCHAR(250) ,
-                  [Enabled] BIT,
-				  UserID int 
-                );
-
-            SELECT  @ProcedureStep = 'Inserting values into #MFLoginAccount';
-
-          -----------------------------------------------------------------------
-          --Adding The new property 
-          -----------------------------------------------------------------------
-            INSERT  INTO #MFLoginAccount
-                    SELECT  *
-                    FROM    ( SELECT    UserName  ,
-                                        AccountName ,
-                                        FullName ,
-                                        AccountType ,
-                                        EmailAddress ,
-                                        DomainName ,
-                                        LicenseType ,
-                                        [Enabled],
-										UserID
-                              FROM      #LoginAccountTble
-                              EXCEPT
-                              SELECT    UserName ,
-                                        AccountName ,
-                                        FullName ,
-                                        AccountType ,
-                                        EmailAddress COLLATE DATABASE_DEFAULT,
-                                        DomainName COLLATE DATABASE_DEFAULT,
-                                        LicenseType COLLATE DATABASE_DEFAULT,
-                                        [Enabled] ,
-										MFID 
-                              FROM      MFLoginAccount
-                            ) newPprty;
-
-            IF @Debug = 1
-                BEGIN
-                    RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
-
-                    --SELECT  *
-                    --FROM    #MFLoginAccount;
-                END;
 
             SELECT  @ProcedureStep = 'Inserting values into MFLoginAccount';
 
@@ -323,8 +269,7 @@ Date        Author     Description
                       [Enabled],
 					  MFID	
                     )
-                    SELECT  *
-                    FROM    ( SELECT    UserName ,
+                    SELECT      UserName ,
                                         AccountName ,
                                         FullName ,
                                         AccountType ,
@@ -333,12 +278,13 @@ Date        Author     Description
                                         LicenseType ,
                                         [Enabled] AS Deleted,
 										UserID
-                              FROM      #MFLoginAccount
-                            ) n;
+                              FROM      #LoginAccountTble TEMP
+							  where temp.status = 'New'
+                          
 
             SELECT  @Output = @Output + @@ROWCOUNT;
 
-            IF @Debug = 1
+            IF @Debug > 0
                 BEGIN
                     RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
 
@@ -346,49 +292,49 @@ Date        Author     Description
                     --FROM    MFLoginAccount;
                 END;
 
-            IF ( @isFullUpdate = 1 )
-                BEGIN
-                    SELECT  @ProcedureStep = 'Full update';
+            --IF ( @isFullUpdate = 1 )
+            --    BEGIN
+            --        SELECT  @ProcedureStep = 'Full update';
 
-                -----------------------------------------------------------------------
-                -- Select UserName Which are deleted from M-Files 
-                -----------------------------------------------------------------------
-                    SELECT  UserName
-                    INTO    #DeletedLoginAccount
-                    FROM    ( SELECT    UserName
-                              FROM      MFLoginAccount
-                              EXCEPT
-                              SELECT    UserName
-                              FROM      #LoginAccountTble
-                            ) DeletedUserName;
+            --    -----------------------------------------------------------------------
+            --    -- Select UserName Which are deleted from M-Files 
+            --    -----------------------------------------------------------------------
+            --        SELECT  UserName
+            --        INTO    #DeletedLoginAccount
+            --        FROM    ( SELECT    UserName
+            --                  FROM      MFLoginAccount
+            --                  EXCEPT
+            --                  SELECT    UserName
+            --                  FROM      #LoginAccountTble
+            --                ) DeletedUserName;
 
-                    IF @Debug = 1
-                        BEGIN
-                            RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
+            --        IF @Debug = 1
+            --            BEGIN
+            --                RAISERROR('%s : Step %s',10,1,@procedureName, @ProcedureStep);
 
-                            --SELECT  *
-                            --FROM    #DeletedLoginAccount;
-                        END;
+            --                --SELECT  *
+            --                --FROM    #DeletedLoginAccount;
+            --            END;
 
-                    SELECT  @ProcedureStep = 'DELETE FROM MFLoginAccount';
+            --        SELECT  @ProcedureStep = 'DELETE FROM MFLoginAccount';
 
-                -----------------------------------------------------------------------
-                --Deleting the MFClass Thats deleted from M-Files 
-                -----------------------------------------------------------------------
-                    UPDATE  MFLoginAccount
-                    SET     Deleted = 1
-                    WHERE   UserName COLLATE DATABASE_DEFAULT IN ( SELECT    UserName
-                                          FROM      #DeletedLoginAccount );
-                END;
+            --    -----------------------------------------------------------------------
+            --    --Deleting the MFClass Thats deleted from M-Files 
+            --    -----------------------------------------------------------------------
+            --        UPDATE  MFLoginAccount
+            --        SET     Deleted = 1
+            --        WHERE   UserName COLLATE DATABASE_DEFAULT IN ( SELECT    UserName
+            --                              FROM      #DeletedLoginAccount );
+            --    END;
 
           -----------------------------------------
           --Droping all temperory Table 
           ----------------------------------------- 
             DROP TABLE #LoginAccountTble;
 
-            DROP TABLE #NewLoginAccountTble;
+            --DROP TABLE #NewLoginAccountTble;
 
-            DROP TABLE #MFLoginAccount;
+            --DROP TABLE #MFLoginAccount;
 
             SELECT  @Output = @@ROWCOUNT;
 
@@ -402,7 +348,7 @@ Date        Author     Description
 
             SET NOCOUNT ON;
 
-            IF @Debug = 1
+            IF @Debug > 0
                 BEGIN
                 --------------------------------------------------
                 -- INSERTING ERROR DETAILS INTO LOG TABLE

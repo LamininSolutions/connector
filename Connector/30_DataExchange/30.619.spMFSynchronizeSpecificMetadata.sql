@@ -1,51 +1,53 @@
-PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFSynchronizeSpecificMetadata]';
-GO
+print space(5) + quotename(@@servername) + '.' + quotename(db_name()) + '.[dbo].[spMFSynchronizeSpecificMetadata]';
+go
 
 
-SET NOCOUNT ON;
-EXEC [setup].[spMFSQLObjectsControl]
-	@SchemaName = N'dbo'
-  , @ObjectName = N'spMFSynchronizeSpecificMetadata'
--- nvarchar(100)
-  , @Object_Release = '3.1.3.40'
--- varchar(50)
-  , @UpdateFlag = 2;
+set nocount on;
+exec setup.spMFSQLObjectsControl @SchemaName = N'dbo'
+                               , @ObjectName = N'spMFSynchronizeSpecificMetadata'
+                               -- nvarchar(100)
+                               , @Object_Release = '4.10.32.77'
+                               -- varchar(50)
+                               , @UpdateFlag = 2;
 -- smallint
 
-GO
+go
 
-IF EXISTS (	  SELECT	1
-			  FROM		[INFORMATION_SCHEMA].[ROUTINES]
-			  WHERE		[ROUTINES].[ROUTINE_NAME] = 'spMFSynchronizeSpecificMetadata' --name of procedure
-						AND [ROUTINES].[ROUTINE_TYPE] = 'PROCEDURE' --for a function --'FUNCTION'
-						AND [ROUTINES].[ROUTINE_SCHEMA] = 'dbo'
-		  )
-	BEGIN
-		PRINT SPACE(10) + '...Stored Procedure: update';
-		SET NOEXEC ON;
-	END;
-ELSE PRINT SPACE(10) + '...Stored Procedure: create';
-GO
+if exists
+(
+    select 1
+    from INFORMATION_SCHEMA.ROUTINES
+    where ROUTINE_NAME = 'spMFSynchronizeSpecificMetadata' --name of procedure
+          and ROUTINE_TYPE = 'PROCEDURE' --for a function --'FUNCTION'
+          and ROUTINE_SCHEMA = 'dbo'
+)
+begin
+    print space(10) + '...Stored Procedure: update';
+    set noexec on;
+end;
+else
+    print space(10) + '...Stored Procedure: create';
+go
 
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE [dbo].[spMFSynchronizeSpecificMetadata]
-AS
-	SELECT	'created, but not implemented yet.';
+create procedure dbo.spMFSynchronizeSpecificMetadata
+as
+select 'created, but not implemented yet.';
 --just anything will do
 
-GO
+go
 -- the following section will be always executed
-SET NOEXEC OFF;
-GO
+set noexec off;
+go
 
-ALTER PROCEDURE [dbo].[spMFSynchronizeSpecificMetadata]
-	(
-		@Metadata VARCHAR(100)
-	  , @IsUpdate SMALLINT	   = 0
-	  , @ItemName VARCHAR(100) = NULL
-	  , @Debug	  SMALLINT	   = 0
-	)
-AS
+alter procedure dbo.spMFSynchronizeSpecificMetadata
+(
+    @Metadata varchar(100)
+  , @IsUpdate smallint = 0
+  , @ItemName varchar(100) = null
+  , @Debug smallint = 0
+)
+as
 /*rST**************************************************************************
 
 ===============================
@@ -83,7 +85,7 @@ Procedure will synchronise the metadata for one of the following
 - LoginAccount
 - UserAccount
 
-Using the @ItemName parameter for the specifying a valuelist name, the valuelists items for a specific valuelist can be updated.
+Using the @ItemName parameter for the specifying a valuelist name, the valuelists items for a specific valuelist can be updated; similarly, by using the workflow name the workflow states for a specific workflow can be updated
 
 Setting the @IsUpdate parameter to 1 will allow for the updating of the name from SQL to M-Files.
 
@@ -128,7 +130,7 @@ Examples
     EXEC [dbo].[spMFSynchronizeSpecificMetadata]
     @Metadata = 'User', --  ObjectType; Class; Property; Valuelist; ValuelistItem; Workflow; State; User; Login
     @IsUpdate = 0,  -- set to 1 to push updates to M-Files
-    @ItemName = NULL , --only application for valuelists
+    @ItemName = NULL , --only application for valuelists, and workflow states by workflow
     @Debug = 0
 
 ------
@@ -163,6 +165,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-07-30  LC         Improve logging and productivity of procedure
 2019-08-30  JC         Added documentation
 2016-08-22  LC         Update settings index
 2016-09-09  LC         Add login accounts and user accounts
@@ -174,233 +177,262 @@ Date        Author     Description
 
 **rST*************************************************************************/
 
-	BEGIN
+begin
 
 
-		---------------------------------------------
-		--DECLARE LOCAL VARIABLE
-		--------------------------------------------- 
-		DECLARE
-			@VaultSettings NVARCHAR(4000), @ProcedureStep sysname = 'START', @MFvaluelistID INT = 0;
+    ---------------------------------------------
+    --DECLARE LOCAL VARIABLE
+    --------------------------------------------- 
+    declare @VaultSettings nvarchar(4000)
+          , @ProcedureStep sysname = 'START'
+          , @MFvaluelistID int     = 0;
 
-		---------------------------------------------
-		-- ACCESS CREDENTIALS FROM Setting TABLE
-		---------------------------------------------
+    ---------------------------------------------
+    -- ACCESS CREDENTIALS FROM Setting TABLE
+    ---------------------------------------------
 
-		SELECT	@VaultSettings = [dbo].[FnMFVaultSettings]();
-
-
-		SET @Metadata = CASE WHEN @Metadata LIKE 'Class%' THEN 'Class'
-							 WHEN @Metadata LIKE 'Proper%' THEN 'Properties'
-							 WHEN @Metadata LIKE 'Valuelist' THEN 'Valuelist'
-							 WHEN @Metadata LIKE '%Item%' THEN 'Valuelistitems'
-							 WHEN @Metadata LIKE 'Valuelist%' THEN 'Valuelist'
-							 WHEN @Metadata LIKE 'Workflow' THEN 'Workflow'
-							 WHEN @Metadata LIKE '%Stat%' THEN 'States'
-							 WHEN @Metadata LIKE 'Object%' THEN 'ObjectType'
-							 WHEN @Metadata LIKE 'Login%' THEN 'LoginAccount'
-							 WHEN @Metadata LIKE 'User%' THEN 'UserAccount'
-							 ELSE NULL
-						END;
-
-		BEGIN
-			BEGIN TRY
-				-- BEGIN TRANSACTION;
-				---------------------------------------------
-				--DECLARE LOCAL VARIABLE
-				--------------------------------------------- 
-				DECLARE
-					@ResponseMFObject		NVARCHAR(2000)
-				  , @ResponseProperties		NVARCHAR(2000)
-				  , @ResponseValueList		NVARCHAR(2000)
-				  , @ResponseValuelistItems NVARCHAR(2000)
-				  , @ResponseWorkflow		NVARCHAR(2000)
-				  , @ResponseWorkflowStates NVARCHAR(2000)
-				  , @ResponseMFClass		NVARCHAR(2000)
-				  , @ResponseLoginAccount	NVARCHAR(2000)
-				  , @ResponseuserAccount	NVARCHAR(2000)
-				  , @Response				NVARCHAR(2000)
-				  , @SPName					NVARCHAR(100)
-				  , @Return_Value			INT;
-
-				IF @Metadata = 'ObjectType'
-					BEGIN
-						---------------------------------------------
-						--SYNCHRONIZE OBJECT TYPES
-						---------------------------------------------
-						SELECT
-							@ProcedureStep = 'Synchronizing ObjectType', @SPName = 'spMFSynchronizeObjectType';
-
-						EXECUTE @Return_Value = [dbo].[spMFSynchronizeObjectType]
-							@VaultSettings, @Debug, @ResponseMFObject OUTPUT, @IsUpdate;
-					END;
-
-				IF @Metadata = 'LoginAccount'
-					BEGIN
-						---------------------------------------------
-						--SYNCHRONIZE login accounts
-						---------------------------------------------
-						SELECT
-							@ProcedureStep = 'Synchronizing Login Accoount', @SPName = 'spMFSynchronizeLoginAccounte';
-
-						EXECUTE @Return_Value = [dbo].[spMFSynchronizeLoginAccount]
-							@VaultSettings, @Debug, @ResponseLoginAccount OUTPUT;
-					END;
+    select @VaultSettings = dbo.FnMFVaultSettings();
 
 
-				IF @Metadata = 'UserAccount'
-					BEGIN
-						---------------------------------------------
-						--SYNCHRONIZEuser accounts
-						---------------------------------------------
-						SELECT
-							@ProcedureStep = 'Synchronizing UserAccount', @SPName = 'spMFSynchronizeUserAccount';
+    set @Metadata = case
+                        when @Metadata like 'Class%' then
+                            'Class'
+                        when @Metadata like 'Proper%' then
+                            'Properties'
+                        when @Metadata like 'Valuelist' then
+                            'Valuelist'
+                        when @Metadata like '%Item%' then
+                            'Valuelistitems'
+                        when @Metadata like 'Valuelist%' then
+                            'Valuelist'
+                        when @Metadata like 'Workflow' then
+                            'Workflow'
+                        when @Metadata like '%Stat%' then
+                            'States'
+                        when @Metadata like 'Object%' then
+                            'ObjectType'
+                        when @Metadata like 'Login%' then
+                            'LoginAccount'
+                        when @Metadata like 'User%' then
+                            'UserAccount'
+                        else
+                            null
+                    end;
 
-						EXECUTE @Return_Value = [dbo].[spMFSynchronizeUserAccount]
-							@VaultSettings, @Debug, @ResponseMFObject OUTPUT;
-					END;
+    begin
+        begin try
+            -- BEGIN TRANSACTION;
+            ---------------------------------------------
+            --DECLARE LOCAL VARIABLE
+            --------------------------------------------- 
+            declare @ResponseMFObject       nvarchar(2000)
+                  , @ResponseProperties     nvarchar(2000)
+                  , @ResponseValueList      nvarchar(2000)
+                  , @ResponseValuelistItems nvarchar(2000)
+                  , @ResponseWorkflow       nvarchar(2000)
+                  , @ResponseWorkflowStates nvarchar(2000)
+                  , @ResponseMFClass        nvarchar(2000)
+                  , @ResponseLoginAccount   nvarchar(2000)
+                  , @ResponseuserAccount    nvarchar(2000)
+                  , @Response               nvarchar(2000)
+                  , @SPName                 nvarchar(100)
+                  , @Return_Value           int;
 
+            if @Metadata = 'ObjectType'
+            begin
+                ---------------------------------------------
+                --SYNCHRONIZE OBJECT TYPES
+                ---------------------------------------------
+                select @ProcedureStep = 'Synchronizing ObjectType'
+                     , @SPName        = N'spMFSynchronizeObjectType';
 
-				---------------------------------------------
-				--SYNCHRONIZE PROEPRTY
-				---------------------------------------------
-				SELECT
-					@ProcedureStep = 'Synchronizing Properties', @SPName = 'spMFSynchronizeProperties';
+                execute @Return_Value = dbo.spMFSynchronizeObjectType @VaultSettings
+                                                                    , @Debug
+                                                                    , @ResponseMFObject output
+                                                                    , @IsUpdate;
+            end;
 
-				IF @Metadata = 'Properties'
-					BEGIN
-						EXECUTE @Return_Value = [dbo].[spMFSynchronizeProperties]
-							@VaultSettings, @Debug, @ResponseProperties OUTPUT, @IsUpdate;
-					END;
+            if @Metadata = 'LoginAccount'
+            begin
+                ---------------------------------------------
+                --SYNCHRONIZE login accounts
+                ---------------------------------------------
+                select @ProcedureStep = 'Synchronizing Login Accoount'
+                     , @SPName        = N'spMFSynchronizeLoginAccounte';
 
-				---------------------------------------------
-				--SYNCHRONIZE VALUE LIST
-				---------------------------------------------
-				SELECT
-					@ProcedureStep = 'Synchronizing ValueList', @SPName = 'spMFSynchronizeValueList';
-
-				IF @Metadata = 'ValueList'
-					BEGIN
-						EXECUTE @Return_Value = [dbo].[spMFSynchronizeValueList]
-							@VaultSettings, @Debug, @ResponseValueList OUTPUT, @IsUpdate;
-					END;
-
-				---------------------------------------------
-				--SYNCHRONIZE VALUELIST ITEMS
-				---------------------------------------------
-				SELECT
-					@ProcedureStep = 'Synchronizing ValueList Items', @SPName = 'spMFSynchronizeValueListItems';
-
-				IF @Metadata = 'ValueListItems'
-					BEGIN
-						--print @Metadata
-
-						--Task 1046
-						IF @ItemName IS NOT NULL
-							BEGIN
-								SELECT	@MFvaluelistID = ISNULL([ID], 0)
-								FROM	[MFValueList]
-								WHERE	[Name] = @ItemName;
-
-							END;
-						--print @ItemName 
-						--print @MFvaluelistID
-
-						EXECUTE @Return_Value = [dbo].[spMFSynchronizeValueListItems]
-							@VaultSettings, @Debug, @ResponseValuelistItems OUTPUT, @MFvaluelistID;
-
-					END;
-
-				---------------------------------------------
-				--SYNCHRONIZE WORKFLOW
-				---------------------------------------------
-				SELECT
-					@ProcedureStep = 'Synchronizing workflow', @SPName = 'spMFSynchronizeWorkflow';
-
-				IF @Metadata = 'Workflow'
-					BEGIN
-						EXECUTE @Return_Value = [dbo].[spMFSynchronizeWorkflow]
-							@VaultSettings, @Debug, @ResponseWorkflow OUTPUT, @IsUpdate;
-					END;
-
-				---------------------------------------------
-				--SYNCHRONIZE WORKFLOW STATES
-				---------------------------------------------
-				SELECT
-					@ProcedureStep = 'Synchronizing Workflow states', @SPName = 'spMFSynchronizeWorkflowsStates';
-
-				IF @Metadata LIKE 'State%'
-					BEGIN
-						EXECUTE @Return_Value = [dbo].[spMFSynchronizeWorkflowsStates]
-							@VaultSettings, @Debug, @ResponseWorkflowStates OUTPUT, @IsUpdate;
-					END;
-
-				---------------------------------------------
-				--SYNCHRONIZE Class
-				---------------------------------------------
-				SELECT
-					@ProcedureStep = 'Synchronizing Class', @SPName = 'spMFSynchronizeClasses';
-
-				IF @Metadata = 'Class'
-					BEGIN
-						EXECUTE @Return_Value = [dbo].[spMFSynchronizeClasses]
-							@VaultSettings, @Debug, @ResponseMFClass OUTPUT, @IsUpdate;
-
-					--IF ( OBJECT_ID('FK_MFClassProperty_MFClass', 'F') IS NULL )
-					--                BEGIN
-
-					--                    ALTER TABLE [dbo].[MFClassProperty]
-					--                    WITH CHECK  ADD CONSTRAINT [FK_MFClassProperty_MFClass] FOREIGN KEY ([MFClass_ID]) REFERENCES [dbo].[MFClass]([ID]);
-
-					--                END;
-
-					END;
-
-				DECLARE @ProcessStep VARCHAR(100);
-				SELECT	@ProcessStep = 'END Syncronise specific metadata';
+                execute @Return_Value = dbo.spMFSynchronizeLoginAccount @VaultSettings
+                                                                      , @Debug
+                                                                      , @ResponseLoginAccount output;
+            end;
 
 
-				IF @Debug > 0
-					BEGIN
-						RAISERROR('Step %s Return %i', 10, 1, @ProcessStep, @Return_Value);
-					END;
+            if @Metadata = 'UserAccount'
+            begin
+                ---------------------------------------------
+                --SYNCHRONIZEuser accounts
+                ---------------------------------------------
+                select @ProcedureStep = 'Synchronizing UserAccount'
+                     , @SPName        = N'spMFSynchronizeUserAccount';
 
-				
-				IF @Metadata = NULL
-					BEGIN
-						PRINT 'Invalid Selection';
-						RETURN -1;
-					END;
-				ELSE RETURN 1;
-				SET NOCOUNT OFF;
-			--COMMIT TRANSACTION;
-			END TRY
-			BEGIN CATCH
---				ROLLBACK TRANSACTION;
+                execute @Return_Value = dbo.spMFSynchronizeUserAccount @VaultSettings
+                                                                     , @Debug
+                                                                     , @ResponseMFObject output;
+            end;
 
-				INSERT INTO [dbo].[MFLog] ( [SPName]
-										  , [ProcedureStep]
-										  , [ErrorNumber]
-										  , [ErrorMessage]
-										  , [ErrorProcedure]
-										  , [ErrorState]
-										  , [ErrorSeverity]
-										  , [ErrorLine]
-										  )
-				VALUES (
-						   @SPName
-						 , @ProcedureStep
-						 , ERROR_NUMBER()
-						 , ERROR_MESSAGE()
-						 , ERROR_PROCEDURE()
-						 , ERROR_STATE()
-						 , ERROR_SEVERITY()
-						 , ERROR_LINE()
-					   );
 
-				RETURN 2;
-			END CATCH;
-		END;
-	END;
+            ---------------------------------------------
+            --SYNCHRONIZE PROEPRTY
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing Properties'
+                 , @SPName        = N'spMFSynchronizeProperties';
 
-GO
+            if @Metadata = 'Properties'
+            begin
+                execute @Return_Value = dbo.spMFSynchronizeProperties @VaultSettings
+                                                                    , @Debug
+                                                                    , @ResponseProperties output
+                                                                    , @IsUpdate;
+            end;
+
+            ---------------------------------------------
+            --SYNCHRONIZE VALUE LIST
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing ValueList'
+                 , @SPName        = N'spMFSynchronizeValueList';
+
+            if @Metadata = 'ValueList'
+            begin
+                execute @Return_Value = dbo.spMFSynchronizeValueList @VaultSettings
+                                                                   , @Debug
+                                                                   , @ResponseValueList output
+                                                                   , @IsUpdate;
+            end;
+
+            ---------------------------------------------
+            --SYNCHRONIZE VALUELIST ITEMS
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing ValueList Items'
+                 , @SPName        = N'spMFSynchronizeValueListItems';
+
+            if @Metadata = 'ValueListItems'
+            begin
+                --print @Metadata
+
+
+                if @ItemName is not null
+                begin
+                    select @MFvaluelistID = isnull(ID, 0)
+                    from dbo.MFValueList
+                    where Name = @ItemName;
+
+                end;
+                --print @ItemName 
+                --print @MFvaluelistID
+
+                execute @Return_Value = dbo.spMFSynchronizeValueListItems @VaultSettings                                                                        
+                                                                        , @ResponseValuelistItems output
+                                                                        , @MFvaluelistID
+                                                                        , @Debug;                                                                          
+
+            end;
+
+            ---------------------------------------------
+            --SYNCHRONIZE WORKFLOW
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing workflow'
+                 , @SPName        = N'spMFSynchronizeWorkflow';
+
+            if @Metadata = 'Workflow'
+            begin
+                execute @Return_Value = dbo.spMFSynchronizeWorkflow @VaultSettings = @VaultSettings
+                                                                  , @Out = @ResponseWorkflow output
+                                                                  , @IsUpdate = @IsUpdate
+                                                                  , @Debug = @Debug
+                                                                  ;
+
+            end;
+
+            ---------------------------------------------
+            --SYNCHRONIZE WORKFLOW STATES
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing Workflow states'
+                 , @SPName        = N'spMFSynchronizeWorkflowsStates';
+
+            if @Metadata like '%State%'
+            begin
+                execute @Return_Value = dbo.spMFSynchronizeWorkflowsStates @VaultSettings = @VaultSettings
+                                                                         , @Out = @ResponseWorkflowStates output
+                                                                         , @itemname = @ItemName
+                                                                         , @IsUpdate = @IsUpdate
+                                                                         , @Debug = @Debug;
+
+
+            end;
+
+            ---------------------------------------------
+            --SYNCHRONIZE Class
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing Class'
+                 , @SPName        = N'spMFSynchronizeClasses';
+
+            if @Metadata = 'Class'
+            begin
+                execute @Return_Value = dbo.spMFSynchronizeClasses @VaultSettings
+                                                                 , @Debug
+                                                                 , @ResponseMFClass output
+                                                                 , @IsUpdate;
+
+            --IF ( OBJECT_ID('FK_MFClassProperty_MFClass', 'F') IS NULL )
+            --                BEGIN
+
+            --                    ALTER TABLE [dbo].[MFClassProperty]
+            --                    WITH CHECK  ADD CONSTRAINT [FK_MFClassProperty_MFClass] FOREIGN KEY ([MFClass_ID]) REFERENCES [dbo].[MFClass]([ID]);
+
+            --                END;
+
+            end;
+
+            declare @ProcessStep varchar(100);
+            select @ProcessStep = 'END Syncronise specific metadata';
+
+
+            if @Debug > 0
+            begin
+                raiserror('Step %s Return %i', 10, 1, @ProcessStep, @Return_Value);
+            end;
+
+
+            if @Metadata = null
+            begin
+                print 'Invalid Selection';
+                return -1;
+            end;
+            else
+                return 1;
+            set nocount off;
+        --COMMIT TRANSACTION;
+        end try
+        begin catch
+            --				ROLLBACK TRANSACTION;
+
+            insert into dbo.MFLog
+            (
+                SPName
+              , ProcedureStep
+              , ErrorNumber
+              , ErrorMessage
+              , ErrorProcedure
+              , ErrorState
+              , ErrorSeverity
+              , ErrorLine
+            )
+            values
+            (@SPName, @ProcedureStep, error_number(), error_message(), error_procedure(), error_state()
+           , error_severity(), error_line());
+
+            return 2;
+        end catch;
+    end;
+end;
+
+go

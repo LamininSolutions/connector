@@ -499,11 +499,20 @@ SET @DebugText = '';
             FROM @MessageByClassTable
             WHERE [id] = @Id;
 
+			IF @debug > 0
+			 SELECT @DetailStatus   as [LogStatus]
+                  ,@DetailLogText  as [LogText]
+                  ,@DetailDuration as [Duration]
+                  ,@RecordCount    as [RecCount];
+
             SET @Message
                 = @Message + ' |  | ' + 'Class Name: ' + ISNULL(@ClassName, '(null)') + ': '
                   + ISNULL(@DetailStatus, '(status unknown)') + ' | ' + ISNULL(@DetailLogText, '(null)') + ' | '
                   + 'Duration: ' + CONVERT(VARCHAR(25), @DetailDuration) + ' Count: '
                   + CAST(ISNULL(@RecordCount,0) AS VARCHAR(10));
+
+				  IF @debug > 0
+				  SELECT @message AS '@Message'
 
             --+ CAST(RIGHT('0' + CAST(FLOOR((COALESCE(@DetailDuration, 0) / 60) / 60) AS VARCHAR(8)), 2) + ':'
             --       + RIGHT('0' + CAST(FLOOR(COALESCE(@DetailDuration, 0) / 60) AS VARCHAR(8)), 2) + ':'

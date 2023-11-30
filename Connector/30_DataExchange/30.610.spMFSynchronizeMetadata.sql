@@ -1,8 +1,9 @@
-GO
 
-PRINT SPACE(5) + QUOTENAME(@@SERVERNAME) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFSynchronizeMetadata]';
-GO
- 
+go
+
+print space(5) + quotename(@@servername) + '.' + quotename(db_name()) + '.[dbo].[spMFSynchronizeMetadata]';
+go
+
 /*------------------------------------------------------------------------------------------------
 	Author: Thejus T V
 	Create date: 27-03-2015
@@ -11,48 +12,49 @@ GO
 ------------------------------------------------------------------------------------------------*/
 
 
-SET NOCOUNT ON; 
-EXEC [Setup].[spMFSQLObjectsControl]
-    @SchemaName = N'dbo'
-  , @ObjectName = N'spMFSynchronizeMetadata'
-  , -- nvarchar(100)
-    @Object_Release = '4.2.7.46'
-  , -- varchar(50)
-    @UpdateFlag = 2;
- -- smallint
- 
-GO
+set nocount on;
+exec setup.spMFSQLObjectsControl @SchemaName = N'dbo'
+                               , @ObjectName = N'spMFSynchronizeMetadata'
+-- nvarchar(100)
+                               , @Object_Release = '4.11.33.77'
+-- varchar(50)
+                               , @UpdateFlag = 2;
+-- smallint
 
-IF EXISTS ( SELECT  1
-            FROM    [INFORMATION_SCHEMA].[ROUTINES]
-            WHERE   [ROUTINES].[ROUTINE_NAME] = 'spMFSynchronizeMetadata'--name of procedure
-                    AND [ROUTINES].[ROUTINE_TYPE] = 'PROCEDURE'--for a function --'FUNCTION'
-                    AND [ROUTINES].[ROUTINE_SCHEMA] = 'dbo' )
-   BEGIN
-         PRINT SPACE(10) + '...Stored Procedure: update';
-         SET NOEXEC ON;
-   END;
-ELSE
-   PRINT SPACE(10) + '...Stored Procedure: create';
-GO
-	
+go
+
+if exists
+(
+    select 1
+    from INFORMATION_SCHEMA.ROUTINES
+    where ROUTINE_NAME = 'spMFSynchronizeMetadata' --name of procedure
+          and ROUTINE_TYPE = 'PROCEDURE' --for a function --'FUNCTION'
+          and ROUTINE_SCHEMA = 'dbo'
+)
+begin
+    print space(10) + '...Stored Procedure: update';
+    set noexec on;
+end;
+else
+    print space(10) + '...Stored Procedure: create';
+go
+
 -- if the routine exists this stub creation stem is parsed but not executed
-CREATE PROCEDURE [dbo].[spMFSynchronizeMetadata]
-AS
-       SELECT   'created, but not implemented yet.';
+create procedure dbo.spMFSynchronizeMetadata
+as
+select 'created, but not implemented yet.';
 --just anything will do
 
-GO
+go
 -- the following section will be always executed
-SET NOEXEC OFF;
-GO
+set noexec off;
+go
 
 
-ALTER PROCEDURE [dbo].[spMFSynchronizeMetadata]
-     @ProcessBatch_ID INT = NULL OUTPUT 
-    ,@Debug SMALLINT = 0
-
-AS
+alter procedure dbo.spMFSynchronizeMetadata
+    @ProcessBatch_ID int = null output
+  , @Debug smallint = 0
+as
 
 /*rST**************************************************************************
 
@@ -107,6 +109,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-07-30  LC         Improve logging and productivity of procedure
 2018-11-15  LC         Fix processbatch_ID logging
 2018-07-25  LC         Auto create MFUserMessages
 2018-04-30  LC         Add to MFUserMessage
@@ -119,561 +122,553 @@ Date        Author     Description
 
 **rST*************************************************************************/
 
-      BEGIN
-            SET NOCOUNT ON;
+begin
+    set nocount on;
 
-      ---------------------------------------------
-      --DECLARE LOCAL VARIABLE
-      --------------------------------------------- 
-            DECLARE @VaultSettings NVARCHAR(4000)
-                  , @ProcedureStep sysname = 'START';
+    ---------------------------------------------
+    --DECLARE LOCAL VARIABLE
+    --------------------------------------------- 
+    declare @VaultSettings nvarchar(4000)
+          , @ProcedureStep sysname = 'START';
 
 
-            DECLARE @RC INT;
-            DECLARE @ProcessType NVARCHAR(50) = 'Metadata Sync';
-            DECLARE @LogType NVARCHAR(50);
-            DECLARE @LogText NVARCHAR(4000);
-            DECLARE @LogStatus NVARCHAR(50);
-            DECLARE @ProcedureName VARCHAR(100) = 'spMFSynchronizeMetadata';
-            DECLARE @MFTableName NVARCHAR(128);
-            DECLARE @Update_ID INT;
-            DECLARE @LogProcedureName NVARCHAR(128);
-            DECLARE @LogProcedureStep NVARCHAR(128);
+    declare @RC int;
+    declare @ProcessType nvarchar(50) = N'Metadata Sync';
+    declare @LogType nvarchar(50);
+    declare @LogText nvarchar(4000);
+    declare @LogStatus nvarchar(50);
+    declare @ProcedureName varchar(100) = 'spMFSynchronizeMetadata';
+    declare @MFTableName nvarchar(128);
+    declare @Update_ID int;
+    declare @LogProcedureName nvarchar(128);
+    declare @LogProcedureStep nvarchar(128);
 
-      ---------------------------------------------
-      -- ACCESS CREDENTIALS FROM Setting TABLE
-      ---------------------------------------------
+    ---------------------------------------------
+    -- ACCESS CREDENTIALS FROM Setting TABLE
+    ---------------------------------------------
 
---used on MFProcessBatchDetail;
-            DECLARE @LogTypeDetail AS NVARCHAR(50) = 'System'
-            DECLARE @LogTextDetail AS NVARCHAR(4000) = '';
-            DECLARE @LogStatusDetail AS NVARCHAR(50) = 'In Progress'
-            DECLARE @EndTime DATETIME
-            DECLARE @StartTime DATETIME
-            DECLARE @StartTime_Total DATETIME = GETUTCDATE()
-            DECLARE @Validation_ID INT
-            DECLARE @LogColumnName NVARCHAR(128)
-            DECLARE @LogColumnValue NVARCHAR(256)
+    --used on MFProcessBatchDetail;
+    declare @LogTypeDetail as nvarchar(50) = N'System';
+    declare @LogTextDetail as nvarchar(4000) = N'';
+    declare @LogStatusDetail as nvarchar(50) = N'In Progress';
+    declare @EndTime datetime;
+    declare @StartTime datetime;
+    declare @StartTime_Total datetime = getutcdate();
+    declare @Validation_ID int;
+    declare @LogColumnName nvarchar(128);
+    declare @LogColumnValue nvarchar(256);
+
+
+    declare @error as int = 0;
+    declare @rowcount as int = 0;
+    declare @return_value as int;
+    select @VaultSettings = dbo.FnMFVaultSettings();
+
+
+    begin
+
+        set @ProcessType = @ProcedureName;
+        set @LogType = N'Status';
+        set @LogText = @ProcedureStep + N' | ';
+        set @LogStatus = N'Initiate';
+
+
+        execute @RC = dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID output
+                                                , @ProcessType = @ProcessType
+                                                , @LogType = @LogType
+                                                , @LogText = @LogText
+                                                , @LogStatus = @LogStatus
+                                                , @debug = @Debug;
+
+
+        begin try
+            ---------------------------------------------
+            --DECLARE LOCAL VARIABLE
+            --------------------------------------------- 
+            declare @ResponseMFObject       nvarchar(2000)
+                  , @ResponseProperties     nvarchar(2000)
+                  , @ResponseValueList      nvarchar(2000)
+                  , @ResponseValuelistItems nvarchar(2000)
+                  , @ResponseWorkflow       nvarchar(2000)
+                  , @ResponseWorkflowStates nvarchar(2000)
+                  , @ResponseLoginAccount   nvarchar(2000)
+                  , @ResponseUserAccount    nvarchar(2000)
+                  , @ResponseMFClass        nvarchar(2000)
+                  , @Response               nvarchar(2000)
+                  , @SPName                 nvarchar(100);
+            ---------------------------------------------
+            --SYNCHRONIZE Login Accounts
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing Login Accounts'
+                 , @SPName        = N'spMFSynchronizeLoginAccount';
+
+            if @Debug > 9
+                raiserror('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
+
+            execute @return_value = dbo.spMFSynchronizeLoginAccount @VaultSettings
+                                                                  , @Debug
+                                                                  , @ResponseLoginAccount output;
+
+            set @StartTime = getutcdate();
+
+            set @LogTypeDetail = N'Message';
+            set @LogTextDetail = @SPName;
+            set @LogStatusDetail = N'Completed';
+            set @Validation_ID = null;
+            set @LogColumnValue = N'';
+            set @LogColumnValue = N'';
+
+            execute @RC = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                                          , @LogType = @LogTypeDetail
+                                                          , @LogText = @LogTextDetail
+                                                          , @LogStatus = @LogStatusDetail
+                                                          , @StartTime = @StartTime
+                                                          , @MFTableName = @MFTableName
+                                                          , @Validation_ID = @Validation_ID
+                                                          , @ColumnName = @LogColumnName
+                                                          , @ColumnValue = @LogColumnValue
+                                                          , @Update_ID = @Update_ID
+                                                          , @LogProcedureName = @ProcedureName
+                                                          , @LogProcedureStep = @ProcedureStep
+                                                          , @debug = @Debug;
+
+
+            ---------------------------------------------
+            --SYNCHRONIZE Login Accounts
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing User Accounts'
+                 , @SPName        = N'spMFSynchronizeUserAccount';
+
+            if @Debug > 9
+                raiserror('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
+
+            execute @return_value = dbo.spMFSynchronizeUserAccount @VaultSettings
+                                                                 , @Debug
+                                                                 , @ResponseUserAccount output;
+
+            set @StartTime = getutcdate();
+
+
+            set @LogTypeDetail = N'Message';
+            set @LogTextDetail = @SPName;
+            set @LogStatusDetail = N'Completed';
+            set @Validation_ID = null;
+            set @LogColumnValue = N'';
+            set @LogColumnValue = N'';
+
+            execute @RC = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                                          , @LogType = @LogTypeDetail
+                                                          , @LogText = @LogTextDetail
+                                                          , @LogStatus = @LogStatusDetail
+                                                          , @StartTime = @StartTime
+                                                          , @MFTableName = @MFTableName
+                                                          , @Validation_ID = @Validation_ID
+                                                          , @ColumnName = @LogColumnName
+                                                          , @ColumnValue = @LogColumnValue
+                                                          , @Update_ID = @Update_ID
+                                                          , @LogProcedureName = @ProcedureName
+                                                          , @LogProcedureStep = @ProcedureStep
+                                                          , @debug = @Debug;
+            ---------------------------------------------
+            --SYNCHRONIZE OBJECT TYPES
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing ObjectType'
+                 , @SPName        = N'spMFSynchronizeObjectType';
+
+            if @Debug > 9
+                raiserror('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
+
+            execute @return_value = dbo.spMFSynchronizeObjectType @VaultSettings
+                                                                , @Debug
+                                                                , @ResponseMFObject output;
+
+            set @StartTime = getutcdate();
+
+            set @LogTypeDetail = N'Message';
+            set @LogTextDetail = @SPName;
+            set @LogStatusDetail = N'Completed';
+            set @Validation_ID = null;
+            set @LogColumnValue = N'';
+            set @LogColumnValue = N'';
+
+            execute @RC = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                                          , @LogType = @LogTypeDetail
+                                                          , @LogText = @LogTextDetail
+                                                          , @LogStatus = @LogStatusDetail
+                                                          , @StartTime = @StartTime
+                                                          , @MFTableName = @MFTableName
+                                                          , @Validation_ID = @Validation_ID
+                                                          , @ColumnName = @LogColumnName
+                                                          , @ColumnValue = @LogColumnValue
+                                                          , @Update_ID = @Update_ID
+                                                          , @LogProcedureName = @ProcedureName
+                                                          , @LogProcedureStep = @ProcedureStep
+                                                          , @debug = @Debug;
+
+            ---------------------------------------------
+            --SYNCHRONIZE VALUE LIST
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing ValueList'
+                 , @SPName        = N'spMFSynchronizeValueList';
+
+            if @Debug > 9
+                raiserror('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
+
+            execute @return_value = dbo.spMFSynchronizeValueList @VaultSettings
+                                                               , @Debug
+                                                               , @ResponseValueList output;
+
+            set @StartTime = getutcdate();
+
+            set @LogTypeDetail = N'Message';
+            set @LogTextDetail = @SPName;
+            set @LogStatusDetail = N'Completed';
+            set @Validation_ID = null;
+            set @LogColumnValue = N'';
+            set @LogColumnValue = N'';
+
+            execute @RC = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                                          , @LogType = @LogTypeDetail
+                                                          , @LogText = @LogTextDetail
+                                                          , @LogStatus = @LogStatusDetail
+                                                          , @StartTime = @StartTime
+                                                          , @MFTableName = @MFTableName
+                                                          , @Validation_ID = @Validation_ID
+                                                          , @ColumnName = @LogColumnName
+                                                          , @ColumnValue = @LogColumnValue
+                                                          , @Update_ID = @Update_ID
+                                                          , @LogProcedureName = @ProcedureName
+                                                          , @LogProcedureStep = @ProcedureStep
+                                                          , @debug = @Debug;
+
+
+            ---------------------------------------------
+            --SYNCHRONIZE VALUELIST ITEMS
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing ValueList Items'
+                 , @SPName        = N'spMFSynchronizeValueListItems';
+
+            if @Debug > 9
+                raiserror('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
+            
+
+                execute @Return_Value = dbo.spMFSynchronizeValueListItems @VaultSettings                                                                        
+                                                                        , @ResponseValuelistItems output
+                                                                        , 0
+                                                                        , @Debug
+                                                                        ,@ProcessBatch_ID = @ProcessBatch_ID;                                                                          
         
 
-            DECLARE @error AS INT = 0;
-            DECLARE @rowcount AS INT = 0;
-            DECLARE @return_value AS INT;
-            SELECT  @VaultSettings = [dbo].[FnMFVaultSettings]()
-        
-
-            BEGIN
-
-                  SET @ProcessType = @ProcedureName
-                  SET @LogType = 'Status';
-                  SET @LogText = @ProcedureStep + ' | ';
-                  SET @LogStatus = 'Initiate';
- 
- 
-                  EXECUTE @RC = [dbo].[spMFProcessBatch_Upsert]
-                    @ProcessBatch_ID = @ProcessBatch_ID OUTPUT
-                  , @ProcessType = @ProcessType
-                  , @LogType = @LogType
-                  , @LogText = @LogText
-                  , @LogStatus = @LogStatus
-                  , @debug = @debug;
- 
- 
-                  BEGIN TRY
-              ---------------------------------------------
-              --DECLARE LOCAL VARIABLE
-              --------------------------------------------- 
-                        DECLARE @ResponseMFObject NVARCHAR(2000)
-                              , @ResponseProperties NVARCHAR(2000)
-                              , @ResponseValueList NVARCHAR(2000)
-                              , @ResponseValuelistItems NVARCHAR(2000)
-                              , @ResponseWorkflow NVARCHAR(2000)
-                              , @ResponseWorkflowStates NVARCHAR(2000)
-                              , @ResponseLoginAccount NVARCHAR(2000)
-                              , @ResponseUserAccount NVARCHAR(2000)
-                              , @ResponseMFClass NVARCHAR(2000)
-                              , @Response NVARCHAR(2000)
-                              , @SPName NVARCHAR(100);
-		    ---------------------------------------------
-              --SYNCHRONIZE Login Accounts
-              ---------------------------------------------
-                        SELECT  @ProcedureStep = 'Synchronizing Login Accounts'
-                              , @SPName = 'spMFSynchronizeLoginAccount';
-
-                        IF @Debug > 9
-                           RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
-
-                        EXECUTE @return_value = [dbo].[spMFSynchronizeLoginAccount]
-                            @VaultSettings
-                          , @Debug
-                          , @ResponseLoginAccount OUTPUT;
-
-                        SET @StartTime = GETUTCDATE();
-
-                        SET @LogTypeDetail = 'Message'
-                        SET @LogTextDetail = @SPName
-                        SET @LogStatusDetail = 'Completed'
-                        SET @Validation_ID = NULL
-                        SET @LogColumnValue = ''
-                        SET @LogColumnValue = ''
-
-                        EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @LogType = @LogTypeDetail
-                          , @LogText = @LogTextDetail
-                          , @LogStatus = @LogStatusDetail
-                          , @StartTime = @StartTime
-                          , @MFTableName = @MFTableName
-                          , @Validation_ID = @Validation_ID
-                          , @ColumnName = @LogColumnName
-                          , @ColumnValue = @LogColumnValue
-                          , @Update_ID = @Update_ID
-                          , @LogProcedureName = @ProcedureName
-                          , @LogProcedureStep = @ProcedureStep
-                          , @debug = @debug
-
-   
-		   ---------------------------------------------
-              --SYNCHRONIZE Login Accounts
-              ---------------------------------------------
-                        SELECT  @ProcedureStep = 'Synchronizing User Accounts'
-                              , @SPName = 'spMFSynchronizeUserAccount';
-
-                        IF @Debug > 9
-                           RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
-
-                        EXECUTE @return_value = [dbo].[spMFSynchronizeUserAccount]
-                            @VaultSettings
-                          , @Debug
-                          , @ResponseUserAccount OUTPUT;
-
-                        SET @StartTime = GETUTCDATE();
-
-
-                        SET @LogTypeDetail = 'Message'
-                        SET @LogTextDetail = @SPName
-                        SET @LogStatusDetail = 'Completed'
-                        SET @Validation_ID = NULL
-                        SET @LogColumnValue = ''
-                        SET @LogColumnValue = ''
-
-                        EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @LogType = @LogTypeDetail
-                          , @LogText = @LogTextDetail
-                          , @LogStatus = @LogStatusDetail
-                          , @StartTime = @StartTime
-                          , @MFTableName = @MFTableName
-                          , @Validation_ID = @Validation_ID
-                          , @ColumnName = @LogColumnName
-                          , @ColumnValue = @LogColumnValue
-                          , @Update_ID = @Update_ID
-                          , @LogProcedureName = @ProcedureName
-                          , @LogProcedureStep = @ProcedureStep
-                          , @debug = @debug
-              ---------------------------------------------
-              --SYNCHRONIZE OBJECT TYPES
-              ---------------------------------------------
-                        SELECT  @ProcedureStep = 'Synchronizing ObjectType'
-                              , @SPName = 'spMFSynchronizeObjectType';
-
-                        IF @Debug > 9
-                           RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
-
-                        EXECUTE @return_value = [dbo].[spMFSynchronizeObjectType]
-                            @VaultSettings
-                          , @Debug
-                          , @ResponseMFObject OUTPUT;              
-
-                        SET @StartTime = GETUTCDATE();
-
-                        SET @LogTypeDetail = 'Message'
-                        SET @LogTextDetail = @SPName
-                        SET @LogStatusDetail = 'Completed'
-                        SET @Validation_ID = NULL
-                        SET @LogColumnValue = ''
-                        SET @LogColumnValue = ''
-
-                        EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @LogType = @LogTypeDetail
-                          , @LogText = @LogTextDetail
-                          , @LogStatus = @LogStatusDetail
-                          , @StartTime = @StartTime
-                          , @MFTableName = @MFTableName
-                          , @Validation_ID = @Validation_ID
-                          , @ColumnName = @LogColumnName
-                          , @ColumnValue = @LogColumnValue
-                          , @Update_ID = @Update_ID
-                          , @LogProcedureName = @ProcedureName
-                          , @LogProcedureStep = @ProcedureStep
-                          , @debug = @debug
-            
-              ---------------------------------------------
-              --SYNCHRONIZE VALUE LIST
-              ---------------------------------------------
-                        SELECT  @ProcedureStep = 'Synchronizing ValueList'
-                              , @SPName = 'spMFSynchronizeValueList';
-
-                        IF @Debug > 9
-                           RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
-
-                        EXECUTE @return_value = [dbo].[spMFSynchronizeValueList]
-                            @VaultSettings
-                          , @Debug
-                          , @ResponseValueList OUTPUT;
-
-                        SET @StartTime = GETUTCDATE();
-
-                        SET @LogTypeDetail = 'Message'
-                        SET @LogTextDetail = @SPName
-                        SET @LogStatusDetail = 'Completed'
-                        SET @Validation_ID = NULL
-                        SET @LogColumnValue = ''
-                        SET @LogColumnValue = ''
-
-                        EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @LogType = @LogTypeDetail
-                          , @LogText = @LogTextDetail
-                          , @LogStatus = @LogStatusDetail
-                          , @StartTime = @StartTime
-                          , @MFTableName = @MFTableName
-                          , @Validation_ID = @Validation_ID
-                          , @ColumnName = @LogColumnName
-                          , @ColumnValue = @LogColumnValue
-                          , @Update_ID = @Update_ID
-                          , @LogProcedureName = @ProcedureName
-                          , @LogProcedureStep = @ProcedureStep
-                          , @debug = @debug
-
-            
-              ---------------------------------------------
-              --SYNCHRONIZE VALUELIST ITEMS
-              ---------------------------------------------
-                        SELECT  @ProcedureStep = 'Synchronizing ValueList Items'
-                              , @SPName = 'spMFSynchronizeValueListItems';
-
-                        IF @Debug > 9
-                           RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
-
-                        EXECUTE @return_value = [dbo].[spMFSynchronizeValueListItems]
-                            @VaultSettings
-                          , @Debug
-                          , @ResponseValuelistItems OUTPUT;
-
-                        SET @StartTime = GETUTCDATE();
-
-                        SET @LogTypeDetail = 'Message'
-                        SET @LogTextDetail = @SPName
-                        SET @LogStatusDetail = 'Completed'
-                        SET @Validation_ID = NULL
-                        SET @LogColumnValue = ''
-                        SET @LogColumnValue = ''
-
-                        EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @LogType = @LogTypeDetail
-                          , @LogText = @LogTextDetail
-                          , @LogStatus = @LogStatusDetail
-                          , @StartTime = @StartTime
-                          , @MFTableName = @MFTableName
-                          , @Validation_ID = @Validation_ID
-                          , @ColumnName = @LogColumnName
-                          , @ColumnValue = @LogColumnValue
-                          , @Update_ID = @Update_ID
-                          , @LogProcedureName = @ProcedureName
-                          , @LogProcedureStep = @ProcedureStep
-                          , @debug = @debug
-
-            
-  
-              ---------------------------------------------
-              --SYNCHRONIZE WORKFLOW
-              ---------------------------------------------
-                        SELECT  @ProcedureStep = 'Synchronizing workflow'
-                              , @SPName = 'spMFSynchronizeWorkflow';
-
-                        IF @Debug > 9
-                           RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
-
-                        EXECUTE @return_value = [dbo].[spMFSynchronizeWorkflow]
-                            @VaultSettings
-                          , @Debug
-                          , @ResponseWorkflow OUTPUT;
-
-                        SET @StartTime = GETUTCDATE();
-
-                        SET @LogTypeDetail = 'Message'
-                        SET @LogTextDetail = @SPName
-                        SET @LogStatusDetail = 'Completed'
-                        SET @Validation_ID = NULL
-                        SET @LogColumnValue = ''
-                        SET @LogColumnValue = ''
-
-                        EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @LogType = @LogTypeDetail
-                          , @LogText = @LogTextDetail
-                          , @LogStatus = @LogStatusDetail
-                          , @StartTime = @StartTime
-                          , @MFTableName = @MFTableName
-                          , @Validation_ID = @Validation_ID
-                          , @ColumnName = @LogColumnName
-                          , @ColumnValue = @LogColumnValue
-                          , @Update_ID = @Update_ID
-                          , @LogProcedureName = @ProcedureName
-                          , @LogProcedureStep = @ProcedureStep
-                          , @debug = @debug
-
-
-              ---------------------------------------------
-              --SYNCHRONIZE WORKFLOW STATES
-              ---------------------------------------------
-                        SELECT  @ProcedureStep = 'Synchronizing Workflow states'
-                              , @SPName = 'spMFSynchronizeWorkflowsStates';
-
-                        IF @Debug > 9
-                           RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
-
-                        EXECUTE @return_value = [dbo].[spMFSynchronizeWorkflowsStates]
-                            @VaultSettings
-                          , @Debug
-                          , @ResponseWorkflowStates OUTPUT;
-
-                        SET @StartTime = GETUTCDATE();
-
-                        SET @LogTypeDetail = 'Message'
-                        SET @LogTextDetail = @SPName
-                        SET @LogStatusDetail = 'Completed'
-                        SET @Validation_ID = NULL
-                        SET @LogColumnValue = ''
-                        SET @LogColumnValue = ''
-
-                        EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @LogType = @LogTypeDetail
-                          , @LogText = @LogTextDetail
-                          , @LogStatus = @LogStatusDetail
-                          , @StartTime = @StartTime
-                          , @MFTableName = @MFTableName
-                          , @Validation_ID = @Validation_ID
-                          , @ColumnName = @LogColumnName
-                          , @ColumnValue = @LogColumnValue
-                          , @Update_ID = @Update_ID
-                          , @LogProcedureName = @ProcedureName
-                          , @LogProcedureStep = @ProcedureStep
-                          , @debug = @debug
-   		    ---------------------------------------------
-              --SYNCHRONIZE PROEPRTY
-              ---------------------------------------------
-                        SELECT  @ProcedureStep = 'Synchronizing Properties'
-                              , @SPName = 'spMFSynchronizeProperties';
-
-                        IF @Debug > 9
-                           RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
-
-                        EXECUTE @return_value = [dbo].[spMFSynchronizeProperties]
-                            @VaultSettings
-                          , @Debug
-                          , @ResponseProperties OUTPUT;
-  
-                        SET @StartTime = GETUTCDATE();
-
-                        SET @LogTypeDetail = 'Message'
-                        SET @LogTextDetail = @SPName
-                        SET @LogStatusDetail = 'Completed'
-                        SET @Validation_ID = NULL
-                        SET @LogColumnValue = ''
-                        SET @LogColumnValue = ''
-
-                        EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @LogType = @LogTypeDetail
-                          , @LogText = @LogTextDetail
-                          , @LogStatus = @LogStatusDetail
-                          , @StartTime = @StartTime
-                          , @MFTableName = @MFTableName
-                          , @Validation_ID = @Validation_ID
-                          , @ColumnName = @LogColumnName
-                          , @ColumnValue = @LogColumnValue
-                          , @Update_ID = @Update_ID
-                          , @LogProcedureName = @ProcedureName
-                          , @LogProcedureStep = @ProcedureStep
-                          , @debug = @debug
-         
-              ---------------------------------------------
-              --SYNCHRONIZE Class
-              ---------------------------------------------
-                        SELECT  @ProcedureStep = 'Synchronizing Class'
-                              , @SPName = 'spMFSynchronizeClasses';
-
-                        IF @Debug > 9
-                           RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
-
-                        EXECUTE @return_value = [dbo].[spMFSynchronizeClasses]
-                            @VaultSettings
-                          , @Debug
-                          , @ResponseMFClass OUTPUT;
-                    SET @StartTime = GETUTCDATE();
-
-                        SET @LogTypeDetail = 'Message'
-                        SET @LogTextDetail = @SPName
-                        SET @LogStatusDetail = 'Completed'
-                        SET @Validation_ID = NULL
-                        SET @LogColumnValue = ''
-                        SET @LogColumnValue = ''
-
-                        EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @LogType = @LogTypeDetail
-                          , @LogText = @LogTextDetail
-                          , @LogStatus = @LogStatusDetail
-                          , @StartTime = @StartTime
-                          , @MFTableName = @MFTableName
-                          , @Validation_ID = @Validation_ID
-                          , @ColumnName = @LogColumnName
-                          , @ColumnValue = @LogColumnValue
-                          , @Update_ID = @Update_ID
-                          , @LogProcedureName = @ProcedureName
-                          , @LogProcedureStep = @ProcedureStep
-                          , @debug = @debug
-         
-   
-
--------------------------------------------------------------
--- Create MFUSerMessage Table
--------------------------------------------------------------
-
-
-IF NOT EXISTS ( SELECT  name
-                FROM    sys.tables
-                WHERE   name = 'MFUserMessages'
-                        AND SCHEMA_NAME(schema_id) = 'dbo' )
-						BEGIN                   					
-
-	EXEC [dbo].[spMFCreateTable] @ClassName = 'User Messages', -- nvarchar(128)
-	                             @Debug = 0      -- smallint
-	
-
-	END
-
-
-
-
-                        SET @StartTime = GETUTCDATE();
-
-                        SET @LogTypeDetail = 'Message'
-                        SET @LogTextDetail = @SPName
-                        SET @LogStatusDetail = 'Completed'
-                        SET @Validation_ID = NULL
-                        SET @LogColumnValue = ''
-                        SET @LogColumnValue = ''
-
-                        EXECUTE @RC = [dbo].[spMFProcessBatchDetail_Insert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @LogType = @LogTypeDetail
-                          , @LogText = @LogTextDetail
-                          , @LogStatus = @LogStatusDetail
-                          , @StartTime = @StartTime
-                          , @MFTableName = @MFTableName
-                          , @Validation_ID = @Validation_ID
-                          , @ColumnName = @LogColumnName
-                          , @ColumnValue = @LogColumnValue
-                          , @Update_ID = @Update_ID
-                          , @LogProcedureName = @ProcedureName
-                          , @LogProcedureStep = @ProcedureStep
-                          , @debug = @debug
-
-
-                        SET @LogText = 'Processing ' + @ProcedureName + ' completed'
-                        SET @LogStatus = 'Completed'
-  
-                        EXECUTE @RC = [dbo].[spMFProcessBatch_Upsert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @ProcessType = @ProcessType
-                          , @LogType = @LogType
-                          , @LogText = @LogText					  
-                          , @LogStatus = @LogStatus
-                          , @debug = @debug
- 
-                        SELECT  @ProcedureStep = 'Synchronizing metadata completed' 
-                        IF @Debug > 9
-                           RAISERROR('%s : Step %s',10,1,@ProcedureName, @ProcedureStep);
-
-                        RETURN 1
-                  END TRY 
-
-                  BEGIN CATCH
-                        SET NOCOUNT ON;
-
-                        SET @error = @@ERROR
-                        SET @LogStatusDetail = CASE WHEN ( @error <> 0
-                                                           OR @return_value = -1
-                                                         ) THEN 'Failed'
-                                                    WHEN @return_value IN ( 1, 0 ) THEN 'Complete'
-                                                    ELSE 'Exception'
-                                               END
-								
-                        SET @LogTextDetail = @ProcedureStep + ' | Return Value: ' + CAST(@return_value AS NVARCHAR(256))
-                        SET @LogColumnName = ''
-                        SET @LogColumnValue = ''
-                        SET @StartTime = GETUTCDATE();
-
-                        EXEC [dbo].[spMFProcessBatchDetail_Insert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @LogType = 'System'
-                          , @LogText = @LogTextDetail
-                          , @LogStatus = @LogStatusDetail
-                          , @StartTime = @StartTime
-                          , @MFTableName = @MFTableName
-                          , @ColumnName = @LogColumnName
-                          , @ColumnValue = @LogColumnValue
-                          , @LogProcedureName = @ProcedureName
-                          , @LogProcedureStep = @ProcedureStep
-                          , @debug = @debug;
-
-                        SET @LogStatusDetail = NULL
-                        SET @LogTextDetail = NULL
-                        SET @LogColumnName = NULL
-                        SET @LogColumnValue = NULL
-                        SET @error = NULL	
-
-
-                        EXECUTE @RC = [dbo].[spMFProcessBatch_Upsert]
-                            @ProcessBatch_ID = @ProcessBatch_ID
-                          , @ProcessType = @ProcessType
-                          , @LogType = @LogType
-                          , @LogText = @LogText
-                          , @LogStatus = @LogStatus
-                          , @debug = @debug
-
-                        INSERT  INTO [dbo].[MFLog]
-                                ( [SPName]
-                                , [ProcedureStep]
-                                , [ErrorNumber]
-                                , [ErrorMessage]
-                                , [ErrorProcedure]
-                                , [ErrorState]
-                                , [ErrorSeverity]
-                                , [ErrorLine]
-                                )
-                        VALUES  ( @SPName
-                                , @ProcedureStep
-                                , ERROR_NUMBER()
-                                , ERROR_MESSAGE()
-                                , ERROR_PROCEDURE()
-                                , ERROR_STATE()
-                                , ERROR_SEVERITY()
-                                , ERROR_LINE()
-                                );
-
-                        SET NOCOUNT OFF;
-
-                        RETURN -1;
-                  END CATCH;
-            END;
-      END;
-
-
-GO
+            set @StartTime = getutcdate();
+
+            --set @LogTypeDetail = N'Message';
+            --set @LogTextDetail = @SPName;
+            --set @LogStatusDetail = N'Completed';
+            --set @Validation_ID = null;
+            --set @LogColumnValue = N'';
+            --set @LogColumnValue = N'';
+
+            --execute @RC = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+            --                                              , @LogType = @LogTypeDetail
+            --                                              , @LogText = @LogTextDetail
+            --                                              , @LogStatus = @LogStatusDetail
+            --                                              , @StartTime = @StartTime
+            --                                              , @MFTableName = @MFTableName
+            --                                              , @Validation_ID = @Validation_ID
+            --                                              , @ColumnName = @LogColumnName
+            --                                              , @ColumnValue = @LogColumnValue
+            --                                              , @Update_ID = @Update_ID
+            --                                              , @LogProcedureName = @ProcedureName
+            --                                              , @LogProcedureStep = @ProcedureStep
+            --                                              , @debug = @Debug;
+
+
+
+            ---------------------------------------------
+            --SYNCHRONIZE WORKFLOW
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing workflow'
+                 , @SPName        = N'spMFSynchronizeWorkflow';
+
+            if @Debug > 9
+                raiserror('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
+
+
+                execute @Return_Value = dbo.spMFSynchronizeWorkflow @VaultSettings = @VaultSettings
+                                                                  , @Out = @ResponseWorkflow output
+                                                                  , @IsUpdate = 0
+                                                                  , @Debug = @Debug
+                                                                  ,@ProcessBatch_ID = @ProcessBatch_ID
+                                                                  ;
+
+
+            set @StartTime = getutcdate();
+
+            set @LogTypeDetail = N'Message';
+            set @LogTextDetail = @SPName;
+            set @LogStatusDetail = N'Completed';
+            set @Validation_ID = null;
+            set @LogColumnValue = N'';
+            set @LogColumnValue = N'';
+
+            execute @RC = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                                          , @LogType = @LogTypeDetail
+                                                          , @LogText = @LogTextDetail
+                                                          , @LogStatus = @LogStatusDetail
+                                                          , @StartTime = @StartTime
+                                                          , @MFTableName = @MFTableName
+                                                          , @Validation_ID = @Validation_ID
+                                                          , @ColumnName = @LogColumnName
+                                                          , @ColumnValue = @LogColumnValue
+                                                          , @Update_ID = @Update_ID
+                                                          , @LogProcedureName = @ProcedureName
+                                                          , @LogProcedureStep = @ProcedureStep
+                                                          , @debug = @Debug;
+
+
+            ---------------------------------------------
+            --SYNCHRONIZE WORKFLOW STATES
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing Workflow states'
+                 , @SPName        = N'spMFSynchronizeWorkflowsStates';
+
+            if @Debug > 9
+                raiserror('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
+            set @StartTime = getutcdate();
+
+            exec dbo.spMFSynchronizeWorkflowsStates @VaultSettings = @VaultSettings
+                                                  , @Out = @ResponseWorkflowStates output
+                                                  , @Itemname = null
+                                                  , @IsUpdate = 0
+                                                  , @Debug = @Debug
+                                                  , @ProcessBatch_ID = @ProcessBatch_ID;
+
+
+            set @LogTypeDetail = N'Message';
+            set @LogTextDetail = @SPName;
+            set @LogStatusDetail = N'Completed';
+            set @Validation_ID = null;
+            set @LogColumnValue = N'';
+            set @LogColumnValue = N'';
+
+            execute @RC = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                                          , @LogType = @LogTypeDetail
+                                                          , @LogText = @LogTextDetail
+                                                          , @LogStatus = @LogStatusDetail
+                                                          , @StartTime = @StartTime
+                                                          , @MFTableName = @MFTableName
+                                                          , @Validation_ID = @Validation_ID
+                                                          , @ColumnName = @LogColumnName
+                                                          , @ColumnValue = @LogColumnValue
+                                                          , @Update_ID = @Update_ID
+                                                          , @LogProcedureName = @ProcedureName
+                                                          , @LogProcedureStep = @ProcedureStep
+                                                          , @debug = @Debug;
+            ---------------------------------------------
+            --SYNCHRONIZE PROEPRTY
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing Properties'
+                 , @SPName        = N'spMFSynchronizeProperties';
+
+            if @Debug > 9
+                raiserror('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
+
+            execute @return_value = dbo.spMFSynchronizeProperties @VaultSettings
+                                                                , @Debug
+                                                                , @ResponseProperties output;
+
+            set @StartTime = getutcdate();
+
+            set @LogTypeDetail = N'Message';
+            set @LogTextDetail = @SPName;
+            set @LogStatusDetail = N'Completed';
+            set @Validation_ID = null;
+            set @LogColumnValue = N'';
+            set @LogColumnValue = N'';
+
+            execute @RC = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                                          , @LogType = @LogTypeDetail
+                                                          , @LogText = @LogTextDetail
+                                                          , @LogStatus = @LogStatusDetail
+                                                          , @StartTime = @StartTime
+                                                          , @MFTableName = @MFTableName
+                                                          , @Validation_ID = @Validation_ID
+                                                          , @ColumnName = @LogColumnName
+                                                          , @ColumnValue = @LogColumnValue
+                                                          , @Update_ID = @Update_ID
+                                                          , @LogProcedureName = @ProcedureName
+                                                          , @LogProcedureStep = @ProcedureStep
+                                                          , @debug = @Debug;
+
+            ---------------------------------------------
+            --SYNCHRONIZE Class
+            ---------------------------------------------
+            select @ProcedureStep = 'Synchronizing Class'
+                 , @SPName        = N'spMFSynchronizeClasses';
+
+            if @Debug > 9
+                raiserror('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
+
+            execute @return_value = dbo.spMFSynchronizeClasses @VaultSettings
+                                                             , @Debug
+                                                             , @ResponseMFClass output;
+            set @StartTime = getutcdate();
+
+            set @LogTypeDetail = N'Message';
+            set @LogTextDetail = @SPName;
+            set @LogStatusDetail = N'Completed';
+            set @Validation_ID = null;
+            set @LogColumnValue = N'';
+            set @LogColumnValue = N'';
+
+            execute @RC = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                                          , @LogType = @LogTypeDetail
+                                                          , @LogText = @LogTextDetail
+                                                          , @LogStatus = @LogStatusDetail
+                                                          , @StartTime = @StartTime
+                                                          , @MFTableName = @MFTableName
+                                                          , @Validation_ID = @Validation_ID
+                                                          , @ColumnName = @LogColumnName
+                                                          , @ColumnValue = @LogColumnValue
+                                                          , @Update_ID = @Update_ID
+                                                          , @LogProcedureName = @ProcedureName
+                                                          , @LogProcedureStep = @ProcedureStep
+                                                          , @debug = @Debug;
+
+
+
+            -------------------------------------------------------------
+            -- Create MFUSerMessage Table
+            -------------------------------------------------------------
+
+
+            if not exists
+            (
+                select name
+                from sys.tables
+                where name = 'MFUserMessages'
+                      and schema_name(schema_id) = 'dbo'
+            )
+            begin
+
+                exec dbo.spMFCreateTable @ClassName = 'User Messages' -- nvarchar(128)
+                                       , @Debug = 0;                  -- smallint
+
+
+            end;
+
+
+
+
+            set @StartTime = getutcdate();
+
+            set @LogTypeDetail = N'Message';
+            set @LogTextDetail = @SPName;
+            set @LogStatusDetail = N'Completed';
+            set @Validation_ID = null;
+            set @LogColumnValue = N'';
+            set @LogColumnValue = N'';
+
+            execute @RC = dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                                          , @LogType = @LogTypeDetail
+                                                          , @LogText = @LogTextDetail
+                                                          , @LogStatus = @LogStatusDetail
+                                                          , @StartTime = @StartTime
+                                                          , @MFTableName = @MFTableName
+                                                          , @Validation_ID = @Validation_ID
+                                                          , @ColumnName = @LogColumnName
+                                                          , @ColumnValue = @LogColumnValue
+                                                          , @Update_ID = @Update_ID
+                                                          , @LogProcedureName = @ProcedureName
+                                                          , @LogProcedureStep = @ProcedureStep
+                                                          , @debug = @Debug;
+
+
+            set @LogText = N'Processing ' + @ProcedureName + N' completed';
+            set @LogStatus = N'Completed';
+
+            execute @RC = dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID
+                                                    , @ProcessType = @ProcessType
+                                                    , @LogType = @LogType
+                                                    , @LogText = @LogText
+                                                    , @LogStatus = @LogStatus
+                                                    , @debug = @Debug;
+
+            select @ProcedureStep = 'Synchronizing metadata completed';
+            if @Debug > 9
+                raiserror('%s : Step %s', 10, 1, @ProcedureName, @ProcedureStep);
+
+            return 1;
+        end try
+        begin catch
+            set nocount on;
+
+            set @error = @@error;
+            set @LogStatusDetail = case
+                                       when
+                                       (
+                                           @error <> 0
+                                           or @return_value = -1
+                                       ) then
+                                           'Failed'
+                                       when @return_value in ( 1, 0 ) then
+                                           'Complete'
+                                       else
+                                           'Exception'
+                                   end;
+
+            set @LogTextDetail = @ProcedureStep + N' | Return Value: ' + cast(@return_value as nvarchar(256));
+            set @LogColumnName = N'';
+            set @LogColumnValue = N'';
+            set @StartTime = getutcdate();
+
+            exec dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID
+                                                 , @LogType = 'System'
+                                                 , @LogText = @LogTextDetail
+                                                 , @LogStatus = @LogStatusDetail
+                                                 , @StartTime = @StartTime
+                                                 , @MFTableName = @MFTableName
+                                                 , @ColumnName = @LogColumnName
+                                                 , @ColumnValue = @LogColumnValue
+                                                 , @LogProcedureName = @ProcedureName
+                                                 , @LogProcedureStep = @ProcedureStep
+                                                 , @debug = @Debug;
+
+            set @LogStatusDetail = null;
+            set @LogTextDetail = null;
+            set @LogColumnName = null;
+            set @LogColumnValue = null;
+            set @error = null;
+
+
+            execute @RC = dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID
+                                                    , @ProcessType = @ProcessType
+                                                    , @LogType = @LogType
+                                                    , @LogText = @LogText
+                                                    , @LogStatus = @LogStatus
+                                                    , @debug = @Debug;
+
+            insert into dbo.MFLog
+            (
+                SPName
+              , ProcedureStep
+              , ErrorNumber
+              , ErrorMessage
+              , ErrorProcedure
+              , ErrorState
+              , ErrorSeverity
+              , ErrorLine
+            )
+            values
+            (@SPName, @ProcedureStep, error_number(), error_message(), error_procedure(), error_state()
+           , error_severity(), error_line());
+
+            set nocount off;
+
+            return -1;
+        end catch;
+    end;
+end;
+
+
+go

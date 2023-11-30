@@ -4,7 +4,7 @@ SET NOCOUNT ON
 EXEC [setup].[spMFSQLObjectsControl]
 	@SchemaName = N'dbo'
   , @ObjectName = N'spMFConvertTableToHtml' -- nvarchar(100)
-  , @Object_Release = '4.9.26.67'
+  , @Object_Release = '4.11.33.77'
   , @UpdateFlag = 2
 
 GO
@@ -93,6 +93,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-10-16  LC         Change colour of table heading background to white
 2021-01-26  LC         Create procedure
 ==========  =========  ========================================================
 
@@ -245,7 +246,7 @@ BEGIN
                 padding: 8px;
                 border-style: solid;
                 border-color: #666666;
-                background-color: #666666;
+                background-color: #ffffff;
             }
 
             table.gridtable td {
@@ -258,6 +259,8 @@ BEGIN
 
             </style>
             '
+
+			
 BEGIN
 
 SET @ProcedureStep = 'insert table into ##columns'

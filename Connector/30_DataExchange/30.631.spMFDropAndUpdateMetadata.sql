@@ -5,7 +5,7 @@ set nocount on;
 
 exec setup.spMFSQLObjectsControl @SchemaName = N'dbo'
                                , @ObjectName = N'spMFDropAndUpdateMetadata' -- nvarchar(100)
-                               , @Object_Release = '4.10.30.75'             -- varchar(50)
+                               , @Object_Release = '4.11.33.77'             -- varchar(50)
                                , @UpdateFlag = 2;
 -- smallint
 go
@@ -189,6 +189,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-07-30  LC         Improve logging and update processing
 2023-04-19  LC         Improve with column reset functionality
 2021-09-30  LC         Update documentation regarding column fixes
 2020-09-08  LC         Add fixing column errors in datatype 9
@@ -403,26 +404,26 @@ begin try
             drop table #MFPropertyTemp;
         end;
 
-        if exists
-        (
-            select 1
-            from sys.sysobjects
-            where name = '#MFValuelistItemsTemp'
-        )
-        begin
-            drop table #MFValuelistItemsTemp;
-        end;
+        --if exists
+        --(
+        --    select 1
+        --    from sys.sysobjects
+        --    where name = '#MFValuelistItemsTemp'
+        --)
+        --begin
+        --    drop table #MFValuelistItemsTemp;
+        --end;
 
 
-        if exists
-        (
-            select *
-            from sys.sysobjects
-            where name = '#MFWorkflowStateTemp'
-        )
-        begin
-            drop table #MFWorkflowStateTemp;
-        end;
+        --if exists
+        --(
+        --    select *
+        --    from sys.sysobjects
+        --    where name = '#MFWorkflowStateTemp'
+        --)
+        --begin
+        --    drop table #MFWorkflowStateTemp;
+        --end;
 
         set @DebugText = N'';
         set @DebugText = @DefaultDebugText + @DebugText;
@@ -452,18 +453,18 @@ begin try
         (select * from dbo.MFProperty) as ppt;
 
         --Insert current MFProperty table data into temp table
-        select *
-        into #MFValuelistItemsTemp
-        from
-        (select * from dbo.MFValueListItems) as ppt;
+        --select *
+        --into #MFValuelistItemsTemp
+        --from
+        --(select * from dbo.MFValueListItems) as ppt;
 
-        select *
-        into #MFWorkflowStateTemp
-        from
-        (select * from dbo.MFWorkflowState) as WST;
+        --select *
+        --into #MFWorkflowStateTemp
+        --from
+        --(select * from dbo.MFWorkflowState) as WST;
 
-        set @DebugText = N'';
-        set @DebugText = @DefaultDebugText + @DebugText;
+        --set @DebugText = N'';
+        --set @DebugText = @DefaultDebugText + @DebugText;
 
         if @Debug > 0
         begin
@@ -473,11 +474,11 @@ begin try
             select *
             from #MFPropertyTemp as mpt;
 
-            select *
-            from #MFValuelistItemsTemp as mvit;
+            --select *
+            --from #MFValuelistItemsTemp as mvit;
 
-            select *
-            from #MFWorkflowStateTemp as mwst;
+            --select *
+            --from #MFWorkflowStateTemp as mwst;
 
             raiserror(@DebugText, 10, 1, @ProcedureName, @ProcedureStep);
         end;
@@ -490,8 +491,9 @@ begin try
         if
         (
             select count(*)from #MFClassTemp as mct
-        ) > 0
-        begin
+        ) > 0 and @IsResetAll = 1
+        begin                       
+
             delete from dbo.MFClassProperty
             where MFClass_ID > 0;
 
@@ -499,21 +501,9 @@ begin try
             where ID > -99;
 
             delete from dbo.MFProperty
-            where ID > -99;
-
-            delete from dbo.MFValueListItems
-            where ID > -99;
-
-            delete from dbo.MFValueList
-            where ID > -99;
-
-            delete from dbo.MFWorkflowState
-            where ID > -99;
-
-            delete from dbo.MFWorkflow
-            where ID > -99;
-
-            delete from dbo.MFObjectType
+            where ID > -99;       
+			
+			delete from dbo.MFObjectType
             where ID > -99;
 
             delete from dbo.MFLoginAccount
@@ -592,20 +582,20 @@ begin try
                     on mfp.MFID = tmp.MFID
                        and mfp.Name = tmp.Name;
 
-            update dbo.MFValueListItems
-            set AppRef = tmp.AppRef
-              , Owner_AppRef = tmp.Owner_AppRef
-            from dbo.MFValueListItems            as mfp
-                inner join #MFValuelistItemsTemp as tmp
-                    on mfp.MFID = tmp.MFID
-                       and mfp.Name = tmp.Name;
+            --update dbo.MFValueListItems
+            --set AppRef = tmp.AppRef
+            --  , Owner_AppRef = tmp.Owner_AppRef
+            --from dbo.MFValueListItems            as mfp
+            --    inner join #MFValuelistItemsTemp as tmp
+            --        on mfp.MFID = tmp.MFID
+            --           and mfp.Name = tmp.Name;
 
-            update dbo.MFWorkflowState
-            set IsNameUpdate = 1
-            from dbo.MFWorkflowState            as mfws
-                inner join #MFWorkflowStateTemp as tmp
-                    on mfws.MFID = tmp.MFID
-                       and mfws.Name != tmp.Name;
+            --update dbo.MFWorkflowState
+            --set IsNameUpdate = 1
+            --from dbo.MFWorkflowState            as mfws
+            --    inner join #MFWorkflowStateTemp as tmp
+            --        on mfws.MFID = tmp.MFID
+            --           and mfws.Name != tmp.Name;
 
             set @DebugText = N'';
             set @DebugText = @DefaultDebugText + @DebugText;
@@ -725,14 +715,16 @@ begin try
                     print 'Created table' + @TableName;
                     print 'Synchronizing table ' + @TableName;
 
-                    exec dbo.spMFUpdateTable @MFTableName = @TableName
-                                           , @UpdateMethod = 1
-                                           , @ProcessBatch_ID = @ProcessBatch_ID
-                                           , @RetainDeletions = @RetainDeletions
-                                           , @IsDocumentCollection = @IsDocumentCollection
-                                           , @Debug = @Debug;
 
-
+                    declare @MFLastUpdateDate datetime, @Update_IDOut int
+                    exec dbo.spMFUpdateMFilesToMFSQL @MFTableName = @MFTableName
+                                                   , @MFLastUpdateDate = @MFLastUpdateDate output
+                                                   , @UpdateTypeID = 0
+                                                   , @WithObjectHistory = 0
+                                                   , @RetainDeletions = @RetainDeletions
+                                                   , @Update_IDOut = @Update_IDOut output
+                                                   , @ProcessBatch_ID = @ProcessBatch_ID output
+                                                   , @debug = @debug
 
                 end;
 

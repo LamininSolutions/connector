@@ -9,7 +9,7 @@ SET NOCOUNT ON;
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFGetHistory',
     -- nvarchar(100)
-    @Object_Release = '4.9.27.72',
+    @Object_Release = '4.11.33.77',
     -- varchar(50)
     @UpdateFlag = 2;
 GO
@@ -194,6 +194,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-09-07  LC         Increase size of property value column to 4000
 2021-03-12  LC         resolve bug to update multiple columns
 2020-06-25  LC         added exception if invalid column is used
 2020-03-12  LC         Revise datetime formatting
@@ -661,7 +662,7 @@ SELECT @MFTableName AS tablename, @FromObjid fromobjid, @MinBatchRow AS nextstar
                 -- LastModifiedUTC DATETIME,
                 MFLastModifiedBy_ID INT,
                 Property_ID INT,
-                Property_Value NVARCHAR(300),
+                Property_Value NVARCHAR(4000),
                 CreatedOn DATETIME
             );
 
@@ -699,7 +700,7 @@ SELECT @MFTableName AS tablename, @FromObjid fromobjid, @MinBatchRow AS nextstar
                     --        LastModifiedUTC Datetime '../@CheckInTimeStamp',
                     LastModifiedBy_ID INT '@LastModifiedBy_ID',
                     Property_ID INT '@Property_ID',
-                    Property_Value NVARCHAR(300) '@Property_Value'
+                    Property_Value NVARCHAR(4000) '@Property_Value'
                 )
             WHERE '@Property_ID' IS NOT NULL;
 

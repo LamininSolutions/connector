@@ -16,27 +16,27 @@ FileUniqueRef nvarchar(100)
 CreatedOn datetime (not null)
   Date of import
 SourceName nvarchar(100)
-  fixme description
+  source folder name of the file
 TargetClassID int
-  fixme description
+  class of the target object
 MFCreated datetime
-  fixme description
+  datetime in UTC of the last modified of the object
 MFLastModified datetime
-  fixme description
+  datetime in UTC of the last modified of the object
 ObjID int
-  fixme description
+  objid of the imported object
 Version int
-  fixme description
+  version of the object
 FileObjectID int
-  fixme description
+  file id of the imported object
 FileCheckSum nvarchar(max)
   Checksum of file
 ImportError nvarchar(4000)
   Import related errors
 
-
 Additional Info
 ===============
+The MFFileImport table is the logging table to record the results of the import routines
 
 Used By
 =======

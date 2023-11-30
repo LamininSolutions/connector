@@ -384,7 +384,7 @@ BEGIN TRY
 
             IF @Debug > 0
             BEGIN
-                SELECT *
+                SELECT 'current licence',*
                 FROM dbo.fnMFParseDelimitedString(@license, '|');
             END;
         END;

@@ -5,7 +5,7 @@ SET NOCOUNT ON
 EXEC [setup].[spMFSQLObjectsControl]
 	@SchemaName = N'dbo'
   , @ObjectName = N'spMFSendHTMLBodyEmail' -- nvarchar(100)
-  , @Object_Release = '4.9.28.73'
+  , @Object_Release = '4.11.33.78'
   , @UpdateFlag = 2
 
 GO
@@ -48,6 +48,7 @@ ALTER PROCEDURE dbo.spMFSendHTMLBodyEmail
     @FromEmail NVARCHAR(258) = null ,
     @ToEmail NVARCHAR(258),
     @CCEmail NVARCHAR(258) = null,
+    @AttachmentPaths NVARCHAR(max) = null,
     @Mailitem_ID INT OUTPUT,
     @ProcessBatch_ID INT = NULL output,
     @Debug INT = 0
@@ -74,6 +75,8 @@ Parameters
      email address of recipient. Delimited with ';' if multiples
    @CCEmail 
      email address of CC recipients. Delimited with ';' if multiples 
+   @AttachementPaths
+     full path including file name for attachement to email. For multiple files, use semi colon as delimiter
    @Mailitem_ID  output
      msdb database mail id
    @ProcessBatch_ID 
@@ -109,6 +112,8 @@ The email from is taken from the mail profile.
 Examples
 ========
 
+Without an attachment
+
 .. code:: sql
 
     DECLARE @Mailitem_ID INT;
@@ -123,12 +128,30 @@ Examples
     @Debug = 1
     SELECT @Mailitem_ID
 
+With an Attachment (include a test.txt file on the folder referenced below to allow this example to work)
+
+.. code:: sql
+
+    DECLARE @Mailitem_ID INT;
+    DECLARE @Body NVARCHAR(MAX) = '<html>  <head>   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />   <style type="text/css">    div {line-height: 100%;}      body {-webkit-text-size-adjust:none;-ms-text-size-adjust:none;margin:0;padding:0;}     body, #body_style {min-height:1000px;font: 10pt Verdana, Geneva, Arial, Helvetica, sans-serif;}    p {margin:0; padding:0; margin-bottom:0;}    h1, h2, h3, h4, h5, h6 {color: black;line-height: 100%;}      table {     border-collapse: collapse;          border: 1px solid #3399FF;          font: 10pt Verdana, Geneva, Arial, Helvetica, sans-serif;          color: black;        padding:5;        border-spacing:1;        border:0;       }    table caption {font-weight: bold;color: blue;}    table td, table th, table tr,table caption { border: 1px solid #eaeaea;border-collapse:collapse;vertical-align: top; }    table th {font-weight: bold;font-variant: small-caps;background-color: blue;color: white;vertical-align: bottom;}   </style>  </head><body><div class=greeting><p>Hi </p><br></div><div class=content><p> This is the body </p><br></div><div class=signature><p> yours sincerely Me </p><br></div><div class=footer><p>Company details</p></div></body></html>'
+    EXEC dbo.spMFSendHTMLBodyEmail @Body = ,
+    @MessageTitle = 'test',
+    @FromEmail = 'support@lamininsolutions.com',
+    @ToEmail = 'support@lamininsolutions.com',
+    @CCEmail = 'support@lamininsolutions.com',
+    @AttachementPaths = 'c:\test.txt;c:\test1.txt',
+    @Mailitem_ID = @Mailitem_ID OUTPUT,
+    @ProcessBatch_ID = null,
+    @Debug = 1
+    SELECT @Mailitem_ID
+
 Changelog
 =========
 
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-11-16  LC         Add attachment as an option to email
 2022-01-18  LC         Fix cc  email bug
 2021-01-29  LC         Updated to allow for setting profile in MFEmailTemplate
 2021-01-26  LC         Create procedure
@@ -345,6 +368,8 @@ BEGIN TRY
         IF @Debug > 0
             SELECT @EMAIL_BODY;
 
+        IF @AttachmentPaths is null 
+        BEGIN
         EXEC msdb.dbo.sp_send_dbmail @profile_name = @EMAIL_PROFILE,
             @recipients = @EMAIL_TO_ADDR,
             @copy_recipients = @EMAIL_CC_ADDR,
@@ -352,6 +377,20 @@ BEGIN TRY
             @body = @EMAIL_BODY,
             @body_format = 'HTML',
             @mailitem_id = @Mailitem_ID OUTPUT;
+        END
+
+        IF @AttachmentPaths is not null 
+        BEGIN
+        EXEC msdb.dbo.sp_send_dbmail @profile_name = @EMAIL_PROFILE,
+            @recipients = @EMAIL_TO_ADDR,
+            @copy_recipients = @EMAIL_CC_ADDR,
+            @subject = @EMAIL_SUBJECT,
+            @file_attachments = @AttachmentPaths,
+            @body = @EMAIL_BODY,
+            @body_format = 'HTML',
+            @mailitem_id = @Mailitem_ID OUTPUT;
+        END
+
 
         -------------------------------------------------------------
         --END PROCESS

@@ -1,11 +1,11 @@
-PRINT SPACE(5) + QUOTENAME(@@ServerName) + '.' + QUOTENAME(DB_NAME()) + '.[dbo].[spMFTableAudit]';
-GO
+print space(5) + quotename(@@servername) + '.' + quotename(db_name()) + '.[dbo].[spMFTableAudit]';
+go
 
 set nocount on;
 
-EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
+exec setup.spMFSQLObjectsControl @SchemaName = N'dbo',
                                  @ObjectName = N'spMFTableAudit', -- nvarchar(100)
-                                 @Object_Release = '4.10.30.75',   -- varchar(50)
+                                 @Object_Release = '4.10.32.77',   -- varchar(50)
                                  @UpdateFlag = 2;                 -- smallint
 GO
 
@@ -401,9 +401,9 @@ BEGIN TRY
         -----------------------------------------------------
         SET @DefaultDate = CASE
                                WHEN @MFModifiedDate is not null and @ObjIDs is null THEN
-                                    dateadd(day,0,@MFModifiedDate)
+                                    dateadd(day,-1,@MFModifiedDate)
                                WHEN @MFModifiedDate is not null and @ObjIDs is not null THEN
-                                    dateadd(day,0,@MFModifiedDate)
+                                    dateadd(day,-1,@MFModifiedDate)
                                when @MFModifiedDate is null and @ObjIDs IS NOT null THEN
                                    @DefaultDate
                                WHEN @MFModifiedDate IS null and @ObjIDs is null THEN
@@ -1090,7 +1090,7 @@ WHERE mah.ObjID IS NULL AND t.GUID IS NOT NULL;
 
             --Delete redundant objects in class table in SQL: this can only be applied when a full Audit is performed
             --7 = Marked deleted in SQL not deleted in MF : [t].[Deleted] = 1
-            SET @ProcedureStep = N'Delete redundants in SQL';
+            SET @ProcedureStep = N'process ofject versions in audit history';
             SET @StartTime = GETUTCDATE();
 
 
@@ -1152,7 +1152,7 @@ WHERE mah.ObjID IS NULL AND t.GUID IS NOT NULL;
                     UpdateFlag
                 )
                 SELECT @SessionID,
-                       @TranDate,
+                       src.LastModifiedUtc,
                        src.ObjectType,
                        src.Class,
                        src.ObjID,
@@ -1227,7 +1227,7 @@ WHERE mah.ObjID IS NULL AND t.GUID IS NOT NULL;
                 UPDATE targ
                 SET targ.RecID = src.ID,
                     targ.SessionID = @SessionID,
-                    targ.TranDate = @TranDate,
+                    targ.TranDate = src.LastModifiedUtc,
                     targ.MFVersion = src.MFVersion,
                     targ.StatusFlag = src.StatusFlag,
                     targ.StatusName = CASE
@@ -1261,6 +1261,7 @@ WHERE mah.ObjID IS NULL AND t.GUID IS NOT NULL;
                            AND targ.ObjectType = src.ObjectType
                  WHERE src.ID <> ISNULL(targ.RecID,0)
                           OR src.MFVersion <> ISNULL(targ.MFVersion,0)
+						  OR src.LastModifiedUtc <> ISNULL(targ.TranDate,GETUTCDATE())
                           OR src.StatusFlag <> ISNULL(targ.StatusFlag,0)
                            OR ISNULL(targ.StatusName,0) <>  CASE
                            WHEN src.StatusFlag = 0 THEN
