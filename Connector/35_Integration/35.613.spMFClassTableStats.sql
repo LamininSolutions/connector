@@ -80,7 +80,8 @@ Parameters
     - Default = 0
     - When set to 1, and IncludeOutput is set to 1 then a email report will be sent if when any off the error columns are not null.
   @Body NVARCHAR(MAX) (optional) 
-    - Default to '<p>The class tables in the following report is not up to date or is showing errors.  Consult https://doc.lamininsolutions.com/procedures/spMFClassTableStats.html for corrective action. </p> <BR> '
+    - Default body:
+	  The class tables in the following report is not up to date or is showing errors.  Consult https://doc.lamininsolutions.com/procedures/spMFClassTableStats.html for corrective action. 
     - This email body will appear above the table 
   @MessageTitle NVARCHAR(258) (optional) 
     - Default DB_NAME() + ' : Class Table Error Report'

@@ -58,6 +58,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-11-30  LC         Fix incorrect default value and upgrade to include vault roles
 2023-06-30  LC         Add vaultroles column
 2019-09-07  JC         Added documentation
 ==========  =========  ========================================================
@@ -129,17 +130,18 @@ IF NOT EXISTS ( SELECT  name
               [LoginName] NVARCHAR(250) NULL ,
               [InternalUser] BIT NULL ,
               [Enabled] BIT NULL ,
-              [Deleted] bit,
-              VaultRoles nvarchar(100)
-                CONSTRAINT [DF_MFUserAccount_Deleted] DEFAULT ( (0) )
-                NULL ,
+              [Deleted] bit              
+              CONSTRAINT [DF_MFUserAccount_Deleted] DEFAULT ( (0) )
+                NULL 
               CONSTRAINT [PK_MFUserAccount] PRIMARY KEY CLUSTERED
                 ( [UserID] ASC ) ,
             );
 
         PRINT SPACE(10) + '... Table: created';
     END;
-ELSE
+else
+
+
     PRINT SPACE(10) + '... Table: exists';
 
 --INDEXES #############################################################################################################################
@@ -155,3 +157,11 @@ IF NOT EXISTS ( SELECT  *
     END;
 
 GO
+
+IF NOT EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.columns AS c WHERE c.TABLE_NAME = 'MFUserAccount' AND Column_Name = 'VaultRoles')
+    BEGIN
+        PRINT SPACE(10) + '... Add Column: VaultRoles';
+ALTER TABLE dbo.MFUserAccount
+add VaultRoles nvarchar(100) null ;
+END
+

@@ -5,9 +5,9 @@ SET NOCOUNT ON;
 GO
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
-    @ObjectName = N'spMFUpdateTableinBatches', -- nvarchar(100)
-    @Object_Release = '4.10.30.74',             -- varchar(50)
-    @UpdateFlag = 2;                           -- smallint
+                                 @ObjectName = N'spMFUpdateTableinBatches', -- nvarchar(100)
+                                 @Object_Release = '4.11.33.78',            -- varchar(50)
+                                 @UpdateFlag = 2;                           -- smallint
 GO
 
 IF EXISTS
@@ -44,7 +44,7 @@ ALTER PROC dbo.spMFUpdateTableinBatches
     @ToObjid BIGINT = 1000000,
     @WithStats BIT = 1,
     @RetainDeletions BIT = 0,
-    @ProcessBatch_ID INT = NULL output,
+    @ProcessBatch_ID INT = NULL OUTPUT,
     @Debug INT = 0 --
 )
 AS
@@ -72,7 +72,7 @@ Parameters
     Starting objid
   @ToObjid BIGINT
     - End objid inclusive
-    - Default = 100 000
+    - Default = 1 000 000
   @WithStats BIT
     - Default = 1 (true)
     - When true a log will be produced in the SSMS message window to show the progress
@@ -151,6 +151,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-12-08  LC         resolve issue when from to objid is used with updatemethod 0
 2022-10-27  LC         add retaindeletions to spmfupdatetable processing
 2021-08-25  LC         add output to the processbatch_id parameter
 2021-05-03  LC         Fix bug to include first record of each batch
@@ -245,26 +246,26 @@ SET @ProcedureStep = N'Start Logging';
 SET @LogText = N'Processing ' + @ProcedureName;
 
 EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
-    @ProcessType = @ProcessType,
-    @LogType = N'Status',
-    @LogText = @LogText,
-    @LogStatus = N'In Progress',
-    @debug = @Debug;
+                                 @ProcessType = @ProcessType,
+                                 @LogType = N'Status',
+                                 @LogText = @LogText,
+                                 @LogStatus = N'In Progress',
+                                 @debug = @Debug;
 
 EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-    @LogType = N'Debug',
-    @LogText = @ProcessType,
-    @LogStatus = N'Started',
-    @StartTime = @StartTime,
-    @MFTableName = @MFTableName,
-    @Validation_ID = @Validation_ID,
-    @ColumnName = NULL,
-    @ColumnValue = NULL,
-    @Update_ID = @Update_ID,
-    @LogProcedureName = @ProcedureName,
-    @LogProcedureStep = @ProcedureStep,
-    @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT,
-    @debug = 0;
+                                       @LogType = N'Debug',
+                                       @LogText = @ProcessType,
+                                       @LogStatus = N'Started',
+                                       @StartTime = @StartTime,
+                                       @MFTableName = @MFTableName,
+                                       @Validation_ID = @Validation_ID,
+                                       @ColumnName = NULL,
+                                       @ColumnValue = NULL,
+                                       @Update_ID = @Update_ID,
+                                       @LogProcedureName = @ProcedureName,
+                                       @LogProcedureStep = @ProcedureStep,
+                                       @ProcessBatchDetail_ID = @ProcessBatchDetail_IDOUT,
+                                       @debug = 0;
 
 BEGIN TRY
     -- Debug params
@@ -299,29 +300,29 @@ BEGIN TRY
     -------------------------------------------------------------
     DECLARE @BatchSize INT = 500;
     --other parameters 
-    DECLARE @StartRow   INT,
-        @MaxRow         INT,
-        @RecCount       INT,
-        @BatchCount     INT           = 1,
-        @UpdateID       INT,
-        @ProcessingTime INT,
-        @objids         NVARCHAR(4000),
-        @Message        NVARCHAR(100),
-        @Class_ID       INT;
-    DECLARE @SessionIDOut   INT,
-        @NewObjectXml       NVARCHAR(MAX),
-        @DeletedInSQL       INT,
-        @UpdateRequired     BIT,
-        @OutofSync          INT,
-        @ProcessErrors      INT,
-        @MFLastModifiedDate DATETIME,
-        @Maxid              INT;
+    DECLARE @StartRow INT,
+            @MaxRow INT,
+            @RecCount INT,
+            @BatchCount INT = 1,
+            @UpdateID INT,
+            @ProcessingTime INT,
+            @objids NVARCHAR(4000),
+            @Message NVARCHAR(100),
+            @Class_ID INT;
+    DECLARE @SessionIDOut INT,
+            @NewObjectXml NVARCHAR(MAX),
+            @DeletedInSQL INT,
+            @UpdateRequired BIT,
+            @OutofSync INT,
+            @ProcessErrors INT,
+            @MFLastModifiedDate DATETIME,
+            @Maxid INT;
 
     -------------------------------------------------------------
     -- Get class id
     -------------------------------------------------------------
     SELECT @Class_ID = mc.MFID
-    FROM dbo.MFClass                         mc
+    FROM dbo.MFClass mc
         INNER JOIN INFORMATION_SCHEMA.TABLES AS t
             ON mc.TableName = t.TABLE_NAME
     WHERE mc.TableName = @MFTableName;
@@ -349,8 +350,8 @@ SELECT @MFLastModifiedDate = (SELECT isnull(MAX(' + QUOTENAME(@lastModifiedColum
                 SELECT @sql;
 
             EXEC sys.sp_executesql @Stmt = @sql,
-                @Params = @sqlParam,
-                @MFLastModifiedDate = @MFLastModifiedDate OUTPUT;
+                                   @Params = @sqlParam,
+                                   @MFLastModifiedDate = @MFLastModifiedDate OUTPUT;
 
             SET @DebugText = N' as ' + CAST(@MFLastModifiedDate AS NVARCHAR(25));
             SET @DebugText = @DefaultDebugText + @DebugText;
@@ -375,7 +376,7 @@ SELECT @MFLastModifiedDate = (SELECT isnull(MAX(' + QUOTENAME(@lastModifiedColum
             -------------------------------------------------------------
             -- Setup temp tables for objids
             -------------------------------------------------------------
- /*           IF
+            /*           IF
             (
                 SELECT OBJECT_ID('tempdb..#Objids')
             ) IS NOT NULL
@@ -397,22 +398,22 @@ SELECT @MFLastModifiedDate = (SELECT isnull(MAX(' + QUOTENAME(@lastModifiedColum
             BEGIN
                 SET @ProcedureStep = N'Refresh table audit';
 
---                SELECT @MFLastModified = '1950-01-01';
+                --                SELECT @MFLastModified = '1950-01-01';
 
                 -------------------------------------------------------------
                 -- Get object version result based on date
                 -------------------------------------------------------------	    
                 EXEC dbo.spMFTableAudit @MFTableName = @MFTableName,
-                    @MFModifiedDate = @MFLastModified,
-                    @ObjIDs = NULL,
-                    @SessionIDOut = @SessionIDOut OUTPUT,
-                    @NewObjectXml = @NewObjectXml OUTPUT,
-                    @DeletedInSQL = @DeletedInSQL OUTPUT,
-                    @UpdateRequired = @UpdateRequired OUTPUT,
-                    @OutofSync = @OutofSync OUTPUT,
-                    @ProcessErrors = @ProcessErrors OUTPUT,
-                    @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
-                    @Debug = 0;
+                                        @MFModifiedDate = @MFLastModified,
+                                        @ObjIDs = NULL,
+                                        @SessionIDOut = @SessionIDOut OUTPUT,
+                                        @NewObjectXml = @NewObjectXml OUTPUT,
+                                        @DeletedInSQL = @DeletedInSQL OUTPUT,
+                                        @UpdateRequired = @UpdateRequired OUTPUT,
+                                        @OutofSync = @OutofSync OUTPUT,
+                                        @ProcessErrors = @ProcessErrors OUTPUT,
+                                        @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
+                                        @Debug = 0;
 
                 -------------------------------------------------------------
                 -- Get records count
@@ -466,18 +467,20 @@ SELECT @MFLastModifiedDate = (SELECT isnull(MAX(' + QUOTENAME(@lastModifiedColum
             -------------------------------------------------------------
             --SELECT COUNT(*) FROM #Objids AS o
             --SELECT @FromObjid, @MaxRow
-     IF
+            IF
             (
                 SELECT OBJECT_ID('tempdb..#TableAuditList')
             ) IS NOT NULL
                 DROP TABLE #TableAuditList;
 
-                CREATE TABLE #TableAuditList
-                (objid INT NOT NULL PRIMARY KEY)
-
-   INSERT INTO #TableAuditList
+            CREATE TABLE #TableAuditList
             (
-                Objid
+                objid INT NOT NULL PRIMARY KEY
+            );
+
+            INSERT INTO #TableAuditList
+            (
+                objid
             )
             /*            SELECT o.n
             FROM #Objids AS o
@@ -491,7 +494,8 @@ SELECT @MFLastModifiedDate = (SELECT isnull(MAX(' + QUOTENAME(@lastModifiedColum
                   AND mah.ObjID <= @ToObjid
                   AND mah.StatusFlag <> 0;
 
-            SELECT @StartRow = ISNULL(MIN(tal.Objid), 0) , @MaxRow = ISNULL(max(tal.Objid), 0)
+            SELECT @StartRow = ISNULL(MIN(tal.objid), 0),
+                   @MaxRow = ISNULL(MAX(tal.objid), 0)
             FROM #TableAuditList AS tal;
 
             --         SELECT * FROM #TableAuditList AS tal
@@ -500,7 +504,7 @@ SELECT @MFLastModifiedDate = (SELECT isnull(MAX(' + QUOTENAME(@lastModifiedColum
             -------------------------------------------------------------
             IF @Debug > 0
                 SELECT @StartRow AS startrow,
-                    @MaxRow      AS MaxRow;
+                       @MaxRow AS MaxRow;
 
             IF @StartRow IS NOT NULL
                AND @ToObjid >= @StartRow
@@ -521,19 +525,19 @@ SELECT @MFLastModifiedDate = (SELECT isnull(MAX(' + QUOTENAME(@lastModifiedColum
                     SELECT @objids = STUFF(
                                      (
                                          SELECT TOP 500
-                                             ',' + CAST(o.Objid AS NVARCHAR(20))
+                                                ',' + CAST(o.objid AS NVARCHAR(20))
                                          FROM #TableAuditList AS o
-                                         WHERE o.Objid >= @StartRow
-                                         ORDER BY o.Objid
+                                         WHERE o.objid >= @StartRow
+                                         ORDER BY o.objid
                                          FOR XML PATH('')
                                      ),
-                                              1,
-                                              1,
-                                              ''
+                                     1,
+                                     1,
+                                     ''
                                           )
                     FROM #TableAuditList AS o2
-                    WHERE o2.Objid >= @StartRow
-                    ORDER BY o2.Objid;
+                    WHERE o2.objid >= @StartRow
+                    ORDER BY o2.objid;
 
                     SET @ProcedureStep = N'Action spMFUpdateTable';
 
@@ -547,13 +551,13 @@ SELECT @MFLastModifiedDate = (SELECT isnull(MAX(' + QUOTENAME(@lastModifiedColum
 
                     IF @objids IS NOT NULL
                     BEGIN
-                        EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName, -- nvarchar(200)
-                            @UpdateMethod = 1,                                -- int
-                            @ObjIDs = @objids,                                -- nvarchar(max)
-                            @Update_IDOut = @Update_IDOut OUTPUT,             -- int
-                            @ProcessBatch_ID = @ProcessBatch_ID,              -- int
-                            @RetainDeletions = @RetainDeletions,
-                            @Debug = 0;
+                        EXEC dbo.spMFUpdateTable @MFTableName = @MFTableName,          -- nvarchar(200)
+                                                 @UpdateMethod = 1,                    -- int
+                                                 @ObjIDs = @objids,                    -- nvarchar(max)
+                                                 @Update_IDOut = @Update_IDOut OUTPUT, -- int
+                                                 @ProcessBatch_ID = @ProcessBatch_ID,  -- int
+                                                 @RetainDeletions = @RetainDeletions,
+                                                 @Debug = 0;
 
                         SET @sqlParam = N'@RecCount int output';
                         SET @sql
@@ -615,36 +619,90 @@ SELECT @MFLastModifiedDate = (SELECT isnull(MAX(' + QUOTENAME(@lastModifiedColum
         -- UPDATE METHOD 0
         -------------------------------------------------------------
         IF @UpdateMethod = 0
+            SET @ProcedureStep = N'Update Method 0';
+        SET @StartTime = GETUTCDATE();
         BEGIN
-            SET @sqlParam = N'@Reccount int output';
+
+            ;WITH cte
+             AS (SELECT MAX(ObjID) maxobjid
+                 FROM dbo.MFAuditHistory
+                 WHERE Class = @Class_ID)
+            SELECT @ToObjid = CASE
+                                  WHEN maxobjid > @ToObjid
+                                       AND @ToObjid = 1000000 THEN
+                                      cte.maxobjid
+                                  ELSE
+                                      @ToObjid
+                              END
+            FROM cte;
+
+
+
+            SET @sqlParam = N'@FromObjid int, @ToObjid int, @Reccount int output';
             SET @sql
                 = N'SELECT @RecCount = count(ISNULL(id,0)) FROM ' + QUOTENAME(@MFTableName)
-                  + N' Where process_ID = 1 or process_ID = 99';
+                  + N' Where objid between @fromObjid and @ToObjid and process_ID in (1,99)';
 
             IF @Debug > 0
                 SELECT @sql AS SQL;
 
             EXEC sys.sp_executesql @stmt = @sql,
-                @param = @sqlParam,
-                @RecCount = @RecCount OUTPUT;
+                                   @param = @sqlParam,
+                                   @FromObjid = @FromObjid,
+                                   @ToObjid = @ToObjid,
+                                   @RecCount = @RecCount OUTPUT;
 
             IF @Debug > 0
                 SELECT @RecCount AS RecCount;
 
+            --processing message
+
+            SET @ProcessingTime = DATEDIFF(MILLISECOND, @StartTime, GETUTCDATE());
+            SET @Message
+                = N'UpdateMethod 0: ' + CAST(@BatchCount AS VARCHAR(10)) + N' Processing (s) : '
+                  + CAST(@ProcessingTime / 1000 AS VARCHAR(10)) + N' Ids from : '
+                  + CAST(ISNULL(@FromObjid, 0) AS VARCHAR(10)) + N' to : ' + CAST(ISNULL(@ToObjid, 0) AS VARCHAR(10))
+                  + N' count: ' + CAST(ISNULL(@RecCount, 0) AS VARCHAR(10));
+
+            --SET @sqlParam = N'@RecCount int output, @FromObjid int, @ToObjid int';
+            --SET @sql
+            --    = N'SELECT @RecCount = COUNT(ISNULL(id,0)) FROM ' + QUOTENAME(@MFTableName)
+            --      + N' AS [mbs] WHERE process_ID = 99 and objid between @fromObjid and @ToObjid';
+
+            --EXEC sys.sp_executesql @sql,
+            --                       @sqlParam,
+            --                       @RecCount OUTPUT,
+            --                       @FromObjid = @FromObjid,
+            --                       @ToObjid = @ToObjid;;
+
+            --IF @Debug > 0
+            --    SELECT @RecCount AS nextbatch;
+
+            IF @WithStats = 1
+                --	PRINT @Message;
+                RAISERROR(@Message, 10, 1) WITH NOWAIT;
+
             IF @RecCount > 0
             BEGIN
-             
+
+                SET @ProcedureStep = N'Start batches';
 
                 --     SELECT @BatchestoRun = @RecCount / @BatchSize;
-                SET @sql = N'
-UPDATE ' +      QUOTENAME(@MFTableName) + N' 
-SET [Process_ID] = 99 WHERE [Process_ID] = 1;';
+                SET @sqlParam = N'@FromObjid int, @ToObjid int';
+                SET @sql
+                    = N'
+UPDATE ' +      QUOTENAME(@MFTableName)
+                      + N' 
+SET [Process_ID] = 99 WHERE [Process_ID] = 1 and objid between @fromObjid and @ToObjid ;';
 
-                EXEC (@sql);
+                EXEC sys.sp_executesql @stmt = @sql,
+                                       @param = @sqlParam,
+                                       @FromObjid = @FromObjid,
+                                       @ToObjid = @ToObjid;
 
                 WHILE @RecCount > 0
                 BEGIN
-                    SET @StartTime = GETDATE();
+                    SET @StartTime = GETUTCDATE();
                     SET @Message
                         = N'Batch: ' + CAST(@BatchCount AS VARCHAR(10)) + N' Started: '
                           + CAST(@StartTime AS VARCHAR(30));
@@ -653,67 +711,95 @@ SET [Process_ID] = 99 WHERE [Process_ID] = 1;';
                         --		PRINT @Message;
                         RAISERROR(@Message, 10, 1) WITH NOWAIT;
 
+                    SET @sqlParam = N'@FromObjid int, @ToObjid int';
+
                     SET @sql
                         = N'UPDATE t
 SET process_ID = 1
 FROM ' +            QUOTENAME(@MFTableName) + N' t
 INNER JOIN (SELECT TOP ' + CAST(@BatchSize AS NVARCHAR(5)) + N' ID FROM ' + +QUOTENAME(@MFTableName)
                           + N'   
-WHERE [Process_ID] = 99 order by id asc) t2
+WHERE [Process_ID] = 99 and objid between @fromObjid and @ToObjid order by id asc) t2
 ON t.id = t2.id
 '                   ;
 
-                    EXEC sys.sp_executesql @sql;
+                    EXEC sys.sp_executesql @stmt = @sql,
+                                           @param = @sqlParam,
+                                           @FromObjid = @FromObjid,
+                                           @ToObjid = @ToObjid;
 
-                    SET @sqlParam = N'@Maxid int output';
-                    SET @sql = N'
-SELECT @maxid = MAX(id) FROM ' + +QUOTENAME(@MFTableName) + N' AS [mlv] WHERE [mlv].[Process_ID] = 1';
+                    SET @sqlParam = N'@Maxid int output, @FromObjid int, @ToObjid int';
+                    SET @sql
+                        = N'SELECT @maxid = MAX(id) FROM ' + +QUOTENAME(@MFTableName)
+                          + N' AS [mlv] WHERE [mlv].[Process_ID] = 1 and objid between @fromObjid and @ToObjid ';
 
                     IF @Debug > 0
                         SELECT @sql AS SQL;
 
                     EXEC sys.sp_executesql @stmt = @sql,
-                        @param = @sqlParam,
-                        @Maxid = @Maxid OUTPUT;
+                                           @param = @sqlParam,
+                                           @Maxid = @Maxid OUTPUT,
+                                           @FromObjid = @FromObjid,
+                                           @ToObjid = @ToObjid;
+
+                    SET @ProcedureStep = N'Prepare @Objids';
 
                     IF @Debug > 0
                         SELECT @sql AS SQL;
+                    SET @sqlParam = N'@objids nvarchar(4000) output, @FromObjid int, @ToObjid int';
+                    SET @sql
+                        = N'SELECT @objids = STUFF((SELECT '','' + CAST(objid AS VARCHAR(10)) FROM ' + QUOTENAME(@MFTableName)
+                          + N' AS mlv  WHERE mlv.[Process_ID] = 1 and mlv.objid between @fromObjid and @ToObjid
+ for XML PATH('''')),1,1,'''');';
 
-                    EXEC @return_value = dbo.spMFUpdateTable @MFTableName = @MFTableName, 
-                        @UpdateMethod = @UpdateMethod,                                    
-                        @Update_IDOut = @Update_IDOut OUTPUT,                             
-                        @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,                      
-                        @RetainDeletions = @RetainDeletions,
-                        @Debug = 0;
 
-                    --IF @return_value <> 1
-                    --BEGIN
-                    --    SET @DebugText = ' : Unable to update all records - batch processing terminated';
-                    --    SET @DebugText = @DefaultDebugText + @DebugText;
-                    --    SET @ProcedureStep = 'Updating M-Files';
+                    --                      SELECT @sql AS SQL;
 
-                    --    RAISERROR(@DebugText, 16, 1, @ProcedureName, @ProcedureStep);
-                    --END;
+                    EXEC sys.sp_executesql @stmt = @sql,
+                                           @param = @sqlParam,
+                                           @objids = @objids OUTPUT,
+                                           @FromObjid = @FromObjid,
+                                           @ToObjid = @ToObjid;
 
+                    SET @ProcedureStep = N'Start Update to MF';
+
+                    EXEC @return_value = dbo.spMFUpdateTable @MFTableName = @MFTableName,
+                                                             @UpdateMethod = @UpdateMethod,
+                                                             @ObjIDs = @objids,
+                                                             @Update_IDOut = @Update_IDOut OUTPUT,
+                                                             @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
+                                                             @RetainDeletions = @RetainDeletions,
+                                                             @Debug = 0;
+
+
+
+                    SET @ProcedureStep = N'Processing messages';
                     -------------------------------------------------------------
                     -- performance message
                     -------------------------------------------------------------
-                    SET @ProcessingTime = DATEDIFF(MILLISECOND, @StartTime, GETDATE());
+
+					SET @sqlParam = N'@RecCount int output, @FromObjid int, @ToObjid int';
+                    SET @sql  = N'SELECT @RecCount = COUNT(ISNULL(id,0)) FROM ' + QUOTENAME(@MFTableName)
+                          + N' AS [mbs] WHERE mbs.process_ID = 99 and mbs.objid between @fromObjid and @ToObjid';
+
+                    EXEC sys.sp_executesql @sql,
+                                           @sqlParam,
+                                           @RecCount OUTPUT,
+                                           @FromObjid = @FromObjid,
+                                           @ToObjid = @ToObjid;
+
+                    IF @Debug > 0
+                        SELECT @RecCount AS nextbatch;
+
+
+                    SET @ProcessingTime = DATEDIFF(MILLISECOND, @StartTime, GETUTCDATE());
                     SET @Message
                         = N'Batch: ' + CAST(@BatchCount AS VARCHAR(10)) + N' Processing (s) : '
                           + CAST(@ProcessingTime / 1000 AS VARCHAR(10)) + N' Ids up to : '
                           + CAST(ISNULL(@Maxid, 0) AS VARCHAR(10)) + N' remaining count: '
                           + CAST(ISNULL(@RecCount, 0) AS VARCHAR(10));
-                    SET @sqlParam = N'@RecCount int output';
-                    SET @sql
-                        = N'SELECT @RecCount = COUNT(ISNULL(id,0)) FROM ' + QUOTENAME(@MFTableName)
-                          + N' AS [mbs] WHERE process_ID = 99';
 
-                    EXEC sys.sp_executesql @sql, @sqlParam, @RecCount OUTPUT;
-
-                    IF @Debug > 0
-                        SELECT @RecCount AS nextbatch;
-
+   
                     IF @WithStats = 1
                         --	PRINT @Message;
                         RAISERROR(@Message, 10, 1) WITH NOWAIT;
@@ -722,18 +808,18 @@ SELECT @maxid = MAX(id) FROM ' + +QUOTENAME(@MFTableName) + N' AS [mlv] WHERE [m
 
 
                     EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-                        @LogType = N'Debug',
-                        @LogText = @Message,
-                        @LogStatus = @LogStatus,
-                        @StartTime = @StartTime,
-                        @MFTableName = @MFTableName,
-                        @Validation_ID = @Validation_ID,
-                        @ColumnName = NULL,
-                        @ColumnValue = NULL,
-                        @Update_ID = @Update_IDOut,
-                        @LogProcedureName = @ProcedureName,
-                        @LogProcedureStep = @ProcedureStep,
-                        @debug = 0;
+                                                           @LogType = N'Debug',
+                                                           @LogText = @Message,
+                                                           @LogStatus = @LogStatus,
+                                                           @StartTime = @StartTime,
+                                                           @MFTableName = @MFTableName,
+                                                           @Validation_ID = @Validation_ID,
+                                                           @ColumnName = NULL,
+                                                           @ColumnValue = NULL,
+                                                           @Update_ID = @Update_IDOut,
+                                                           @LogProcedureName = @ProcedureName,
+                                                           @LogProcedureStep = @ProcedureStep,
+                                                           @debug = 0;
 
                     SET @BatchCount = @BatchCount + 1;
                 END; --end loop updatetable
@@ -759,29 +845,30 @@ SELECT @maxid = MAX(id) FROM ' + +QUOTENAME(@MFTableName) + N' AS [mlv] WHERE [m
     -- Log End of Process
     -------------------------------------------------------------   
     EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID,
-        @ProcessType = @ProcessType,
-        @LogType = N'Message',
-        @LogText = @LogText,
-        @LogStatus = @LogStatus,
-        @debug = @Debug;
+                                     @ProcessType = @ProcessType,
+                                     @LogType = N'Message',
+                                     @LogText = @LogText,
+                                     @LogStatus = @LogStatus,
+                                     @debug = @Debug;
 
     SET @StartTime = GETUTCDATE();
 
     EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-        @LogType = N'Debug',
-        @LogText = @ProcessType,
-        @LogStatus = @LogStatus,
-        @StartTime = @StartTime,
-        @MFTableName = @MFTableName,
-        @Validation_ID = @Validation_ID,
-        @ColumnName = NULL,
-        @ColumnValue = NULL,
-        @Update_ID = @Update_IDOut,
-        @LogProcedureName = @ProcedureName,
-        @LogProcedureStep = @ProcedureStep,
-        @debug = 0;
+                                           @LogType = N'Debug',
+                                           @LogText = @ProcessType,
+                                           @LogStatus = @LogStatus,
+                                           @StartTime = @StartTime,
+                                           @MFTableName = @MFTableName,
+                                           @Validation_ID = @Validation_ID,
+                                           @ColumnName = NULL,
+                                           @ColumnValue = NULL,
+                                           @Update_ID = @Update_IDOut,
+                                           @LogProcedureName = @ProcedureName,
+                                           @LogProcedureStep = @ProcedureStep,
+                                           @debug = 0;
 
     RETURN 1;
+
 END TRY
 BEGIN CATCH
     SET @StartTime = GETUTCDATE();
@@ -804,7 +891,7 @@ BEGIN CATCH
     )
     VALUES
     (@ProcedureName, ERROR_NUMBER(), ERROR_MESSAGE(), ERROR_PROCEDURE(), ERROR_STATE(), ERROR_SEVERITY(), ERROR_LINE(),
-        @ProcedureStep);
+     @ProcedureStep);
 
     SET @ProcedureStep = N'Catch Error';
 
@@ -812,27 +899,27 @@ BEGIN CATCH
     -- Log Error
     -------------------------------------------------------------   
     EXEC dbo.spMFProcessBatch_Upsert @ProcessBatch_ID = @ProcessBatch_ID OUTPUT,
-        @ProcessType = @ProcessType,
-        @LogType = N'Error',
-        @LogText = @LogTextDetail,
-        @LogStatus = @LogStatus,
-        @debug = @Debug;
+                                     @ProcessType = @ProcessType,
+                                     @LogType = N'Error',
+                                     @LogText = @LogTextDetail,
+                                     @LogStatus = @LogStatus,
+                                     @debug = @Debug;
 
     SET @StartTime = GETUTCDATE();
 
     EXEC dbo.spMFProcessBatchDetail_Insert @ProcessBatch_ID = @ProcessBatch_ID,
-        @LogType = N'Error',
-        @LogText = @LogTextDetail,
-        @LogStatus = @LogStatus,
-        @StartTime = @StartTime,
-        @MFTableName = @MFTableName,
-        @Validation_ID = @Validation_ID,
-        @ColumnName = NULL,
-        @ColumnValue = NULL,
-        @Update_ID = @Update_ID,
-        @LogProcedureName = @ProcedureName,
-        @LogProcedureStep = @ProcedureStep,
-        @debug = 0;
+                                           @LogType = N'Error',
+                                           @LogText = @LogTextDetail,
+                                           @LogStatus = @LogStatus,
+                                           @StartTime = @StartTime,
+                                           @MFTableName = @MFTableName,
+                                           @Validation_ID = @Validation_ID,
+                                           @ColumnName = NULL,
+                                           @ColumnValue = NULL,
+                                           @Update_ID = @Update_ID,
+                                           @LogProcedureName = @ProcedureName,
+                                           @LogProcedureStep = @ProcedureStep,
+                                           @debug = 0;
 
     RETURN -1;
 END CATCH;

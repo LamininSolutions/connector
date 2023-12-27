@@ -5,7 +5,7 @@ set nocount on;
 
 exec setup.spMFSQLObjectsControl @SchemaName = N'dbo'
                                , @ObjectName = N'spMFDropAndUpdateMetadata' -- nvarchar(100)
-                               , @Object_Release = '4.11.33.77'             -- varchar(50)
+                               , @Object_Release = '4.11.33.78'             -- varchar(50)
                                , @UpdateFlag = 2;
 -- smallint
 go
@@ -189,6 +189,7 @@ Changelog
 ==========  =========  ========================================================
 Date        Author     Description
 ----------  ---------  --------------------------------------------------------
+2023-12-18  LC         fix error with delimiter in reset functionality
 2023-07-30  LC         Improve logging and update processing
 2023-04-19  LC         Improve with column reset functionality
 2021-09-30  LC         Update documentation regarding column fixes
@@ -813,7 +814,7 @@ check table before update and auto create any columns
 
                          if @MFDatatype_ID in ( 9, 10 )
                         begin
-                            set @delimiterIndex = charindex(reverse(@delimiterIndex), reverse(@Labelname));
+                            set @delimiterIndex = charindex(reverse(@delimiter), reverse(@Labelname));
                             if @delimiter > 0
                             begin
                                 -- Extract the substring from the beginning of the input string up to the position of the delimiter minus 1                
@@ -909,8 +910,8 @@ check table before update and auto create any columns
                         --reset @labelName for lookups taking into account duplicate properties
                         if @MFDatatype_ID in ( 9, 10 )
                         begin
-                            set @delimiterIndex = charindex(reverse(@delimiterIndex), reverse(@Labelname));
-                            if @delimiter > 0
+                            set @delimiterIndex = charindex(reverse(@delimiter), reverse(@Labelname));
+                            if @delimiterindex > 0
                             begin
                                 -- Extract the substring from the beginning of the input string up to the position of the delimiter minus 1                
                                

@@ -9,7 +9,7 @@ set nocount on;
 exec setup.spMFSQLObjectsControl @SchemaName = N'dbo'
                                , @ObjectName = N'spMFUpdateTable'
                                -- nvarchar(100)
-                               , @Object_Release = '4.10.32.77'
+                               , @Object_Release = '4.10.33.78'
                                -- varchar(50)
                                , @UpdateFlag = 2;
 -- smallint
@@ -241,6 +241,7 @@ Changelog
 ==========  =========  =========================================================================
 Date        Author     Description
 ----------  ---------  -------------------------------------------------------------------------
+2023-12-08  LC         fix logging text for updatemethod 0 where objids specified
 2023-08-21  LC         Add option based on MFSettings to set last modified by user
 2023-07-30  LC         Fix bug when using windows based account for last modified user
 2023-06-30  LC         All to change or select the last modified user
@@ -1320,7 +1321,7 @@ DECLARE @DefaultUser INT = 1
                                  , @Count = @Count output;
 
             set @LogTypeDetail = N'Debug';
-            set @LogTextDetail = N'XML Records for Updated method 0 ';
+            set @LogTextDetail = N'All Records for Updated method 0 ';
             set @LogStatusDetail = N'In Progress';
             set @Validation_ID = null;
             set @LogColumnName = N'process_ID = 1';

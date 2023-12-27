@@ -36,7 +36,7 @@ Parameters
 Purpose
 =======
 
-This procedure will update the table MFObjectTypeToClassObject with the latest version of all objects in the class.
+This procedure will update the table MFAuditHistory with the latest version of all objects in the class.
 
 The table is useful to get a total of objects by class and also to identify the class from the objid where multiple classes is related to an object type.
 
@@ -83,7 +83,7 @@ Date        Author     Description
 2021-03-17  LC         Set updatestatus = 1 when not matched
 2022-04-12  LC         Add logging, remove updating MFclass, add error handling
 2023-02-17  LC         Resolve bug on not updating class
-2023-08-30  LC         Add is incremental as a parameter
+2023-08-30  LC         Add isincremental as a parameter
 ==========  =========  ========================================================
 
 **rST*************************************************************************/

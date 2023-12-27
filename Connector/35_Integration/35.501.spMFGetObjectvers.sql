@@ -5,7 +5,7 @@ SET NOCOUNT ON;
 
 EXEC setup.spMFSQLObjectsControl @SchemaName = N'dbo',
     @ObjectName = N'spMFGetObjectvers', -- nvarchar(100)
-    @Object_Release = '4.9.27.72',      -- varchar(50)
+    @Object_Release = '4.11.33.78',      -- varchar(50)
     @UpdateFlag = 2;                    -- smallint
 GO
 
@@ -39,7 +39,7 @@ GO
 ALTER PROCEDURE dbo.spMFGetObjectvers
 (
     @TableName NVARCHAR(100),
-    @dtModifiedDate DATETIME,
+    @dtModifiedDate datetime = '1985-01-01',
     @MFIDs NVARCHAR(4000),
     @outPutXML NVARCHAR(MAX) OUTPUT,
     @ProcessBatch_ID INT = NULL OUTPUT,
@@ -60,6 +60,7 @@ Parameters
     Class table name
   @dtModifiedDate datetime
     Date from for object versions and deletions
+    Default set to 1985-01-01
   @MFIDs nvarchar(4000)
     comma delimited string of objids 
   @outPutXML nvarchar(max) (output)
@@ -77,13 +78,9 @@ Purpose
 To get all the object versions of the class table as XML.
 
 Deleted objects and current objects are combined in the @OutputXML if MFIDs are used as a parameter
+When the MFID parameter is used, the date is ignored.
 When Last modified date are used then the @outputXML will include the objects changed later than the date specified 
 and the @DeletedOutputXML will include the objects that was deleted since the date lastmodified date.
-
-Warning
-=======
-
-Either objids or lastmodified date must be specified. The procedure cannot be used with both filters as null.
 
 Examples
 ========
